@@ -1,15 +1,16 @@
-/* Custom Dark Theme Overrides with Gradients */
+/* Premium Luxury Theme Overrides - Deep Obsidian & Metallic Gold */
 .ndl-theme-dark {
-  /* Backgrounds & Glassmorphism */
-  --theme-palette-neutral-bg-default: rgba(0, 0, 0, 0.85) !important;
-  --theme-palette-neutral-bg-weak: rgba(10, 10, 10, 0.75) !important;
-  --theme-palette-neutral-bg-strong: rgba(20, 20, 20, 0.85) !important;
+  /* Core Palette */
+  --theme-palette-neutral-bg-default: #050505 !important;
+  --theme-palette-neutral-bg-weak: #0A0A0A !important;
+  --theme-palette-neutral-bg-strong: #111111 !important;
 
-  /* Gradient variables */
-  --slim-gradient: linear-gradient(90deg, #FF0000 0%, #FF7E00 25%, #FFBF00 50%, #FFFF00 75%, #FFD700 100%);
-  --gold-gradient: linear-gradient(135deg, #FFD700 0%, #FFBF00 100%);
+  /* Accent Gradients */
+  --luxury-gradient: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+  --border-gradient: linear-gradient(180deg, rgba(212, 175, 55, 0.3) 0%, rgba(212, 175, 55, 0.05) 100%);
 
-  backdrop-filter: blur(14px);
+  /* Transparency */
+  backdrop-filter: blur(20px);
 }
 
 .ndl-theme-dark body,
@@ -17,84 +18,77 @@
 .ndl-theme-dark .ndl-modal,
 .ndl-theme-dark .ndl-drawer,
 .ndl-theme-dark .ndl-dialog {
-  background: rgba(0, 0, 0, 0.85) !important;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  /* Gradient border using border-image */
-  border: 1px solid transparent !important;
-  border-image: var(--slim-gradient) 1 !important;
+  background: rgba(5, 5, 5, 0.9) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(212, 175, 55, 0.2) !important;
 }
 
-/* Typography (Saffron / Fluorescent Orange "pop") */
+/* Typography Overrides - No more Saffron, back to Ivory & Gold */
 .ndl-theme-dark {
-  --theme-palette-primary-text: #FF3500 !important;
-  /* User Requested Saffron */
-  --theme-palette-neutral-text-default: #FF3500 !important;
-  --theme-palette-neutral-text-strong: #FF3500 !important;
-  --theme-palette-neutral-text-weak: #FF8855 !important;
-  /* Lighter/Softer version */
-  /* Amber for secondary */
+  --theme-palette-primary-text: #D4AF37 !important;
+  --theme-palette-neutral-text-default: #FFFFFF !important;
+  --theme-palette-neutral-text-strong: #FFFFFF !important;
+  --theme-palette-neutral-text-weak: #A0A0A0 !important;
 }
 
 .ndl-theme-dark h1,
 .ndl-theme-dark h2,
 .ndl-theme-dark h3,
-.ndl-theme-dark h4,
-.ndl-theme-dark h5,
-.ndl-theme-dark h6,
+.ndl-theme-dark h4 {
+  color: #D4AF37 !important; /* Gold for headers */
+  letter-spacing: -0.02em;
+}
+
 .ndl-theme-dark p,
 .ndl-theme-dark span:not(.ndl-icon),
 .ndl-theme-dark div:not(.ndl-icon) {
-  color: #FF3500;
+  /* color: #FFFFFF; -- Controlled by --theme-palette-neutral-text-default */
 }
 
-/* Gradient accents for headers and separators */
-.ndl-theme-dark header::after,
-.ndl-theme-dark .ndl-header::after {
-  content: '';
-  display: block;
-  height: 2px;
-  width: 100%;
-  background: var(--slim-gradient);
-}
-
-/* Action Buttons with Gradient */
+/* Action Buttons */
 .ndl-theme-dark .ndl-button-primary,
 .ndl-theme-dark button[class*="primary"] {
-  background: var(--gold-gradient) !important;
+  background: var(--luxury-gradient) !important;
   color: #000000 !important;
   border: none !important;
-  font-weight: bold !important;
-  transition: opacity 0.2s;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
 }
 
-.ndl-theme-dark .ndl-button-primary:hover {
-  opacity: 0.9;
-}
-
-/* Selection and Highlighting */
-.ndl-theme-dark ::selection {
-  background: #FF7E00;
-  color: white;
-}
-
-/* Grid/Table overrides */
+/* Table / Grid Refinement */
 .ndl-theme-dark .ndl-data-grid,
 .ndl-theme-dark .ndl-table {
-  border-image: var(--slim-gradient) 1 !important;
+  background: rgba(10, 10, 10, 0.6) !important;
+  border: 1px solid rgba(212, 175, 55, 0.1) !important;
 }
 
 .ndl-theme-dark .ndl-data-grid-header,
 .ndl-theme-dark .ndl-table-header {
-  color: #FFBF00 !important;
-  border-bottom: 2px solid transparent !important;
-  border-image: var(--slim-gradient) 1 !important;
-  background-color: rgba(10, 10, 10, 0.95) !important;
+  background: rgba(20, 20, 20, 0.95) !important;
+  color: #D4AF37 !important;
+  border-bottom: 2px solid #D4AF37 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-/* Icons adjusted to Gold/Amber */
+/* Icons */
 .ndl-theme-dark .ndl-icon,
 .ndl-theme-dark svg:not(.ndl-logo) {
-  fill: #FFD700 !important;
-  color: #FFD700 !important;
+  color: #D4AF37 !important;
+  fill: #D4AF37 !important;
+}
+
+/* Input Fields - High Contrast Visibility */
+.ndl-theme-dark .ndl-text-input input,
+.ndl-theme-dark .ndl-text-input textarea {
+    background: #000000 !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+}
+
+.ndl-theme-dark .ndl-text-input label {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
 }

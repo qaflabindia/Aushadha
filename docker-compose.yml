@@ -59,6 +59,48 @@ services:
     networks:
       - net
 
+  local-llm:
+    build:
+      context: ./local-llm/docker
+      dockerfile: Dockerfile
+    container_name: local-llm
+    volumes:
+      - ./local-llm/models:/models:ro
+    ports:
+      - "8091:8080"
+    networks:
+      - net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=aushadha
+      - POSTGRES_USER=aushadha_user
+      - POSTGRES_PASSWORD=aushadha_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - net
+
+  local-llm-proxy:
+    image: python:3.11-slim
+    container_name: local-llm-proxy
+    working_dir: /app
+    volumes:
+      - ./local-llm/api:/app
+    command: sh -c "pip install fastapi httpx uvicorn && uvicorn proxy:app --host 0.0.0.0 --port 8090"
+    environment:
+      - LLM_URL=http://local-llm:8080/v1
+    ports:
+      - "8090:8090"
+    depends_on:
+      - local-llm
+    networks:
+      - net
+
 networks:
   net:
     driver: bridge
@@ -66,3 +108,4 @@ networks:
 volumes:
   neo4j_data:
   neo4j_logs:
+  postgres_data:

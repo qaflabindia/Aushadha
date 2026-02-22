@@ -27,6 +27,9 @@ export const llms =
       'fireworks_deepseek_v3',
       'fireworks_qwen3_30b',
       'fireworks_gpt_oss',
+      'local_llama',
+      'sarvam_sarvam-m',
+      'sarvam_local_2b',
     ];
 
 export const prodllms =
@@ -272,6 +275,7 @@ export const graphView: OptionType[] = [
   { label: 'Lexical Graph', value: queryMap.DocChunks },
   { label: 'Entity Graph', value: queryMap.Entities },
   { label: 'Knowledge Graph', value: queryMap.DocChunkEntities },
+  { label: 'Structured EHR', value: 'ehr_view' },
 ];
 
 export const intitalGraphType = (isGDSActive: boolean): GraphType[] => {

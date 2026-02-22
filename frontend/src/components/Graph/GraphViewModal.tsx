@@ -1,5 +1,6 @@
 import { Banner, Dialog, Flex, IconButtonArray, LoadingSpinner, useDebounceValue } from '@neo4j-ndl/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFileContext } from '../../context/UsersFiles';
 import {
   BasicNode,
   BasicRelationship,
@@ -25,6 +26,7 @@ import {
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
 import { filterData, getCheckboxConditions, graphTypeFromNodes, processGraphData } from '../../utils/Utils';
 import { useCredentials } from '../../context/UserCredentials';
+import { useLanguage, useTranslation } from '../../context/LanguageContext';
 
 import { getGraphSchema, graphQueryAPI } from '../../services/GraphQuery';
 import { graphLabels, nvlOptions, queryMap } from '../../utils/Constants';
@@ -54,6 +56,9 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
   const [status, setStatus] = useState<'unknown' | 'success' | 'danger'>('unknown');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const { userCredentials } = useCredentials();
+  const { model } = useFileContext();
+  const { language: appLanguage } = useLanguage();
+  const t = useTranslation();
   const [scheme, setScheme] = useState<Scheme>({});
   const [newScheme, setNewScheme] = useState<Scheme>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,7 +131,9 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
         nodeRelationshipData = await graphQueryAPI(
           graphQuery,
           selectedRows?.map((f) => f.name),
-          graphQueryAbortControllerRef.current.signal
+          graphQueryAbortControllerRef.current.signal,
+          appLanguage.code,
+          model
         );
       } else if (viewPoint === graphLabels.showSchemaView) {
         nodeRelationshipData = await getGraphSchema();
@@ -134,7 +141,9 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
         nodeRelationshipData = await graphQueryAPI(
           graphQuery,
           [inspectedName ?? ''],
-          graphQueryAbortControllerRef.current.signal
+          graphQueryAbortControllerRef.current.signal,
+          appLanguage.code,
+          model
         );
       }
       return nodeRelationshipData;
@@ -148,7 +157,7 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
       }
       throw new Error(error.response?.data?.error || error.message || 'Failed to fetch graph data. Please try again.');
     }
-  }, [viewPoint, selectedRows, graphQuery, inspectedName, userCredentials]);
+  }, [viewPoint, selectedRows, graphQuery, inspectedName, userCredentials, appLanguage]);
 
   // Api call to get the nodes and relations
   const graphApi = async (mode?: string) => {
@@ -325,7 +334,7 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
 
   const headerTitle =
     viewPoint === graphLabels.showGraphView || viewPoint === graphLabels.chatInfoView
-      ? graphLabels.generateGraph
+      ? t('generatedGraph')
       : viewPoint === graphLabels.showSchemaView
         ? graphLabels.renderSchemaGraph
         : `${graphLabels.inspectGeneratedGraphFrom} ${inspectedName}`;
@@ -421,7 +430,7 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
               <span>
                 <InformationCircleIconOutline className='n-size-token-6' />
               </span>
-              <span className='n-body-small ml-1'>{graphLabels.chunksInfo}</span>
+              <span className='n-body-small ml-1'>{t('chunksInfo')}</span>
             </div>
           )}
           <Flex className='w-full' alignItems='center' flexDirection='row' justifyContent='space-between'>

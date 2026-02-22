@@ -63,3 +63,5 @@ langchain-neo4j==0.6.0
 pypandoc-binary==1.15
 chardet==5.2.0
 cryptography
+sqlalchemy
+psycopg2-binary

@@ -1,19 +1,12 @@
 import React, { FC, lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
-  Widget,
-  Typography,
-  Avatar,
   TextInput,
   IconButton,
   Modal,
   useCopyToClipboard,
-  Flex,
-  Box,
-  TextLink,
   SpotlightTarget,
 } from '@neo4j-ndl/react';
-import { ArrowDownTrayIconOutline, XMarkIconOutline } from '@neo4j-ndl/react/icons';
-import ChatBotAvatar from '../../assets/images/chatbot-ai.png';
+import { XMarkIconOutline } from '@neo4j-ndl/react/icons';
 import {
   ChatbotProps,
   Chunk,
@@ -36,17 +29,23 @@ import { useFileContext } from '../../context/UsersFiles';
 import { useCredentials } from '../../context/UserCredentials';
 import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
-import { buttonCaptions, chatModeLables } from '../../utils/Constants';
+import { chatModeLables } from '../../utils/Constants';
 import useSpeechSynthesis from '../../hooks/useSpeech';
-import ButtonWithToolTip from '../UI/ButtonWithToolTip';
 import FallBackDialog from '../UI/FallBackDialog';
-import { downloadClickHandler, getDateTime, shouldShowTokenTracking } from '../../utils/Utils';
+import { getDateTime, shouldShowTokenTracking } from '../../utils/Utils';
 import ChatModesSwitch from './ChatModesSwitch';
 import CommonActions from './CommonChatActions';
 import Loader from '../../utils/Loader';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import { ThemeWrapperContext } from '../../context/ThemeWrapper';
+import { useContext } from 'react';
+import useSpeechRecognition from '../../hooks/useSpeechRecognition';
+import { useLanguage, useTranslation } from '../../context/LanguageContext';
+import { RiRobotLine, RiUserLine, RiMicLine, RiMicFill } from 'react-icons/ri';
+
 const InfoModal = lazy(() => import('./ChatInfoModal'));
+// ... (rest of imports should remain)
 if (typeof window !== 'undefined') {
   if (!sessionStorage.getItem('session_id')) {
     const id = uuidv4();
@@ -56,17 +55,16 @@ if (typeof window !== 'undefined') {
 const sessionId = sessionStorage.getItem('session_id') ?? '';
 
 const Chatbot: FC<ChatbotProps> = (props) => {
+  const { colorMode } = useContext(ThemeWrapperContext);
+  const t = useTranslation();
   const {
     messages: listMessages,
     setMessages: setListMessages,
     isLoading,
     isFullScreen,
-    connectionStatus,
-    isChatOnly,
     isDeleteChatLoading,
   } = props;
   const [inputMessage, setInputMessage] = useState('');
-  const [loading, setLoading] = useState<boolean>(isLoading);
   const { model, chatModes, selectedRows, filesData } = useFileContext();
   const { userCredentials } = useCredentials();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -90,21 +88,61 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const [metricDetails, setMetricDetails] = useState<metricstate | null>(null);
   const [infoEntities, setInfoEntities] = useState<Entity[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [infoLoading, toggleInfoLoading] = useReducer((s) => !s, false);
-  const [metricsLoading, toggleMetricsLoading] = useReducer((s) => !s, false);
-  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
+  const [infoLoading, toggleInfoLoading] = useReducer((s: boolean) => !s, false);
+  const [metricsLoading, toggleMetricsLoading] = useReducer((s: boolean) => !s, false);
   const [activeChat, setActiveChat] = useState<Messages | null>(null);
   const [multiModelMetrics, setMultiModelMetrics] = useState<multimodelmetric[]>([]);
 
-  const [_, copy] = useCopyToClipboard();
-  const { speak, cancel, speaking } = useSpeechSynthesis({
+  const { language } = useLanguage();
+  const { transcript, isListening, startListening, stopListening, isSupported } = useSpeechRecognition({ language: language.speechCode });
+  const [preRecordMessage, setPreRecordMessage] = useState('');
+
+  useEffect(() => {
+    if (isListening && transcript) {
+      setInputMessage(preRecordMessage ? `${preRecordMessage} ${transcript}` : transcript);
+    }
+  }, [transcript, isListening, preRecordMessage]);
+
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      setPreRecordMessage(inputMessage);
+      startListening();
+    }
+  };
+
+  const { speak, cancel } = useSpeechSynthesis({
     onEnd: () => {
       setListMessages((msgs) => msgs.map((msg) => ({ ...msg, speaking: false })));
     },
   });
 
+  const [_, copy] = useCopyToClipboard();
+  const handleCopy = (message: string, id: number) => {
+    copy(message);
+    setListMessages((msgs) =>
+      msgs.map((msg) => {
+        if (msg.id === id) {
+          msg.copying = true;
+        }
+        return msg;
+      })
+    );
+    setTimeout(() => {
+      setListMessages((msgs) =>
+        msgs.map((msg) => {
+          if (msg.id === id) {
+            msg.copying = false;
+          }
+          return msg;
+        })
+      );
+    }, 2000);
+  };
+
   let selectedFileNames: CustomFile[] = filesData.filter(
-    (f) => selectedRows.includes(f.id) && ['Completed'].includes(f.status)
+    (f: CustomFile) => selectedRows.includes(f.id) && ['Completed'].includes(f.status)
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,9 +179,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     let lastTimestamp: number | null = null;
     const TYPING_INTERVAL = 20;
     const animate = (timestamp: number) => {
-      if (lastTimestamp === null) {
-        lastTimestamp = timestamp;
-      }
+      if (lastTimestamp === null) lastTimestamp = timestamp;
       const elapsed = timestamp - lastTimestamp;
       if (elapsed >= TYPING_INTERVAL) {
         if (index < message.length) {
@@ -154,13 +190,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               if (msg.id === messageId) {
                 return {
                   ...msg,
-                  modes: {
-                    ...msg.modes,
-                    [mode]: {
-                      ...response,
-                      message: currentTypedText,
-                    },
-                  },
+                  modes: { ...msg.modes, [mode]: { ...response, message: currentTypedText } },
                   isTyping: true,
                   speaking: false,
                   copying: false,
@@ -172,15 +202,15 @@ const Chatbot: FC<ChatbotProps> = (props) => {
           index = nextIndex;
           lastTimestamp = timestamp;
         } else {
-          setListMessages((msgs) => {
-            const activeMessage = msgs.find((message) => message.id === messageId);
-            let sortedModes: Record<string, ResponseMode>;
+          setListMessages((msgs: Messages[]) => {
+            const activeMessage = msgs.find((m: Messages) => m.id === messageId);
+            let sortedModes: Record<string, ResponseMode> = {};
             if (activeMessage) {
               sortedModes = Object.fromEntries(
-                chatModes.filter((m) => m in activeMessage.modes).map((key) => [key, activeMessage?.modes[key]])
+                chatModes.filter((m: string) => m in activeMessage.modes).map((key: string) => [key, activeMessage.modes[key]])
               );
             }
-            return msgs.map((msg) => (msg.id === messageId ? { ...msg, isTyping: false, modes: sortedModes } : msg));
+            return msgs.map((msg: Messages) => (msg.id === messageId ? { ...msg, isTyping: false, modes: sortedModes } : msg));
           });
           return;
         }
@@ -190,31 +220,30 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     requestAnimationFrame(animate);
   };
 
-  const handleSubmit = async (e: { preventDefault: () => void }) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) {
-      return;
-    }
+    if (!inputMessage.trim()) return;
+
     if (userCredentials && shouldShowTokenTracking(userCredentials.email)) {
       const tokenCheck = await checkTokenLimits(userCredentials);
       if (tokenCheck.shouldWarn) {
         showNormalToast(tokenCheck.message);
       }
     }
-
+    
     const datetime = getDateTime();
-    const userMessage: Messages = {
+    const userMsg: Messages = {
       id: Date.now(),
       user: 'user',
-      datetime: datetime,
+      datetime,
       currentMode: chatModes[0],
-      modes: {},
+      modes: { [chatModes[0]]: { message: inputMessage } },
     };
-    userMessage.modes[chatModes[0]] = { message: inputMessage };
-    setListMessages([...listMessages, userMessage]);
-    const chatbotMessageId = Date.now() + 1;
-    const chatbotMessage: Messages = {
-      id: chatbotMessageId,
+    setListMessages([...listMessages, userMsg]);
+    
+    const chatbotMsgId = Date.now() + 1;
+    const chatbotMsg: Messages = {
+      id: chatbotMsgId,
       user: 'chatbot',
       datetime: new Date().toLocaleString(),
       isTyping: true,
@@ -222,166 +251,52 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       modes: {},
       currentMode: chatModes[0],
     };
-    setListMessages((prev) => [...prev, chatbotMessage]);
+    setListMessages((prev) => [...prev, chatbotMsg]);
+    setInputMessage('');
+
     try {
-      const apiCalls = chatModes.map((mode) =>
-        chatBotAPI(
-          inputMessage,
-          sessionId,
-          model,
-          mode,
-          selectedFileNames?.map((f) => f.name)
-        )
+      const apiCalls = chatModes.map((mode: string) =>
+        chatBotAPI(inputMessage, sessionId, model, mode, selectedFileNames?.map((f) => f.name), language.code)
       );
-      setInputMessage('');
       const results = await Promise.allSettled(apiCalls);
-      results.forEach((result, index) => {
+      results.forEach((result: PromiseSettledResult<any>, index: number) => {
         const mode = chatModes[index];
         if (result.status === 'fulfilled') {
-          // @ts-ignore
-          if (result.value.response.data.status === 'Success') {
-            const response = result.value.response.data.data;
+          const res = result.value.response.data;
+          if (res.status === 'Success') {
             const responseMode: ResponseMode = {
-              message: response.message,
-              sources: response.info.sources,
-              model: response.info.model,
-              total_tokens: response.info.total_tokens,
-              response_time: response.info.response_time,
-              cypher_query: response.info.cypher_query,
-              graphonly_entities: response.info.context ?? [],
-              entities: response.info.entities ?? [],
-              nodeDetails: response.info.nodedetails,
-              error: response.info.error,
-              metric_question: response.info?.metric_details?.question ?? '',
-              metric_answer: response.info?.metric_details?.answer ?? '',
-              metric_contexts: response.info?.metric_details?.contexts ?? '',
+              message: res.data.message,
+              sources: res.data.info.sources,
+              model: res.data.info.model,
+              total_tokens: res.data.info.total_tokens,
+              response_time: res.data.info.response_time,
+              cypher_query: res.data.info.cypher_query,
+              graphonly_entities: res.data.info.context ?? [],
+              entities: res.data.info.entities ?? [],
+              nodeDetails: res.data.info.nodedetails,
+              error: res.data.info.error,
+              metric_question: res.data.info?.metric_details?.question ?? '',
+              metric_answer: res.data.info?.metric_details?.answer ?? '',
+              metric_contexts: res.data.info?.metric_details?.contexts ?? '',
             };
-            if (index === 0) {
-              simulateTypingEffect(chatbotMessageId, responseMode, mode, responseMode.message);
-            } else {
-              setListMessages((prev) =>
-                prev.map((msg) =>
-                  (msg.id === chatbotMessageId ? { ...msg, modes: { ...msg.modes, [mode]: responseMode } } : msg)
-                )
-              );
-            }
-          } else {
-            const response = result.value.response.data;
-            const responseMode: ResponseMode = {
-              message: response.message,
-              error: response.error,
-            };
-            if (index === 0) {
-              simulateTypingEffect(chatbotMessageId, responseMode, response.data, responseMode.message);
-            } else {
-              setListMessages((prev) =>
-                prev.map((msg) =>
-                  (msg.id === chatbotMessageId ? { ...msg, modes: { ...msg.modes, [mode]: responseMode } } : msg)
-                )
-              );
+            if (index === 0) simulateTypingEffect(chatbotMsgId, responseMode, mode, responseMode.message);
+            else {
+              setListMessages((prev) => prev.map((msg) => 
+                msg.id === chatbotMsgId ? { ...msg, modes: { ...msg.modes, [mode]: responseMode } } : msg
+              ));
             }
           }
-        } else {
-          console.error(`API call failed for mode ${mode}:`, result.reason);
-          setListMessages((prev) =>
-            prev.map((msg) =>
-              (msg.id === chatbotMessageId
-                ? {
-                    ...msg,
-                    modes: {
-                      ...msg.modes,
-                      [mode]: { message: 'Failed to fetch response for this mode.', error: result.reason },
-                    },
-                  }
-                : msg)
-            )
-          );
         }
       });
-      setListMessages((prev) =>
-        prev.map((msg) => (msg.id === chatbotMessageId ? { ...msg, isLoading: false, isTyping: false } : msg))
-      );
-    } catch (error) {
-      console.error('Error in handling chat:', error);
-      if (error instanceof Error) {
-        setListMessages((prev) =>
-          prev.map((msg) =>
-            (msg.id === chatbotMessageId
-              ? {
-                  ...msg,
-                  isLoading: false,
-                  isTyping: false,
-                  modes: {
-                    [chatModes[0]]: {
-                      message: 'An error occurred while processing your request.',
-                      error: error.message,
-                    },
-                  },
-                }
-              : msg)
-          )
-        );
-      }
-    }
-  };
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-  useEffect(() => {
-    scrollToBottom();
-    setLoading(() => listMessages.some((msg) => msg.isLoading || msg.isTyping));
-  }, [listMessages]);
-
-  const handleCopy = (message: string, id: number) => {
-    copy(message);
-    setListMessages((msgs) =>
-      msgs.map((msg) => {
-        if (msg.id === id) {
-          msg.copying = true;
-        }
-        return msg;
-      })
-    );
-    setTimeout(() => {
-      setListMessages((msgs) =>
-        msgs.map((msg) => {
-          if (msg.id === id) {
-            msg.copying = false;
-          }
-          return msg;
-        })
-      );
-    }, 2000);
-  };
-
-  const handleCancel = (id: number) => {
-    cancel();
-    setListMessages((msgs) => msgs.map((msg) => (msg.id === id ? { ...msg, speaking: false } : msg)));
-  };
-
-  const handleSpeak = (chatMessage: string, id: number) => {
-    speak({ text: chatMessage }, typeof window !== 'undefined' && window.speechSynthesis != undefined);
-    setListMessages((msgs) => {
-      const messageWithSpeaking = msgs.find((msg) => msg.speaking);
-      return msgs.map((msg) => (msg.id === id && !messageWithSpeaking ? { ...msg, speaking: true } : msg));
-    });
-  };
-
-  const handleSwitchMode = (messageId: number, newMode: string) => {
-    const activespeechId = listMessages.find((msg) => msg.speaking)?.id;
-    if (speaking && messageId === activespeechId) {
-      cancel();
-      setListMessages((prev) =>
-        prev.map((msg) => (msg.id === messageId ? { ...msg, currentMode: newMode, speaking: false } : msg))
-      );
-    } else {
-      setListMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, currentMode: newMode } : msg)));
+      setListMessages((prev) => prev.map((msg) => msg.id === chatbotMsgId ? { ...msg, isLoading: false, isTyping: false } : msg));
+    } catch (err) {
+      console.error(err);
     }
   };
 
   const detailsHandler = useCallback((chat: Messages, previousActiveChat: Messages | null) => {
     const currentMode = chat.modes[chat.currentMode];
+    if (!currentMode) return;
     setModelModal(currentMode.model ?? '');
     setSourcesModal(currentMode.sources ?? []);
     setResponseTime(currentMode.response_time ?? 0);
@@ -413,244 +328,220 @@ const Chatbot: FC<ChatbotProps> = (props) => {
 
   const speechHandler = useCallback((chat: Messages) => {
     if (chat.speaking) {
-      handleCancel(chat.id);
+      cancel();
+      setListMessages((msgs) => msgs.map((msg) => (msg.id === chat.id ? { ...msg, speaking: false } : msg)));
     } else {
-      handleSpeak(chat.modes[chat.currentMode]?.message, chat.id);
+      speak({ text: chat.modes[chat.currentMode]?.message }, typeof window !== 'undefined' && window.speechSynthesis != undefined);
+      setListMessages((msgs) => {
+        const messageWithSpeaking = msgs.find((msg) => msg.speaking);
+        return msgs.map((msg) => (msg.id === chat.id && !messageWithSpeaking ? { ...msg, speaking: true } : msg));
+      });
     }
-  }, []);
+  }, [speak, cancel]);
+
+  const handleSwitchMode = (messageId: number, newMode: string) => {
+    setListMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, currentMode: newMode } : msg)));
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [listMessages]);
 
   return (
-    <div className='n-bg-palette-neutral-bg-weak flex! flex-col justify-between min-h-full max-h-full overflow-hidden relative'>
+    <div className={clsx('flex! flex-col justify-between min-h-full max-h-full overflow-hidden relative transition-all duration-700 glass-luxe', {
+      'bg-[#080808]/40': colorMode === 'dark',
+      'bg-white/40': colorMode === 'light',
+    })}>
+      {/* Sticky Chat Header */}
+      <div className={clsx("sticky top-0 z-20 px-8 py-5 border-b backdrop-blur-3xl flex items-center justify-between", {
+        'bg-black/60 border-white/5 shadow-2xl': colorMode === 'dark',
+        'bg-white/60 border-gray-100': colorMode === 'light',
+      })}>
+        <div className="flex flex-col">
+          <span className={clsx("text-[10px] uppercase tracking-[0.3em] font-extrabold", {
+            'text-[#D4AF37]': colorMode === 'dark',
+            'text-[#1A1A1A]': colorMode === 'light',
+          })}>
+            {t('conciergeIntelligence')}
+          </span>
+          <span className={clsx("text-[8px] uppercase tracking-[0.2em] font-bold mt-1 opacity-40", {
+            'text-[#D4AF37]': colorMode === 'dark',
+            'text-gray-500': colorMode === 'light',
+          })}>
+            {t('neuralNetwork')}
+          </span>
+        </div>
+        <div className={clsx("w-2 h-2 rounded-full animate-pulse", {
+          'bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]': colorMode === 'dark',
+          'bg-blue-500 shadow-[0_0_8px_#3B82F6]': colorMode === 'light',
+        })} />
+      </div>
       {isDeleteChatLoading && (
-        <div className='chatbot-deleteLoader'>
-          <Loader title='Deleting...'></Loader>
+        <div className='absolute inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center'>
+          <Loader title='Processing Architecture...' />
         </div>
       )}
-      <div
-        className={`flex! overflow-y-auto pb-12 min-w-full pl-5 pr-5 chatBotContainer ${
-          isChatOnly ? 'min-h-[calc(100dvh-114px)] max-h-[calc(100dvh-114px)]' : ''
-        } `}
-      >
-        <Widget className='n-bg-palette-neutral-bg-weak w-full' header='' isElevated={false}>
-          <div className='flex! flex-col gap-4 gap-y-4'>
-            {listMessages.map((chat, index) => {
-              const messagechatModes = Object.keys(chat.modes);
-              return (
-                <div
-                  ref={messagesEndRef}
-                  key={chat.id}
-                  className={clsx(`flex! gap-2.5`, {
-                    'flex-row': chat.user === 'chatbot',
-                    'flex-row-reverse': chat.user !== 'chatbot',
-                  })}
-                >
-                  <div className='w-8 h-8'>
-                    {chat.user === 'chatbot' ? (
-                      <Avatar
-                        className='-ml-4'
-                        hasStatus
-                        name='KM'
-                        size='large'
-                        source={ChatBotAvatar}
-                        status={connectionStatus ? 'online' : 'offline'}
-                        type='image'
-                        shape='square'
-                      />
-                    ) : (
-                      <Avatar
-                        className=''
-                        hasStatus
-                        name='KM'
-                        size='large'
-                        status={connectionStatus ? 'online' : 'offline'}
-                        type='image'
-                        shape='square'
-                      />
-                    )}
-                  </div>
-                  <Widget
-                    header=''
-                    isElevated={true}
-                    className={`p-3! self-start ${isFullScreen ? 'max-w-[55%]' : ''} ${
-                      chat.user === 'chatbot' ? 'n-bg-palette-neutral-bg-strong' : 'n-bg-palette-primary-bg-weak'
-                    }`}
-                  >
-                    <div
-                      className={`${
-                        chat.isLoading && index === listMessages.length - 1 && chat.user === 'chatbot' ? 'loader' : ''
-                      }`}
-                    >
-                      <div
-                        className={
-                          !isFullScreen
-                            ? 'max-w-[250px] prose prose-sm sm:prose lg:prose-lg xl:prose-xl'
-                            : 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none'
-                        }
-                      >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
-                          {chat.modes[chat.currentMode]?.message || ''}
-                        </ReactMarkdown>
+
+      {/* Signature Message Stream */}
+      <div className='flex-grow overflow-y-auto overflow-x-hidden p-6 gap-8 flex flex-col custom-scrollbar'>
+        {listMessages.length > 0 &&
+          listMessages.map((chat, index) => {
+            const messagechatModes = Object.keys(chat.modes);
+            return (
+              <div
+                key={chat.id + index}
+                className={clsx('flex flex-col gap-3 w-full animate-fade-in-up', {
+                  'items-start': chat.user === 'chatbot',
+                  'items-end': chat.user !== 'chatbot',
+                })}
+              >
+                {/* Precision Persona Badge */}
+                <div className='flex items-center gap-3 px-2'>
+                  {chat.user === 'chatbot' ? (
+                    <>
+                      <div className="w-7 h-7 rounded-full border border-[#D4AF37]/30 flex items-center justify-center bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.1)]">
+                        <RiRobotLine className="text-[#D4AF37] w-3.5 h-3.5" />
                       </div>
-                    </div>
-                    <div>
-                      <div>
-                        <Typography variant='body-small' className='pt-2 font-bold'>
-                          {chat.datetime}
-                        </Typography>
+                      <span className={clsx("text-[9px] tracking-concierge font-extrabold uppercase", {
+                        'text-[#D4AF37]/60': colorMode === 'dark',
+                        'text-[#D4AF37]': colorMode === 'light',
+                      })}>{t('conciergeIntelligence')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className={clsx("text-[9px] tracking-concierge font-extrabold uppercase", {
+                        'text-white/30': colorMode === 'dark',
+                        'text-black/40': colorMode === 'light',
+                      })}>{t('authorizedTerminal')}</span>
+                      <div className={clsx("w-7 h-7 rounded-full border flex items-center justify-center", {
+                        'border-white/10 bg-white/5': colorMode === 'dark',
+                        'border-gray-200 bg-gray-50': colorMode === 'light',
+                      })}>
+                        <RiUserLine className={clsx("w-3.5 h-3.5", {
+                          'text-white/40': colorMode === 'dark',
+                          'text-black/40': colorMode === 'light',
+                        })} />
                       </div>
-                      {chat.user === 'chatbot' &&
-                        chat.id !== 2 &&
-                        !chat.isLoading &&
-                        !chat.isTyping &&
-                        (!isFullScreen ? (
-                          <Flex
-                            flexDirection='row'
-                            justifyContent={messagechatModes.length > 1 ? 'space-between' : 'unset'}
-                            alignItems='center'
-                          >
-                            <CommonActions
-                              chat={chat}
-                              copyHandler={handleCopy}
-                              detailsHandler={detailsHandler}
-                              listMessages={listMessages}
-                              speechHandler={speechHandler}
-                              activeChat={activeChat}
-                            ></CommonActions>
-                            {messagechatModes.length > 1 && (
-                              <ChatModesSwitch
-                                currentMode={chat.currentMode}
-                                switchToOtherMode={(index: number) => {
-                                  const modes = Object.keys(chat.modes);
-                                  const modeswtich = modes[index];
-                                  handleSwitchMode(chat.id, modeswtich);
-                                }}
-                                isFullScreen={false}
-                                currentModeIndex={messagechatModes.indexOf(chat.currentMode)}
-                                modescount={messagechatModes.length}
-                              />
-                            )}
-                          </Flex>
-                        ) : (
-                          <Flex flexDirection='row' justifyContent='space-between' alignItems='center'>
-                            <Flex flexDirection='row' justifyContent='space-between' alignItems='center'>
-                              <CommonActions
-                                chat={chat}
-                                copyHandler={handleCopy}
-                                detailsHandler={detailsHandler}
-                                listMessages={listMessages}
-                                speechHandler={speechHandler}
-                                activeChat={activeChat}
-                              ></CommonActions>
-                            </Flex>
-                            <Box>
-                              {messagechatModes.length > 1 && (
-                                <ChatModesSwitch
-                                  currentMode={chat.currentMode}
-                                  switchToOtherMode={(index: number) => {
-                                    const modes = Object.keys(chat.modes);
-                                    const modeswtich = modes[index];
-                                    handleSwitchMode(chat.id, modeswtich);
-                                  }}
-                                  isFullScreen={isFullScreen}
-                                  currentModeIndex={messagechatModes.indexOf(chat.currentMode)}
-                                  modescount={messagechatModes.length}
-                                />
-                              )}
-                            </Box>
-                          </Flex>
-                        ))}
-                    </div>
-                  </Widget>
+                    </>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        </Widget>
+
+                {/* Glass Concierge Card */}
+                <div
+                  className={clsx(`p-6 rounded-[24px] border-grad-gs glass-luxe transition-all duration-700`, {
+                    'shadow-2xl': chat.user === 'chatbot',
+                    'bg-[#D4AF37]/5': chat.user !== 'chatbot' && colorMode === 'dark',
+                    'bg-blue-50/50': chat.user !== 'chatbot' && colorMode === 'light',
+                  }, isFullScreen ? 'max-w-[75%]' : 'max-w-[95%]')}
+                >
+                  <div className={clsx("prose prose-sm max-w-none [&_*]:!text-inherit [&_a]:!text-[#D4AF37] [&_code]:!text-[#D4AF37]", {
+                    'prose-invert': colorMode === 'dark',
+                  })}>
+                    <div className={clsx('leading-relaxed font-normal antialiased', {
+                      'text-white/95': chat.user === 'chatbot' && colorMode === 'dark',
+                      'text-[#D4AF37] font-semibold': chat.user !== 'chatbot' && colorMode === 'dark',
+                      'text-[#1A1A1A]': chat.user === 'chatbot' && colorMode === 'light',
+                      'text-blue-700 font-semibold': chat.user !== 'chatbot' && colorMode === 'light',
+                    })} style={{ color: chat.user === 'chatbot' && colorMode === 'dark' ? 'rgba(255,255,255,0.95)' : chat.user !== 'chatbot' && colorMode === 'dark' ? '#D4AF37' : '#1A1A1A' }}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
+                        {chat.id === 2 && chat.user === 'chatbot' && index === 0
+                          ? t('welcomeMessage')
+                          : (chat.modes[chat.currentMode]?.message || '')}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+
+                  {chat.user === 'chatbot' && !chat.isLoading && !chat.isTyping && (
+                    <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
+                      <CommonActions
+                        chat={chat}
+                        copyHandler={handleCopy}
+                        detailsHandler={detailsHandler}
+                        listMessages={listMessages}
+                        speechHandler={speechHandler}
+                        activeChat={activeChat}
+                      />
+                      {messagechatModes.length > 1 && (
+                        <ChatModesSwitch
+                          currentMode={chat.currentMode}
+                          switchToOtherMode={(idx: number) => handleSwitchMode(chat.id, messagechatModes[idx])}
+                          isFullScreen={isFullScreen ?? false}
+                          currentModeIndex={messagechatModes.indexOf(chat.currentMode)}
+                          modescount={messagechatModes.length}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        <div ref={messagesEndRef} />
       </div>
-      <div className='n-bg-palette-neutral-bg-weak flex! gap-2.5 bottom-0 p-2.5 w-full'>
-        <form onSubmit={handleSubmit} className={`flex! gap-2.5 w-full ${!isFullScreen ? 'justify-between' : ''}`}>
-          <TextInput
-            className={`n-bg-palette-neutral-bg-default flex-grow-7 ${
-              isFullScreen ? 'w-[calc(100%-105px)]' : 'w-[70%]'
-            }`}
-            value={inputMessage}
-            isFluid
-            onChange={handleInputChange}
-            htmlAttributes={{
-              type: 'text',
-              'aria-label': 'chatbot-input',
-              name: 'chatbot-input',
-            }}
-          />
+
+      {/* Precision Signature Input Area */}
+      <div className={clsx('p-8 border-t transition-all duration-500 glass-luxe', {
+        'border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]': colorMode === 'dark',
+        'border-gray-100': colorMode === 'light',
+      })}>
+        <form onSubmit={handleSubmit} className="flex gap-4 items-center max-w-[900px] mx-auto">
+          <div className="flex-1 relative group">
+            <TextInput
+              isDisabled={isLoading}
+              value={inputMessage}
+              onChange={handleInputChange}
+              placeholder={t('inquireVault')}
+              className={clsx('bg-transparent! border-white/10! focus:border-[#D4AF37]/50! py-4! px-8! rounded-2xl! transition-all duration-500 w-full', {
+                'text-white! shadow-inner': colorMode === 'dark',
+                'text-black!': colorMode === 'light',
+              })}
+              aria-label='chatbot-input'
+            />
+            {isSupported && (
+              <button
+                type="button"
+                onClick={handleMicClick}
+                className={clsx("absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300", {
+                  'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
+                  'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
+                  'text-gray-400 hover:text-gray-600': !isListening && colorMode === 'light',
+                })}
+              >
+                {isListening ? <RiMicFill size={20} className="animate-pulse" /> : <RiMicLine size={20} />}
+              </button>
+            )}
+          </div>
           <SpotlightTarget id='chatbtn' hasPulse={true} indicatorVariant='border'>
-            <ButtonWithToolTip
-              label='Q&A Button'
-              placement='top'
-              text={`Ask a question.`}
-              type='submit'
-              disabled={loading || !connectionStatus}
-              size='medium'
+            <button
+              type="submit"
+              disabled={isLoading || !inputMessage.trim()}
+              className={clsx("h-[54px] px-10 rounded-2xl flex items-center justify-center transition-all duration-500 disabled:opacity-20 translate-y-[-1px]", {
+                'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]': colorMode === 'dark',
+                'bg-blue-600 text-white font-bold uppercase tracking-widest text-[10px]': colorMode === 'light',
+              })}
             >
-              {buttonCaptions.ask}{' '}
-              {selectedFileNames != undefined && selectedFileNames.length > 0 && `(${selectedFileNames.length})`}
-            </ButtonWithToolTip>
+              Ask
+            </button>
           </SpotlightTarget>
         </form>
       </div>
+
       <Suspense fallback={<FallBackDialog />}>
         <Modal
-          modalProps={{
-            id: 'retrieval-information',
-            className: 'n-p-token-4 n-bg-palette-neutral-bg-weak n-rounded-lg',
-          }}
+          modalProps={{ id: 'retrieval-info' }}
           onClose={() => setShowInfoModal(false)}
           isOpen={showInfoModal}
           size={'large'}
         >
-          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-            <IconButton
-              size='large'
-              htmlAttributes={{
-                title: 'download chat info',
-              }}
-              isClean
-              ariaLabel='download chat info'
-              isDisabled={metricsLoading || infoLoading}
-              onClick={() => {
-                downloadClickHandler(
-                  {
-                    chatResponse: activeChat,
-                    chunks,
-                    metricDetails,
-                    communities,
-                    responseTime,
-                    entities: infoEntities,
-                    nodes,
-                    tokensUsed,
-                    model,
-                    multiModelMetrics,
-                  },
-                  downloadLinkRef,
-                  'graph-builder-chat-details.json'
-                );
-              }}
-            >
-              <ArrowDownTrayIconOutline className='n-size-token-7' />
-              <TextLink ref={downloadLinkRef} className='hidden!'>
-                ""
-              </TextLink>
-            </IconButton>
-            <IconButton
-              size='large'
-              htmlAttributes={{
-                title: 'close pop up',
-              }}
-              ariaLabel='close pop up'
-              isClean
-              onClick={() => setShowInfoModal(false)}
-            >
-              <XMarkIconOutline className='n-size-token-7' />
-            </IconButton>
+          <div className="flex justify-end p-4">
+             <IconButton
+                size='large'
+                isClean
+                ariaLabel='close'
+                onClick={() => setShowInfoModal(false)}
+              >
+                <XMarkIconOutline className='w-6 h-6' />
+              </IconButton>
           </div>
           <InfoModal
             sources={sourcesModal}
@@ -672,7 +563,6 @@ const Chatbot: FC<ChatbotProps> = (props) => {
             relationships={relationships}
             chunks={chunks}
             metricDetails={activeChat != undefined && metricDetails != null ? metricDetails : undefined}
-            metricError={activeChat != undefined && metricDetails != null ? (metricDetails.error as string) : ''}
             communities={communities}
             infoLoading={infoLoading}
             metricsLoading={metricsLoading}
@@ -687,6 +577,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
             saveMultimodemetrics={saveMultimodemetrics}
             activeChatmodes={activeChat?.modes}
             multiModelMetrics={multiModelMetrics}
+            metricError={metricDetails?.error ?? ''}
           />
         </Modal>
       </Suspense>

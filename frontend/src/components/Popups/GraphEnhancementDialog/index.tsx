@@ -10,6 +10,7 @@ import { tokens } from '@neo4j-ndl/base';
 import PostProcessingCheckList from './PostProcessingCheckList';
 import AdditionalInstructionsText from './AdditionalInstructions';
 import { OptionType } from '../../../types';
+import { useTranslation } from '../../../context/LanguageContext';
 
 export default function GraphEnhancementDialog({
   open,
@@ -56,6 +57,7 @@ export default function GraphEnhancementDialog({
     setImporterRels,
   } = useFileContext();
   const isTablet = useMediaQuery(`(min-width:${breakpoints.xs}) and (max-width: ${breakpoints.lg})`);
+  const t = useTranslation();
 
   const orphanNodesDeleteHandler = async (selectedEntities: string[]) => {
     try {
@@ -128,7 +130,7 @@ export default function GraphEnhancementDialog({
               alt='graph-enhancement-options-logo'
             />
             <div className='flex flex-col'>
-              <Typography variant={isTablet ? 'h5' : 'h2'}>Graph Settings</Typography>
+              <Typography variant={isTablet ? 'h5' : 'h2'}>{t('graphSettings')}</Typography>
               <Typography variant={isTablet ? 'subheading-small' : 'subheading-medium'} className='mb-2'>
                 {isTablet
                   ? `This set of tools will help you enhance the quality of your Knowledge Graph`

@@ -7,6 +7,7 @@ import type { Relationship } from '@neo4j-nvl/base';
 import { ShowAll } from '../UI/ShowAll';
 import { sortAlphabetically } from '../../utils/Utils';
 import { Dispatch, SetStateAction } from 'react';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface OverViewProps {
   nodes: ExtendedNode[];
@@ -26,6 +27,7 @@ const ResultOverview: React.FunctionComponent<OverViewProps> = ({
   setNodes,
   setRelationships,
 }) => {
+  const t = useTranslation();
   const nodeCount = (nodes: ExtendedNode[], label: string): number => {
     return [...new Set(nodes?.filter((n) => n.labels?.includes(label)).map((i) => i.id))].length;
   };
@@ -111,13 +113,13 @@ const ResultOverview: React.FunctionComponent<OverViewProps> = ({
       {nodeCheck.length > 0 && (
         <>
           <Flex className='py-3 pt-3 ml-2'>
-            <Typography variant='h3'>{graphLabels.resultOverview}</Typography>
+            <Typography variant='h3'>{t('resultOverview')}</Typography>
             <div className={`text-input-container`}>
               <TextInput
                 htmlAttributes={{
                   type: 'text',
                   'aria-label': 'search nodes',
-                  placeholder: 'Search On Node Properties',
+                  placeholder: t('searchNodes'),
                 }}
                 value={searchQuery}
                 onChange={(e) => {
@@ -138,7 +140,7 @@ const ResultOverview: React.FunctionComponent<OverViewProps> = ({
               />
             </div>
             <Typography variant='subheading-small'>
-              {graphLabels.totalNodes} ({nodes.length})
+              {t('totalNodes')} ({nodes.length})
             </Typography>
           </Flex>
           <div className='flex gap-2 flex-wrap ml-2'>
@@ -161,7 +163,7 @@ const ResultOverview: React.FunctionComponent<OverViewProps> = ({
         <>
           <Flex className='py-3 pt-3 ml-2'>
             <Typography variant='subheading-small'>
-              {graphLabels.totalRelationships} ({relationships.length})
+              {t('relationships')} ({relationships.length})
             </Typography>
           </Flex>
           <div className='flex gap-2 flex-wrap ml-2'>

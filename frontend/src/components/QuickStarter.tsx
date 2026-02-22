@@ -12,7 +12,6 @@ const QuickStarter: React.FunctionComponent = () => {
       <FileContextProvider>
         <MessageContextWrapper>
           <AlertContextWrapper>
-            <Header />
             <PageLayout />
           </AlertContextWrapper>
         </MessageContextWrapper>

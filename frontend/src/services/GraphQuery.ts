@@ -3,12 +3,20 @@ import api from '../API/Index';
 export const graphQueryAPI = async (
   query_type: string,
   document_names: (string | undefined)[] | undefined,
-  signal: AbortSignal
+  signal: AbortSignal,
+  language?: string,
+  model?: string
 ) => {
   try {
     const formData = new FormData();
     formData.append('query_type', query_type ?? 'entities');
     formData.append('document_names', JSON.stringify(document_names));
+    if (language) {
+      formData.append('language', language);
+    }
+    if (model) {
+      formData.append('model', model);
+    }
 
     const response = await api.post(`/graph_query`, formData, {
       headers: {

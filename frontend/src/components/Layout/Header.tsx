@@ -1,258 +1,136 @@
-import CustomLogo from '../../assets/images/custom_logo.jpg';
+import LuxuryLogo from '../../assets/images/aushadha_luxury_logo.png';
 import {
   MoonIconOutline,
   SunIconOutline,
-  ArrowTopRightOnSquareIconOutline,
-  TrashIconOutline,
-  ArrowLeftIconOutline,
-  ArrowDownTrayIconOutline,
+  LockClosedIconOutline,
 } from '@neo4j-ndl/react/icons';
-import { Button, SpotlightTarget, TextLink, Typography, useSpotlightContext } from '@neo4j-ndl/react';
-import { memo, useCallback, useContext, useEffect, useRef, useState, useMemo } from 'react';
+import { Typography } from '@neo4j-ndl/react';
+import { memo, useContext, useRef, useState } from 'react';
+import clsx from 'clsx';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
-import { buttonCaptions, SKIP_AUTH, tooltips } from '../../utils/Constants';
+import { tooltips } from '../../utils/Constants';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
-import { useCredentials } from '../../context/UserCredentials';
-import { useLocation, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { useMessageContext } from '../../context/UserMessages';
-import { RiChatSettingsLine } from 'react-icons/ri';
+import { RiChatSettingsLine, RiUserLine, RiBarChart2Line, RiLayoutMasonryLine } from 'react-icons/ri';
 import ChatModeToggle from '../ChatBot/ChatModeToggle';
 import { HeaderProp } from '../../types';
-import { downloadClickHandler, getIsLoading } from '../../utils/Utils';
 import Profile from '../User/Profile';
-import { useAuth0 } from '@auth0/auth0-react';
 import SecretVaultModal from '../Popups/SecretVaultModal';
-import { LockClosedIconOutline } from '@neo4j-ndl/react/icons';
+import LanguageSelector from '../UI/LanguageSelector';
+import TooltipWrapper from '../UI/TipWrapper';
+import { useTranslation } from '../../context/LanguageContext';
 
-const Header: React.FC<HeaderProp> = ({ chatOnly, deleteOnClick, setOpenConnection, showBackButton }) => {
+const Header: React.FC<HeaderProp> = ({ deleteOnClick, showBackButton }) => {
   const { colorMode, toggleColorMode } = useContext(ThemeWrapperContext);
   const navigate = useNavigate();
   const { messages } = useMessageContext();
-  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
-  const { loginWithRedirect } = useAuth0();
-  const firstTourTarget = useRef<HTMLDivElement>(null);
-  const { connectionStatus } = useCredentials();
   const chatAnchor = useRef<HTMLDivElement>(null);
-  const { pathname } = useLocation();
   const [showChatModeOption, setShowChatModeOption] = useState<boolean>(false);
   const [showSecretVault, setShowSecretVault] = useState<boolean>(false);
-  const { setIsOpen } = useSpotlightContext();
-  const isFirstTimeUser = useMemo(() => {
-    return localStorage.getItem('neo4j.connection') === null;
-  }, []);
-  useEffect(() => {
-    if (!connectionStatus && isFirstTimeUser) {
-      setIsOpen(true);
-    }
-  }, []);
-  const openChatPopout = useCallback(() => {
-    let session = localStorage.getItem('neo4j.connection');
-    const isLoading = getIsLoading(messages);
-    if (session) {
-      const neo4jConnection = JSON.parse(session);
-      const { uri, userName, password, database } = neo4jConnection;
-      const [, port] = uri.split(':');
-      const encodedPassword = btoa(password);
-      const chatUrl = `/chat-only?uri=${encodeURIComponent(
-        uri
-      )}&user=${userName}&password=${encodedPassword}&database=${database}&port=${port}&connectionStatus=${connectionStatus}`;
-      navigate(chatUrl, { state: { messages, isLoading } });
-    } else if (connectionStatus) {
-      const chatUrl = `/chat-only?connectionStatus=${connectionStatus}`;
-      navigate(chatUrl, { state: { messages, isLoading } });
-    } else {
-      const chatUrl = `/chat-only?openModal=true`;
-      window.open(chatUrl, '_blank');
-    }
-  }, [messages, connectionStatus, navigate]);
-
-  const onBackButtonClick = () => {
-    navigate('/', { state: messages });
-  };
+  const t = useTranslation();
 
   return (
-    <>
-      <div
-        className='n-bg-palette-neutral-bg-weak p-1'
-        style={{ borderBottom: '2px solid rgb(var(--theme-palette-neutral-border-weak))' }}
-      >
-        <nav
-          className='flex items-center justify-between flex-row'
-          role='navigation'
-          data-testid='navigation'
-          id='navigation'
-          aria-label='main navigation'
-        >
-          <section className='flex w-1/3 shrink-0 grow-0 items-center min-w-[200px]'>
-            <Typography variant='h1'>
-              <img src={CustomLogo} className='h-8! min-h-8 min-w-8' alt='DB Logo' />
+    <div className='flex items-center justify-between h-full px-8'>
+      {/* Precision Brand Block */}
+      <section className='flex items-center gap-6'>
+        <div className="flex items-center gap-4">
+          <div className="relative p-0.5 rounded-full border border-white/5 bg-white/5 transition-all duration-500">
+            <img 
+              src={LuxuryLogo} 
+              className='h-8 w-8 rounded-full' 
+              alt='Logo' 
+            />
+          </div>
+          <div className="flex flex-col">
+            <Typography 
+              variant='h5' 
+              className={clsx("!m-0 transition-colors tracking-brand", {
+                'text-white': colorMode === 'dark',
+                'text-[#1A1A1A]': colorMode === 'light',
+              })}
+            >
+              AUSHADHA
             </Typography>
-          </section>
-          {!chatOnly ? (
-            <section className='items-center justify-end w-1/3 grow-0 flex'>
-              <div>
-                <div
-                  className='inline-flex gap-x-1'
-                  style={{ display: 'flex', flexGrow: 0, alignItems: 'center', gap: '4px' }}
-                >
+            <Typography 
+              variant='body-small' 
+              className={clsx("!m-0 transition-colors opacity-60 tracking-concierge text-[7px]", {
+                'text-[#D4AF37]': colorMode === 'dark',
+                'text-gray-500': colorMode === 'light',
+              })}
+            >
+              Medical Intelligence
+            </Typography>
+          </div>
+        </div>
+      </section>
 
-                  <IconButtonWithToolTip
-                    label="Secret Vault"
-                    text="Secret Vault"
-                    clean
-                    size='large'
-                    onClick={() => setShowSecretVault(true)}
-                    placement='left'
-                  >
-                    <LockClosedIconOutline />
-                  </IconButtonWithToolTip>
-                  <IconButtonWithToolTip
-                    label={tooltips.theme}
-                    text={tooltips.theme}
-                    clean
-                    size='large'
-                    onClick={toggleColorMode}
-                    placement='left'
-                  >
-                    {colorMode === 'dark' ? (
-                      <span role='img' aria-label='sun'>
-                        <SunIconOutline />
-                      </span>
-                    ) : (
-                      <span role='img' aria-label='moon'>
-                        <MoonIconOutline />
-                      </span>
-                    )}
-                  </IconButtonWithToolTip>
-                  <IconButtonWithToolTip
-                    label={tooltips.openChatPopout}
-                    onClick={openChatPopout}
-                    text={tooltips.openChatPopout}
-                    size='large'
-                    clean
-                    disabled={getIsLoading(messages)}
-                  >
-                    <ArrowTopRightOnSquareIconOutline />
-                  </IconButtonWithToolTip>
-                  {!SKIP_AUTH && <Profile />}
-                  {pathname === '/readonly' &&
-                    (!connectionStatus ? (
-                      <SpotlightTarget id='loginbutton' hasPulse={true} indicatorVariant='border' ref={firstTourTarget}>
-                        <Button type='button' fill='outlined' onClick={() => loginWithRedirect()}>
-                          Login
-                        </Button>
-                      </SpotlightTarget>
-                    ) : (
-                      <Button type='button' fill='outlined' onClick={() => loginWithRedirect()}>
-                        Login
-                      </Button>
-                    ))}
-                </div>
-              </div>
-            </section>
-          ) : (
-            <section className='items-center justify-end w-1/3 grow-0 flex'>
-              <div
-                className='inline-flex gap-x-1'
-                style={{ display: 'flex', flexGrow: 0, alignItems: 'center', gap: '4px' }}
+      {/* Global Interface Controls */}
+      <section className='flex items-center gap-8'>
+        {/* Glass Search Trigger with Gold/Silver Typography */}
+        <div 
+          ref={chatAnchor}
+          onClick={() => setShowChatModeOption(true)}
+          className={clsx("flex items-center gap-3 px-5 py-2 rounded-full border transition-all cursor-pointer group glass-luxe", {
+            'border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.1)]': colorMode === 'dark',
+            'border-gray-200': colorMode === 'light',
+          })}
+        >
+          <RiChatSettingsLine className={clsx("text-sm transition-colors", {
+            'text-[#D4AF37]': colorMode === 'dark',
+            'text-gray-400': colorMode === 'light',
+          })} />
+          <span className={clsx("text-[10px] uppercase tracking-[0.25em] font-extrabold transition-all", {
+            'bg-gradient-to-r from-white via-[#D4AF37] to-white bg-clip-text text-transparent group-hover:via-white group-hover:to-[#D4AF37]': colorMode === 'dark',
+            'text-gray-500': colorMode === 'light',
+          })}>Intelligence Search</span>
+        </div>
+
+        <div className='flex items-center gap-6'>
+          <TooltipWrapper tooltip={t('dataInsights')} placement='bottom'>
+            <div className="cursor-pointer transition-opacity hover:opacity-100 opacity-40">
+              <RiBarChart2Line size={20} className={colorMode === 'dark' ? 'text-white' : 'text-gray-700'} />
+            </div>
+          </TooltipWrapper>
+          
+          <TooltipWrapper tooltip={t('knowledgeGraph')} placement='bottom'>
+            <div className="cursor-pointer transition-opacity hover:opacity-100 opacity-40">
+              <RiLayoutMasonryLine size={20} className={colorMode === 'dark' ? 'text-white' : 'text-gray-700'} />
+            </div>
+          </TooltipWrapper>
+
+          <LanguageSelector />
+
+          <IconButtonWithToolTip
+            label={tooltips.theme}
+            clean
+            text={tooltips.theme}
+            onClick={toggleColorMode}
+            className='hover:rotate-12 transition-transform opacity-60 hover:opacity-100'
+          >
+            {colorMode === 'dark' ? (
+              <SunIconOutline className='w-5 h-5 text-white' />
+            ) : (
+              <MoonIconOutline className='w-5 h-5 text-gray-700' />
+            )}
+          </IconButtonWithToolTip>
+
+          <TooltipWrapper tooltip="Secret Vault" placement="bottom">
+              <div 
+                onClick={() => setShowSecretVault(true)}
+                className={clsx("cursor-pointer transition-all hover:text-[#D4AF37] opacity-60 hover:opacity-100", {
+                  'text-white': colorMode === 'dark',
+                  'text-gray-400': colorMode === 'light',
+                })}
               >
-                {!connectionStatus && (
-                  <Button
-                    size={'medium'}
-                    className={`${chatOnly ? '' : 'mr-2.5'}`}
-                    onClick={() => {
-                      if (setOpenConnection) {
-                        setOpenConnection((prev) => ({ ...prev, openPopUp: true }));
-                      }
-                    }}
-                  >
-                    {buttonCaptions.connectToDB}
-                  </Button>
-                )}
-                {showBackButton && (
-                  <IconButtonWithToolTip
-                    onClick={onBackButtonClick}
-                    clean
-                    text='Back'
-                    placement='bottom'
-                    label='Back'
-                    disabled={getIsLoading(messages)}
-                  >
-                    <ArrowLeftIconOutline />
-                  </IconButtonWithToolTip>
-                )}
-                <IconButtonWithToolTip
-                  label={tooltips.theme}
-                  text={tooltips.theme}
-                  clean
-                  size='large'
-                  onClick={toggleColorMode}
-                  placement='bottom'
-                >
-                  {colorMode === 'dark' ? (
-                    <span role='img' aria-label='sun'>
-                      <SunIconOutline />
-                    </span>
-                  ) : (
-                    <span role='img' aria-label='moon'>
-                      <MoonIconOutline />
-                    </span>
-                  )}
-                </IconButtonWithToolTip>
-                <div ref={chatAnchor}>
-                  <IconButtonWithToolTip
-                    onClick={() => {
-                      setShowChatModeOption(true);
-                    }}
-                    clean
-                    text='Chat mode'
-                    placement='bottom'
-                    label='Chat mode'
-                  >
-                    <RiChatSettingsLine />
-                  </IconButtonWithToolTip>
-                </div>
-                <>
-                  <IconButtonWithToolTip
-                    text={tooltips.downloadChat}
-                    aria-label='Download Chat'
-                    clean
-                    onClick={() =>
-                      downloadClickHandler(
-                        { conversation: messages },
-                        downloadLinkRef,
-                        'graph-builder-conversation.json'
-                      )
-                    }
-                    disabled={messages.length === 1 || getIsLoading(messages)}
-                    placement={chatOnly ? 'left' : 'bottom'}
-                    label={tooltips.downloadChat}
-                  >
-                    <span ref={downloadLinkRef}></span>
-                    <ArrowDownTrayIconOutline />
-                  </IconButtonWithToolTip>
-                  <>
-                    <TextLink ref={downloadLinkRef} className='hidden!'>
-                      ""
-                    </TextLink>
-                  </>
-                </>
-                <IconButtonWithToolTip
-                  text={tooltips.clearChat}
-                  aria-label='Remove chat history'
-                  clean
-                  onClick={deleteOnClick}
-                  disabled={messages.length === 1 || getIsLoading(messages)}
-                  placement={chatOnly ? 'left' : 'bottom'}
-                  label={tooltips.clearChat}
-                >
-                  <TrashIconOutline />
-                </IconButtonWithToolTip>
+                  <LockClosedIconOutline className="w-5 h-5" />
               </div>
-            </section>
-          )}
-        </nav>
-      </div>
+          </TooltipWrapper>
+
+          <Profile />
+        </div>
+      </section>
+
       <ChatModeToggle
         closeHandler={(_, reason) => {
           if (reason.type === 'backdropClick') {
@@ -267,7 +145,8 @@ const Header: React.FC<HeaderProp> = ({ chatOnly, deleteOnClick, setOpenConnecti
         open={showSecretVault}
         onClose={() => setShowSecretVault(false)}
       />
-    </>
+    </div>
   );
 };
+
 export default memo(Header);

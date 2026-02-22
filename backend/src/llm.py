@@ -11,6 +11,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_fireworks import ChatFireworks
 from langchain_aws import ChatBedrock
 from langchain_community.chat_models import ChatOllama
+from langchain_huggingface import HuggingFacePipeline
 import boto3
 import google.auth
 from src.shared.constants import ADDITIONAL_INSTRUCTIONS
@@ -44,7 +45,8 @@ def get_llm(model: str):
                 if formatted_model == "gpt-3-5":
                     formatted_model = "gpt-3.5-turbo"
                 env_value = f"{formatted_model},{api_key}"
-            elif "AZURE" not in model: # Default to gpt-4o if no specific model requested and just key present
+            elif "AZURE" not in model: 
+                 # Fallback for generic OPENAI key if specific config missing
                  env_value = f"gpt-4o,{api_key}"
 
         elif "DIFFBOT" in model:
@@ -71,9 +73,27 @@ def get_llm(model: str):
         elif "GROQ" in model:
              api_key = get_value_from_env("GROQ_API_KEY")
              if api_key:
-                 # Default base URL for Groq? Code expects model,base_url,key.
-                 # We might not be able to fully automate Groq without a known base URL.
-                 pass
+                  # Force a default model if only key is provided
+                  formatted_model = model.lower().replace("groq_", "").replace("_", "-")
+                  if formatted_model == "groq":
+                      formatted_model = "llama-3.1-8b-instant"
+                  env_value = f"{formatted_model},https://api.groq.com/openai/v1,{api_key}"
+        
+        elif "SARVAM" in model:
+            api_key = get_value_from_env("SARVAMAI_API_KEY")
+            if api_key:
+                # Default to sarvam-m if no specific model requested
+                formatted_model = model.lower().replace("sarvam_", "").replace("_", "-")
+                if formatted_model == "sarvam":
+                    formatted_model = "sarvam-m"
+                env_value = f"{formatted_model},https://api.sarvam.ai/v1,{api_key}"
+        
+        elif "LOCAL" in model:
+             if "SARVAM" in model:
+                 env_value = "data/models/sarvam-2b,local,no-key"
+             else:
+                 # Point to the local-llm-proxy service
+                 env_value = "mistral-7b,http://local-llm-proxy:8090/v1,no-key"
 
         if env_value:
              logging.info(f"Using fallback config for {model} with discovered API Key")
@@ -164,6 +184,36 @@ def get_llm(model: str):
         elif "OLLAMA" in model:
             model_name, base_url = env_value.split(",")
             llm = ChatOllama(base_url=base_url, model=model_name,callbacks=callback_manager)
+
+        elif "LOCAL" in model:
+            logging.info(f"DEBUG: LOCAL model detected. env_value='{env_value}'")
+            model_name, base_url, api_key = env_value.split(",")
+            logging.info(f"DEBUG: model_name='{model_name}', base_url='{base_url}'")
+            llm = ChatOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                model=model_name,
+                temperature=0,
+                timeout=300,
+                callbacks=callback_manager,
+            )
+        
+        elif "SARVAM_LOCAL_2B" in model:
+            model_path = env_value.split(",")[0]
+            # Use data directory as base if relative path
+            if not os.path.isabs(model_path):
+                 model_path = os.path.join(os.getcwd(), model_path)
+            
+            llm = HuggingFacePipeline.from_model_id(
+                model_id=model_path,
+                task="text-generation",
+                pipeline_kwargs={
+                    "max_new_tokens": 1024,
+                    "top_k": 50,
+                    "temperature": 0.1,
+                },
+                callbacks=callback_manager,
+            )
 
         elif "DIFFBOT" in model:
             #model_name = "diffbot"
@@ -345,3 +395,125 @@ def sanitize_additional_instruction(instruction: str) -> str:
    # Step 4: Normalize spaces
    instruction = re.sub(r'\s+', ' ', instruction).strip()
    return instruction
+HYPERTENSION_RULES = """
+Specific Guidelines for HYPERTENSION (Reconciliation Vers 8):
+1. Vitals: Always look for 'systolic_bp' and 'diastolic_bp'. If multiple readings exist, use the LAST one.
+2. BP Categories: 
+   - Normal (<120/80)
+   - Elevated (120-129/<80)
+   - Stage1 (130-139 or 80-89)
+   - Stage2 (>=140 or >=90)
+   - CrisisSuspected (>=180 or >=120)
+3. Symptoms (Tri-State): headache, chest_pain, breathlessness, neurological.
+4. Suspicions: diet_high_salt, sleep_poor, stress_high, tobacco_use, alcohol_high.
+5. Red Flags: HRF1: CrisisSuspected, HRF2: Chest pain/breathlessness, HRF3: Neurological, HRF4: Pregnancy+Stage2/Crisis, HRF5: CKD/CVD+Stage2/Crisis.
+"""
+
+async def validate_clinical_content(model: str, text: str) -> bool:
+    """
+    Validates if the provided text is a clinical record (EHR, transcript, scan, lab report).
+    Returns True if valid, False otherwise.
+    """
+    try:
+        llm, _, _ = get_llm(model)
+        system_msg = "You are a medical administrative assistant. Your task is to determine if the given text is a clinical record, medical transcript, prescription scan, or patient visit note. Respond with exactly 'YES' if it is a clinical/medical record, and 'NO' otherwise. No explanations."
+        
+        from langchain_core.messages import HumanMessage, SystemMessage
+        messages = [
+            SystemMessage(content=system_msg),
+            HumanMessage(content=f"Text to validate:\n\n{text[:2000]}") # Only need first 2k chars for validation
+        ]
+        
+        response = await llm.ainvoke(messages)
+        content = response.content.strip().upper()
+        return "YES" in content
+    except Exception as e:
+        logging.error(f"Error in source validation: {e}")
+        return True # Default to True in case of error to avoid blocking valid flows
+
+HYPERTENSION_INFERENCE_RULES = """
+Specific Inference Guidelines for HYPERTENSION (Reconciliation Vers 8):
+1. BP Category Inference:
+   - Normal: <120/80
+   - Elevated: 120-129/<80
+   - Stage1: 130-139 OR 80-89
+   - Stage2: >=140 OR >=90
+   - CrisisSuspected: >=180 OR >=120
+2. Red Flag Inference (IDs):
+   - HRF1: BP Category is 'CrisisSuspected'
+   - HRF2: Symptoms include 'Chest Pain' or 'Severe Breathlessness'
+   - HRF3: Symptoms include 'Neurological' issues (confusion, slurred speech)
+   - HRF4: Patient is Pregnant AND (Stage2 or CrisisSuspected)
+   - HRF5: Known Comorbidities (CKD/CVD) AND (Stage2 or CrisisSuspected)
+"""
+
+async def extract_structured_ehr_data(model: str, text: str, condition_profile: str = None):
+    """
+    Extract structured EHR data from text using the provided model and schema.
+    Performs autonomous semantic inference for status, categories, and red flags.
+    """
+    try:
+        from langchain_core.prompts import ChatPromptTemplate
+        from pydantic.v1 import BaseModel, Field
+
+        llm, model_name, _ = get_llm(model)
+        
+        class VitalModel(BaseModel):
+            name: str = Field(description="Normalized vital name (e.g., systolic_bp, heart_rate)")
+            value: float = Field(description="Numeric value")
+            unit: str = Field(description="Unit of measurement")
+            status: str = Field(description="Inferred clinical status based on standards (e.g., 'Normal', 'Stage2')")
+
+        class SymptomModel(BaseModel):
+            name: str = Field(description="Normalized symptom name")
+            status: str = Field(description="Evidence-based Tri-State: 'True', 'False', or 'Unknown'")
+
+        class LifestyleSuspicionModel(BaseModel):
+            factor: str = Field(description="Lifestyle factor (Salt, Stress, Sleep, Tobacco, Alcohol)")
+            status: str = Field(description="Inferred suspicion status: 'True', 'False', or 'Unknown'")
+
+        class EHRSchema(BaseModel):
+            case_id: str = Field(description="Case ID")
+            visit_date: str = Field(description="YYYY-MM-DD")
+            age_group: str = Field(description="Inferred age range")
+            sex: str = Field(description="Inferred sex")
+            condition_name: str = Field(description="Identified primary ailment/condition (e.g., Hypertension)")
+            chief_complaint: str = Field(description="Brief complaint summary (max 200 chars)")
+            vitals: List[VitalModel] = Field(description="Extracted vitals with inferred statuses")
+            symptoms: List[SymptomModel] = Field(description="Extracted symptoms with tri-state evidence")
+            suspicions: List[LifestyleSuspicionModel] = Field(description="Inferred lifestyle risks")
+            red_flag_any: bool = Field(description="True if any red flags are inferred from the clinical context")
+            red_flag_list: List[str] = Field(description="List of inferred Red Flag IDs (e.g., HRF1, HRF2)")
+
+        inference_context = ""
+        if condition_profile and "hypertension" in condition_profile.lower():
+            inference_context = HYPERTENSION_INFERENCE_RULES
+        else:
+            inference_context = "If the text relates to Hypertension, apply BP category and Red Flag IDs (HRF1-HRF5) according to medical standards."
+
+        system_message = f"""You are a Clinical Intelligence Engine. Your task is to perform context-aware extraction and autonomous inference from patient notes.
+        
+        Clinical Reasoning Goals:
+        1. Identification: Determine the primary ailment (condition_name).
+        2. Inference: Evaluate vitals and symptoms to infer clinical statuses and categories.
+        3. Risk Assessment: Determine if any Red Flags are present based on the inferred context.
+        
+        {inference_context}
+        
+        Mandatory Guidelines:
+        - Use the YogNayur EHR structure.
+        - Tri-State Statuses: 'True' (Clear evidence), 'False' (Explicitly denied), 'Unknown' (No mention).
+        - Do not hallucinate data. If a field is missing, use 'Unknown' or appropriate defaults.
+        - Chief Complaint: Synthetic summary, max 200 chars."""
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_message),
+            ("user", "Analyze and extract intelligence from this clinical text:\n\n{text}")
+        ])
+        
+        chain = prompt | llm.with_structured_output(EHRSchema)
+        result = await chain.ainvoke({"text": text})
+        return result
+    except Exception as e:
+        logging.error(f"Error in intelligence-first structured extraction: {e}")
+        return None

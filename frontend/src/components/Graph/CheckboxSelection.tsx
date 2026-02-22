@@ -2,6 +2,7 @@ import { Checkbox } from '@neo4j-ndl/react';
 import React from 'react';
 import { CheckboxSectionProps } from '../../types';
 import { graphLabels } from '../../utils/Constants';
+import { useTranslation } from '../../context/LanguageContext';
 
 const CheckboxSelection: React.FC<CheckboxSectionProps> = ({
   graphType,
@@ -10,13 +11,15 @@ const CheckboxSelection: React.FC<CheckboxSectionProps> = ({
   isCommunity,
   isDocChunk,
   isEntity,
-}) => (
+}) => {
+  const t = useTranslation();
+  return (
   <div className='flex gap-5 mt-2 justify-between'>
     <div className='flex gap-5'>
       {isDocChunk && (
         <Checkbox
           isChecked={graphType.includes('DocumentChunk')}
-          label={graphLabels.docChunk}
+          label={t('documentChunk')}
           isDisabled={loading}
           onChange={() => handleChange('DocumentChunk')}
         />
@@ -24,7 +27,7 @@ const CheckboxSelection: React.FC<CheckboxSectionProps> = ({
       {isEntity && (
         <Checkbox
           isChecked={graphType.includes('Entities')}
-          label={graphLabels.entities}
+          label={t('entities')}
           isDisabled={loading}
           onChange={() => handleChange('Entities')}
         />
@@ -39,5 +42,6 @@ const CheckboxSelection: React.FC<CheckboxSectionProps> = ({
       )}
     </div>
   </div>
-);
+  );
+};
 export default CheckboxSelection;

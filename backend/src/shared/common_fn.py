@@ -410,15 +410,24 @@ def track_token_usage(
         update_query = """
         MATCH (u:User)
         WHERE (u.email = $email AND $email IS NOT NULL) OR (u.db_url = $db_url AND $db_url IS NOT NULL)
-        SET u.lastOperationUsage   = $usage,
-            u.daily_tokens_used   = coalesce(u.daily_tokens_used, 0) + $usage,
-            u.monthly_tokens_used = coalesce(u.monthly_tokens_used, 0) + $usage,
+        WITH u,
+             datetime() AS now,
+             coalesce(u.updatedAt, datetime()) AS lastUpdate
+        SET u.daily_tokens_used = CASE 
+                WHEN date(lastUpdate) < date(now) THEN $usage 
+                ELSE coalesce(u.daily_tokens_used, 0) + $usage 
+            END,
+            u.monthly_tokens_used = CASE 
+                WHEN lastUpdate.month < now.month OR lastUpdate.year < now.year THEN $usage 
+                ELSE coalesce(u.monthly_tokens_used, 0) + $usage 
+            END,
             u.total_tokens_used   = coalesce(u.total_tokens_used, 0) + $usage,
+            u.lastOperationUsage   = $usage,
             u.lastUsedModel       = $lastUsedModel,
             u.is_neo4j_user       = $is_neo4j_user,
             u.daily_tokens_limit  = $daily_tokens_limit,
             u.monthly_tokens_limit= $monthly_tokens_limit,
-            u.updatedAt           = datetime()
+            u.updatedAt           = now
         RETURN
             u.total_tokens_used    AS latestUsage,
             u.lastOperationUsage   AS lastOperationUsage,

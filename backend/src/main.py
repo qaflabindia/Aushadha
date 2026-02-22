@@ -48,6 +48,14 @@ from src.shared.constants import (
 from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
 from src.shared.schema_extraction import schema_extraction_from_text
 
+# PostgreSQL Integration
+from src.database import engine, SessionLocal
+from src.models import Base, Patient, Visit, Vital, Symptom
+from src.llm import extract_structured_ehr_data
+
+# Create tables if they don't exist
+Base.metadata.create_all(bind=engine)
+
 warnings.filterwarnings("ignore")
 load_dotenv()
 
@@ -600,6 +608,74 @@ async def processing_source(credentials, params, pages, merged_file_path=None, i
 
       # merged_file_path have value only when file uploaded from local
       
+      # Integrated Structured EHR Extraction
+      try:
+          logging.info(f"Starting structured EHR extraction for {params.file_name}")
+          full_text = " ".join([page.page_content for page in pages])
+          # Limit text to avoid token limits if necessary, or process in chunks. 
+          # For extraction of summary EHR, usually first few pages are enough or a truncated version.
+          truncated_text = full_text[:15000] # Simple truncation for now
+          ehr_data = await extract_structured_ehr_data(params.model, truncated_text)
+          
+          if ehr_data:
+              logging.info(f"Successfully extracted EHR data for {params.file_name}")
+              db = SessionLocal()
+              try:
+                  # Check if patient exists
+                  patient = db.query(Patient).filter(Patient.case_id == ehr_data.case_id).first()
+                  if not patient:
+                      patient = Patient(
+                          case_id=ehr_data.case_id,
+                          age_group=ehr_data.age_group,
+                          sex=ehr_data.sex
+                      )
+                      db.add(patient)
+                      db.commit()
+                      db.refresh(patient)
+                  
+                  # Create visit
+                  visit = Visit(
+                      patient_id=patient.id,
+                      visit_date=datetime.strptime(ehr_data.visit_date, "%Y-%m-%d").date() if ehr_data.visit_date != "Unknown" else datetime.now().date(),
+                      condition_name=ehr_data.condition_name,
+                      chief_complaint=ehr_data.chief_complaint,
+                      red_flag_any=ehr_data.red_flag_any,
+                      red_flag_details=ehr_data.red_flag_details
+                  )
+                  db.add(visit)
+                  db.commit()
+                  db.refresh(visit)
+                  
+                  # Add vitals
+                  for v in ehr_data.vitals:
+                      vital = Vital(
+                          visit_id=visit.id,
+                          name=v.name,
+                          value=v.value,
+                          unit=v.unit,
+                          status=v.status
+                      )
+                      db.add(vital)
+                  
+                  # Add symptoms
+                  for s in ehr_data.symptoms:
+                      symptom = Symptom(
+                          visit_id=visit.id,
+                          name=s.name,
+                          status=s.status
+                      )
+                      db.add(symptom)
+                  
+                  db.commit()
+                  logging.info(f"Structured EHR data persisted to PostgreSQL for {params.file_name}")
+              except Exception as persist_err:
+                  logging.error(f"Error persisting EHR data: {persist_err}")
+                  db.rollback()
+              finally:
+                  db.close()
+      except Exception as ehr_err:
+          logging.error(f"Structured EHR extraction failed: {ehr_err}")
+
       if is_uploaded_from_local and bool(is_cancelled_status) == False:
         if GCS_FILE_CACHE:
           folder_name = create_gcs_bucket_folder_name_hashed(credentials.uri, params.file_name)

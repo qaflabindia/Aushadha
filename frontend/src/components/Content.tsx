@@ -53,9 +53,12 @@ import { useHasSelections } from '../hooks/useHasSelections';
 import { ChevronUpIconOutline, ChevronDownIconOutline } from '@neo4j-ndl/react/icons';
 import { ThemeWrapperContext } from '../context/ThemeWrapper';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useTranslation } from '../context/LanguageContext';
 import React from 'react';
 
 const ConfirmationDialog = lazy(() => import('./Popups/LargeFilePopUp/ConfirmationDialog'));
+const EHRDataTable = lazy(() => import('./UI/EHRDataTable'));
+const EHRTabularView = lazy(() => import('./UI/EHRTabularView'));
 
 let afterFirstRender = false;
 const Content: React.FC<ContentProps> = ({
@@ -94,6 +97,7 @@ const Content: React.FC<ContentProps> = ({
   const chunksTextAbortController = useRef<AbortController>();
   const { colorMode } = useContext(ThemeWrapperContext);
   const { isAuthenticated } = useAuth0();
+  const t = useTranslation();
   const { setIsOpen } = useSpotlightContext();
   const [alertStateForRetry, setAlertStateForRetry] = useState<BannerAlertProps>({
     showAlert: false,
@@ -127,8 +131,10 @@ const Content: React.FC<ContentProps> = ({
     setAdditionalInstructions,
   } = useFileContext();
   const [viewPoint, setViewPoint] = useState<
-    'tableView' | 'showGraphView' | 'chatInfoView' | 'neighborView' | 'showSchemaView'
+    'tableView' | 'showGraphView' | 'chatInfoView' | 'neighborView' | 'showSchemaView' | 'ehr_view'
   >('tableView');
+  const [ehrData, setEhrData] = useState<any[]>([]);
+  const [ehrViewType, setEhrViewType] = useState<'card' | 'table'>('card');
   const [showDeletePopUp, setShowDeletePopUp] = useState<boolean>(false);
   const [deleteLoading, setIsDeleteLoading] = useState<boolean>(false);
 
@@ -267,6 +273,12 @@ const Content: React.FC<ContentProps> = ({
     }
     toggleChunksLoading();
   };
+
+  useEffect(() => {
+    const handleSwitch = () => handleEHRView();
+    window.addEventListener('switch-to-ehr-view', handleSwitch);
+    return () => window.removeEventListener('switch-to-ehr-view', handleSwitch);
+  }, []);
 
   const extractData = async (uid: string, isselectedRows = false, filesTobeProcess: CustomFile[]) => {
     if (!isselectedRows) {
@@ -832,6 +844,55 @@ const Content: React.FC<ContentProps> = ({
     setViewPoint('showSchemaView');
   };
 
+  const handleEHRView = async () => {
+    try {
+      // For now fetching all, but could be filtered by selected files
+      const response = await axios.get(`${import.meta.env.VITE_BACKEND_API_URL}/ehr_data/all`);
+      if (response.data.status === 'Success') {
+        setEhrData(response.data.data);
+        setViewPoint('ehr_view');
+      } else {
+        showErrorToast(response.data.error || 'Failed to fetch EHR data');
+      }
+    } catch (err) {
+      showErrorToast('Error connecting to clinical data service');
+    }
+  };
+
+  const handleSyncToKG = async (caseId: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('case_id', caseId);
+      formData.append('uri', userCredentials.uri);
+      formData.append('database', userCredentials.database);
+      formData.append('userName', userCredentials.userName);
+      formData.append('password', userCredentials.password);
+
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/ehr_data/sync_to_kg`, formData);
+      if (response.data.status === 'Success') {
+        showSuccessToast(response.data.message);
+      } else {
+        showErrorToast(response.data.error || 'Failed to synchronize with KG');
+      }
+    } catch (err) {
+      showErrorToast('Synchronization error');
+    }
+  };
+
+  const handleUpdateRecord = async (caseId: string, updatedData: any) => {
+    try {
+      const response = await axios.put(`${import.meta.env.VITE_BACKEND_API_URL}/ehr_data/${caseId}`, updatedData);
+      if (response.data.status === 'Success') {
+        showSuccessToast(response.data.message);
+        handleEHRView(); // Refresh data
+      } else {
+        showErrorToast(response.data.error || 'Failed to update record');
+      }
+    } catch (err) {
+      showErrorToast('Update error');
+    }
+  };
+
   return (
     <>
       <RetryConfirmationDialog
@@ -906,14 +967,35 @@ const Content: React.FC<ContentProps> = ({
           setCombinedRels={setCombinedRels}
         ></GraphEnhancementDialog>
       )}
-      <GraphViewModal
-        inspectedName={inspectedName}
-        open={openGraphView}
-        setGraphViewOpen={setOpenGraphView}
-        viewPoint={viewPoint}
-        selectedRows={childRef.current?.getSelectedRows()}
-      />
-      <div className={`n-bg-palette-neutral-bg-default main-content-wrapper`}>
+        <GraphViewModal
+          inspectedName={inspectedName}
+          open={openGraphView}
+          setGraphViewOpen={setOpenGraphView}
+          viewPoint={viewPoint}
+          selectedRows={childRef.current?.getSelectedRows()}
+        />
+        <div className={`main-content-wrapper flex flex-col`}>
+          {/* Prominent Tab Switcher */}
+          <div className="flex items-center justify-center p-4 bg-black/40 border-b border-white/5">
+            <div className="glass-panel p-1 flex gap-2">
+              <Button 
+                onClick={() => setViewPoint('tableView')}
+                size="small"
+                fill={viewPoint === 'tableView' ? 'filled' : 'text'}
+                className={viewPoint === 'tableView' ? 'text-black font-bold' : 'text-gray-400'}
+              >
+                {t('fileManagement')}
+              </Button>
+              <Button 
+                onClick={handleEHRView}
+                size="small"
+                fill={viewPoint === 'ehr_view' ? 'filled' : 'text'}
+                className={viewPoint === 'ehr_view' ? 'text-[#F5A623] font-bold gold-glow' : 'text-gray-400'}
+              >
+                {t('clinicalIntelligence')}
+              </Button>
+            </div>
+          </div>
         <Flex
           className='w-full absolute top-0'
           alignItems='center'
@@ -922,7 +1004,7 @@ const Content: React.FC<ContentProps> = ({
           flexWrap='wrap'
         >
           <div className='connectionstatus__container'>
-            <span className='h6 px-1'>DB connection {isReadOnlyUser ? '(Read only Mode)' : ''}</span>
+            <span className='h6 px-1'>{t('dbConnection')} {isReadOnlyUser ? '(Read only Mode)' : ''}</span>
             <Typography variant='body-medium'>
               <DatabaseStatusIcon
                 isConnected={connectionStatus}
@@ -955,7 +1037,7 @@ const Content: React.FC<ContentProps> = ({
               disabled={!connectionStatus || isReadOnlyUser}
               size={isTablet ? 'small' : 'medium'}
             >
-              Graph Settings
+              {t('graphSettings')}
             </ButtonWithToolTip>
             {!connectionStatus ? (
               <SpotlightTarget
@@ -1012,6 +1094,41 @@ const Content: React.FC<ContentProps> = ({
           handleGenerateGraph={processWaitingFilesOnRefresh}
         ></FileTable>
 
+        {viewPoint === 'ehr_view' && (
+          <div className="absolute inset-0 z-50 bg-[#121212] flex flex-col overflow-auto">
+            <div className="flex justify-between items-center p-4 border-b border-white/5 bg-black/20">
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setEhrViewType('card')} 
+                  size="small" 
+                  fill={ehrViewType === 'card' ? 'filled' : 'outlined'}
+                >
+                  Clinical Cards
+                </Button>
+                <Button 
+                  onClick={() => setEhrViewType('table')} 
+                  size="small" 
+                  fill={ehrViewType === 'table' ? 'filled' : 'outlined'}
+                >
+                  Postgres Table View
+                </Button>
+              </div>
+              <Button onClick={() => setViewPoint('tableView')} size="small" fill="outlined">Close View</Button>
+            </div>
+            <Suspense fallback={<FallBackDialog />}>
+              {ehrViewType === 'card' ? (
+                <EHRDataTable data={ehrData} />
+              ) : (
+                <EHRTabularView 
+                  data={ehrData} 
+                  onUpdate={handleUpdateRecord} 
+                  onSync={handleSyncToKG} 
+                />
+              )}
+            </Suspense>
+          </div>
+        )}
+
         <Flex className={`p-2.5  mt-1.5 absolute bottom-0 w-full`} justifyContent='space-between' flexDirection={'row'}>
           <div>
             <DropdownComponent
@@ -1034,7 +1151,7 @@ const Content: React.FC<ContentProps> = ({
                 className='mr-0.5'
                 size={isTablet ? 'small' : 'medium'}
               >
-                {buttonCaptions.generateGraph}{' '}
+                {t('generateGraph')}{' '}
                 {selectedfileslength && !disableCheck && newFilecheck ? `(${newFilecheck})` : ''}
               </ButtonWithToolTip>
             </SpotlightTarget>
@@ -1049,7 +1166,7 @@ const Content: React.FC<ContentProps> = ({
               label='Delete Files'
               size={isTablet ? 'small' : 'medium'}
             >
-              {buttonCaptions.deleteFiles}
+              {t('deleteFiles')}
               {selectedfileslength != undefined && selectedfileslength > 0 && `(${selectedfileslength})`}
             </ButtonWithToolTip>
             <SpotlightTarget id='visualizegraphbtn'>
@@ -1061,7 +1178,7 @@ const Content: React.FC<ContentProps> = ({
                   size={isTablet ? 'small' : 'medium'}
                 >
                   <span className='mx-2'>
-                    {buttonCaptions.showPreviewGraph}{' '}
+                    {t('previewGraph')}{' '}
                     {selectedfileslength && completedfileNo ? `(${completedfileNo})` : ''}
                   </span>
                 </Button>
@@ -1094,6 +1211,7 @@ const Content: React.FC<ContentProps> = ({
                 }}
               >
                 <Menu.Item title='Graph Schema' onClick={handleSchemaView} isDisabled={!connectionStatus} />
+                <Menu.Item title='Structured EHR' onClick={handleEHRView} isDisabled={!connectionStatus} />
                 <Menu.Item
                   title='Explore Graph in DB'
                   onClick={handleOpenGraphClick}

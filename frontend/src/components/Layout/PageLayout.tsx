@@ -3,6 +3,7 @@ import SideNav from './SideNav';
 import DrawerDropzone from './DrawerDropzone';
 import DrawerChatbot from './DrawerChatbot';
 import Content from '../Content';
+import DashboardScaffold from './DashboardScaffold';
 import { clearChatAPI } from '../../services/QnaAPI';
 import { useCredentials } from '../../context/UserCredentials';
 import { connectionState, OptionType } from '../../types';
@@ -28,6 +29,7 @@ const GCSModal = lazy(() => import('../DataSources/GCS/GCSModal'));
 const S3Modal = lazy(() => import('../DataSources/AWS/S3Modal'));
 const GenericModal = lazy(() => import('../WebSources/GenericSourceModal'));
 const ConnectionModal = lazy(() => import('../Popups/ConnectionModal/ConnectionModal'));
+
 const spotlightsforunauthenticated = [
   {
     target: 'loginbutton',
@@ -146,6 +148,7 @@ const spotlights = [
   },
 ];
 const PageLayout: React.FC = () => {
+  console.log("PAGE LAYOUT ACTIVE");
   const [openConnection, setOpenConnection] = useState<connectionState>({
     openPopUp: false,
     chunksExists: false,
@@ -156,7 +159,6 @@ const PageLayout: React.FC = () => {
   const [isLeftExpanded, setIsLeftExpanded] = useState<boolean>(false);
   const [isRightExpanded, setIsRightExpanded] = useState<boolean>(false);
   const [showChatBot, setShowChatBot] = useState<boolean>(false);
-  const [showDrawerChatbot, setShowDrawerChatbot] = useState<boolean>(true);
   const [showEnhancementDialog, toggleEnhancementDialog] = useReducer((s) => !s, false);
   const [shows3Modal, toggleS3Modal] = useReducer((s) => !s, false);
   const [showGCSModal, toggleGCSModal] = useReducer((s) => !s, false);
@@ -625,30 +627,28 @@ const PageLayout: React.FC = () => {
         }}
         onApply={handleImporterApply}
       ></DataImporterSchemaDialog>
-      {isLargeDesktop ? (
-        <div
-          className={`layout-wrapper ${!isLeftExpanded ? 'drawerdropzoneclosed' : ''} ${!isRightExpanded ? 'drawerchatbotclosed' : ''
-            } ${!isRightExpanded && !isLeftExpanded ? 'drawerclosed' : ''}`}
-        >
-          <SideNav
-            toggles3Modal={toggleS3Modal}
-            toggleGCSModal={toggleGCSModal}
-            toggleGenericModal={toggleGenericModal}
-            isExpanded={isLeftExpanded}
-            position='left'
-            toggleDrawer={toggleLeftDrawer}
-          />
+      <DashboardScaffold
+        isLeftExpanded={isLeftExpanded}
+        isRightExpanded={isRightExpanded}
+        toggleLeftDrawer={toggleLeftDrawer}
+        toggleRightDrawer={toggleRightDrawer}
+        deleteOnClick={deleteOnClick}
+      >
+        <div className="flex-1 flex flex-col relative overflow-hidden">
           {isLeftExpanded && (
-            <DrawerDropzone
-              shows3Modal={shows3Modal}
-              showGCSModal={showGCSModal}
-              showGenericModal={showGenericModal}
-              toggleGCSModal={toggleGCSModal}
-              toggleGenericModal={toggleGenericModal}
-              toggleS3Modal={toggleS3Modal}
-              isExpanded={isLeftExpanded}
-            />
+            <div className="absolute left-0 top-0 bottom-0 z-20 w-80 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl animate-slide-in-left">
+              <DrawerDropzone
+                shows3Modal={shows3Modal}
+                showGCSModal={showGCSModal}
+                showGenericModal={showGenericModal}
+                toggleGCSModal={toggleGCSModal}
+                toggleGenericModal={toggleGenericModal}
+                toggleS3Modal={toggleS3Modal}
+                isExpanded={isLeftExpanded}
+              />
+            </div>
           )}
+          
           <Content
             openChatBot={openChatBot}
             showChatBot={showChatBot}
@@ -668,106 +668,41 @@ const PageLayout: React.FC = () => {
             combinedRels={combinedRelsVal}
             setCombinedRels={setCombinedRelsVal}
           />
+
           {isRightExpanded && (
-            <DrawerChatbot
-              messages={messages}
-              isExpanded={isRightExpanded}
-              clearHistoryData={clearHistoryData}
-              connectionStatus={connectionStatus}
-            />
-          )}
-          <SideNav
-            messages={messages}
-            isExpanded={isRightExpanded}
-            position='right'
-            toggleDrawer={toggleRightDrawer}
-            deleteOnClick={deleteOnClick}
-            showDrawerChatbot={showDrawerChatbot}
-            setShowDrawerChatbot={setShowDrawerChatbot}
-            setIsRightExpanded={setIsRightExpanded}
-            clearHistoryData={clearHistoryData}
-            toggleGCSModal={toggleGCSModal}
-            toggles3Modal={toggleS3Modal}
-            toggleGenericModal={toggleGenericModal}
-            setIsleftExpanded={setIsLeftExpanded}
-          />
-        </div>
-      ) : (
-        <>
-          {APP_SOURCES.includes('gcs') && (
-            <Suspense fallback={<FallBackDialog />}>
-              <GCSModal openGCSModal={toggleGCSModal} open={showGCSModal} hideModal={toggleGCSModal} />
-            </Suspense>
-          )}
-          {APP_SOURCES.includes('s3') && (
-            <Suspense fallback={<FallBackDialog />}>
-              <S3Modal hideModal={toggleS3Modal} open={shows3Modal} />
-            </Suspense>
-          )}
-
-          <Suspense fallback={<FallBackDialog />}>
-            <GenericModal
-              isOnlyYoutube={isYoutubeOnly}
-              isOnlyWikipedia={isWikipediaOnly}
-              isOnlyWeb={isWebOnly}
-              open={showGenericModal}
-              closeHandler={toggleGenericModal}
-            />
-          </Suspense>
-          <div className='layout-wrapper drawerclosed'>
-            <SideNav
-              toggles3Modal={toggleS3Modal}
-              toggleGCSModal={toggleGCSModal}
-              toggleGenericModal={toggleGenericModal}
-              isExpanded={isLeftExpanded}
-              position='left'
-              toggleDrawer={toggleLeftDrawer}
-            />
-
-            <Content
-              openChatBot={openChatBot}
-              showChatBot={showChatBot}
-              openTextSchema={openTextSchema}
-              openLoadSchema={openLoadSchema}
-              openPredefinedSchema={openPredefinedSchema}
-              openDataImporterSchema={openDataImporterSchema}
-              showEnhancementDialog={showEnhancementDialog}
-              toggleEnhancementDialog={toggleEnhancementDialog}
-              setOpenConnection={setOpenConnection}
-              showDisconnectButton={showDisconnectButton}
-              connectionStatus={connectionStatus}
-              combinedPatterns={combinedPatternsVal}
-              setCombinedPatterns={setCombinedPatternsVal}
-              combinedNodes={combinedNodesVal}
-              setCombinedNodes={setCombinedNodesVal}
-              combinedRels={combinedRelsVal}
-              setCombinedRels={setCombinedRelsVal}
-            />
-            {isRightExpanded && (
+            <div className="absolute right-0 top-0 bottom-0 z-20 w-96 bg-black/60 backdrop-blur-3xl border-l border-white/5 animate-slide-in-right shadow-2xl">
               <DrawerChatbot
                 messages={messages}
                 isExpanded={isRightExpanded}
                 clearHistoryData={clearHistoryData}
                 connectionStatus={connectionStatus}
               />
-            )}
-            <SideNav
-              messages={messages}
-              isExpanded={isRightExpanded}
-              position='right'
-              toggleDrawer={toggleRightDrawer}
-              deleteOnClick={deleteOnClick}
-              showDrawerChatbot={showDrawerChatbot}
-              setShowDrawerChatbot={setShowDrawerChatbot}
-              setIsRightExpanded={setIsRightExpanded}
-              clearHistoryData={clearHistoryData}
-              toggleGCSModal={toggleGCSModal}
-              toggles3Modal={toggleS3Modal}
-              toggleGenericModal={toggleGenericModal}
-              setIsleftExpanded={setIsLeftExpanded}
-            />
-          </div>
-        </>
+            </div>
+          )}
+        </div>
+      </DashboardScaffold>
+
+      {/* Modals for GCS, S3, Generic remain the same */}
+      {showGCSModal && (
+        <Suspense fallback={<FallBackDialog />}>
+          <GCSModal openGCSModal={toggleGCSModal} open={showGCSModal} hideModal={toggleGCSModal} />
+        </Suspense>
+      )}
+      {shows3Modal && (
+        <Suspense fallback={<FallBackDialog />}>
+          <S3Modal hideModal={toggleS3Modal} open={shows3Modal} />
+        </Suspense>
+      )}
+      {showGenericModal && (
+        <Suspense fallback={<FallBackDialog />}>
+          <GenericModal
+            isOnlyYoutube={isYoutubeOnly}
+            isOnlyWikipedia={isWikipediaOnly}
+            isOnlyWeb={isWebOnly}
+            open={showGenericModal}
+            closeHandler={toggleGenericModal}
+          />
+        </Suspense>
       )}
     </>
   );
