@@ -68,14 +68,14 @@ export default function ChatModeToggle({
         return {
           id: m.mode || `menu-item -${index}`,
           title: (
-            <div>
-              <Typography variant='subheading-small'>
+            <div style={{ color: 'gold' }}>
+              <Typography variant='subheading-small' style={{ color: 'gold' }}>
                 {chatModeReadableLables[m.mode].includes('+')
                   ? capitalizeWithPlus(chatModeReadableLables[m.mode])
                   : capitalize(chatModeReadableLables[m.mode])}
               </Typography>
               <div>
-                <Typography variant='body-small'>{m.description}</Typography>
+                <Typography variant='body-small' style={{ color: 'gold' }}>{m.description}</Typography>
               </div>
             </div>
           ),
