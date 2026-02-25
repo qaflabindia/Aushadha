@@ -114,14 +114,19 @@ CALL { WITH paths UNWIND paths AS path UNWIND relationships(path) as rel RETURN 
 RETURN nodes, rels`;
 };
 
+export const nodeHasLabel = (node: any, label: string) => {
+  const labelsToCheck = node.original_labels || node.labels || [];
+  return labelsToCheck.includes(label);
+};
+
 export const getSize = (node: any) => {
-  if (node.labels[0] == 'Document') {
+  if (nodeHasLabel(node, 'Document')) {
     return 40;
   }
-  if (node.labels[0] == 'Chunk') {
+  if (nodeHasLabel(node, 'Chunk')) {
     return 30;
   }
-  return undefined;
+  return 30;
 };
 
 export const getNodeCaption = (node: any) => {
@@ -134,17 +139,17 @@ export const getNodeCaption = (node: any) => {
   if (node.properties.fileName) {
     return node.properties.fileName;
   }
-  if (node.labels[0] === '__Community__') {
+  if (nodeHasLabel(node, '__Community__')) {
     return node.properties.title;
   }
   return node.properties.id;
 };
 
 export const getIcon = (node: any) => {
-  if (node.labels[0] == 'Document') {
+  if (nodeHasLabel(node, 'Document')) {
     return 'paginate-filter-text.svg';
   }
-  if (node.labels[0] == 'Chunk') {
+  if (nodeHasLabel(node, 'Chunk')) {
     return 'paragraph-left-align.svg';
   }
   return undefined;
@@ -158,6 +163,41 @@ export function extractPdfFileName(url: string): string {
     return splitedstr[splitedstr.length - 1];
   }
   return decodedFileName;
+}
+
+export function createHtmlLabel(caption: string, nodeSize: number = 40): HTMLElement {
+  const htmlEl = document.createElement('div');
+  const diameter = nodeSize * 2;
+  htmlEl.innerText = caption;
+  htmlEl.style.color = '#000000';
+  
+  // Font size calculation: scale nicely with node size (e.g. 40 size -> ~11px)
+  const fontSize = Math.max(9, Math.round(nodeSize * 0.28));
+  htmlEl.style.fontSize = `${fontSize}px`;
+  // Generic sans-serif stack supporting all OS-native typographic ligatures
+  htmlEl.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  htmlEl.style.textAlign = 'center';
+  
+  // Dynamic sizing perfectly matching circle bounding box bounds
+  htmlEl.style.width = `${diameter}px`;
+  htmlEl.style.height = `${diameter}px`;
+  htmlEl.style.boxSizing = 'border-box';
+  
+  // Padding based on node size to keep text inside the circle edge
+  const padding = Math.max(4, nodeSize * 0.15);
+  htmlEl.style.padding = `${padding}px`;
+  
+  htmlEl.style.wordWrap = 'break-word';
+  htmlEl.style.wordBreak = 'break-word';
+  htmlEl.style.lineHeight = '1.2';
+  htmlEl.style.pointerEvents = 'none'; 
+  
+  // Absolute center alignment inside the bounds
+  htmlEl.style.display = 'flex';
+  htmlEl.style.alignItems = 'center';
+  htmlEl.style.justifyContent = 'center';
+  htmlEl.style.backgroundColor = 'transparent';
+  return htmlEl;
 }
 
 export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRelationship[]) => {
@@ -177,15 +217,19 @@ export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRela
     }
   }
   const newNodes: ExtendedNode[] = filteredNeoNodes.map((g: any) => {
+    const rawCaption = getNodeCaption(g);
+    const nodeSize = getSize(g);
     return {
       id: g.element_id,
-      size: getSize(g),
+      size: nodeSize,
       captionAlign: 'bottom',
       iconAlign: 'bottom',
-      caption: getNodeCaption(g),
+      caption: '', 
+      html: createHtmlLabel(rawCaption, nodeSize),
       color: schemeVal[g.labels[0]],
       icon: getIcon(g),
       labels: g.labels,
+      original_labels: g.original_labels,
       properties: g.properties,
     };
   });
@@ -233,7 +277,7 @@ export const filterData = (
   // const processedEntities = entityTypes.flatMap(item => item.includes(',') ? item.split(',') : item);
   if (graphType.includes('DocumentChunk') && !graphType.includes('Entities') && !graphType.includes('Communities')) {
     filteredNodes = allNodes.filter(
-      (node) => (node.labels.includes('Document') && node.properties.fileName) || node.labels.includes('Chunk')
+      (node) => (nodeHasLabel(node, 'Document') && node.properties.fileName) || nodeHasLabel(node, 'Chunk')
     );
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
     filteredRelations = allRelationships.filter(
@@ -251,7 +295,7 @@ export const filterData = (
   ) {
     const entityNodes = allNodes.filter(
       (node) =>
-        !node.labels.includes('Document') && !node.labels.includes('Chunk') && !node.labels.includes('__Community__')
+        !nodeHasLabel(node, 'Document') && !nodeHasLabel(node, 'Chunk') && !nodeHasLabel(node, '__Community__')
     );
     filteredNodes = entityNodes ? entityNodes : [];
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
@@ -268,7 +312,7 @@ export const filterData = (
     !graphType.includes('DocumentChunk') &&
     !graphType.includes('Entities')
   ) {
-    filteredNodes = allNodes.filter((node) => node.labels.includes('__Community__'));
+    filteredNodes = allNodes.filter((node) => nodeHasLabel(node, '__Community__'));
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
     filteredRelations = allRelationships.filter(
       (rel) =>
@@ -283,9 +327,9 @@ export const filterData = (
   ) {
     filteredNodes = allNodes.filter(
       (node) =>
-        (node.labels.includes('Document') && node.properties.fileName) ||
-        node.labels.includes('Chunk') ||
-        (!node.labels.includes('Document') && !node.labels.includes('Chunk') && !node.labels.includes('__Community__'))
+        (nodeHasLabel(node, 'Document') && node.properties.fileName) ||
+        nodeHasLabel(node, 'Chunk') ||
+        (!nodeHasLabel(node, 'Document') && !nodeHasLabel(node, 'Chunk') && !nodeHasLabel(node, '__Community__'))
     );
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
     filteredRelations = allRelationships.filter(
@@ -305,8 +349,8 @@ export const filterData = (
     graphType.includes('Communities') &&
     !graphType.includes('DocumentChunk')
   ) {
-    const entityNodes = allNodes.filter((node) => !node.labels.includes('Document') && !node.labels.includes('Chunk'));
-    const communityNodes = allNodes.filter((node) => node.labels.includes('__Community__'));
+    const entityNodes = allNodes.filter((node) => !nodeHasLabel(node, 'Document') && !nodeHasLabel(node, 'Chunk'));
+    const communityNodes = allNodes.filter((node) => nodeHasLabel(node, '__Community__'));
     filteredNodes = [...entityNodes, ...communityNodes];
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
     filteredRelations = allRelationships.filter(
@@ -326,9 +370,9 @@ export const filterData = (
     !graphType.includes('Entities')
   ) {
     const documentChunkNodes = allNodes.filter(
-      (node) => (node.labels.includes('Document') && node.properties.fileName) || node.labels.includes('Chunk')
+      (node) => (nodeHasLabel(node, 'Document') && node.properties.fileName) || nodeHasLabel(node, 'Chunk')
     );
-    const communityNodes = allNodes.filter((node) => node.labels.includes('__Community__'));
+    const communityNodes = allNodes.filter((node) => nodeHasLabel(node, '__Community__'));
     filteredNodes = [...documentChunkNodes, ...communityNodes];
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
     filteredRelations = allRelationships.filter(
@@ -487,21 +531,21 @@ export function isAllowedHost(url: string, allowedHosts: string[]) {
 }
 
 export const getCheckboxConditions = (allNodes: ExtendedNode[]) => {
-  const isDocChunk = allNodes.some((n) => n.labels?.includes('Document') || n.labels?.includes('Chunk'));
+  const isDocChunk = allNodes.some((n) => nodeHasLabel(n, 'Document') || nodeHasLabel(n, 'Chunk'));
   const isEntity = allNodes.some(
-    (n) => !n.labels?.includes('Document') && !n.labels?.includes('Chunk') && !n.labels?.includes('__Community__')
+    (n) => !nodeHasLabel(n, 'Document') && !nodeHasLabel(n, 'Chunk') && !nodeHasLabel(n, '__Community__')
   );
-  const isCommunity = allNodes.some((n) => n.labels?.includes('__Community__'));
+  const isCommunity = allNodes.some((n) => nodeHasLabel(n, '__Community__'));
   return { isDocChunk, isEntity, isCommunity };
 };
 
 export const graphTypeFromNodes = (allNodes: ExtendedNode[]) => {
   const graphType: GraphType[] = [];
-  const hasDocChunk = allNodes.some((n) => n.labels?.includes('Document') || n.labels?.includes('Chunk'));
+  const hasDocChunk = allNodes.some((n) => nodeHasLabel(n, 'Document') || nodeHasLabel(n, 'Chunk'));
   const hasEntity = allNodes.some(
-    (n) => !n.labels?.includes('Document') && !n.labels?.includes('Chunk') && !n.labels?.includes('__Community__')
+    (n) => !nodeHasLabel(n, 'Document') && !nodeHasLabel(n, 'Chunk') && !nodeHasLabel(n, '__Community__')
   );
-  const hasCommunity = allNodes.some((n) => n.labels?.includes('__Community__'));
+  const hasCommunity = allNodes.some((n) => nodeHasLabel(n, '__Community__'));
   if (hasDocChunk) {
     graphType.push('DocumentChunk');
   }
@@ -571,11 +615,14 @@ export const userDefinedGraphSchema = (nodes: OptionType[], relationships: Optio
       schemeVal[label] = calcWordColor(label);
       iterator += 1;
     }
+    const nodeSize = 40;
     return {
       id: `node-${index + 0}`,
       element_id: `node-${index + 0}`,
+      size: nodeSize,
       color: schemeVal[label],
-      caption: label,
+      caption: '',
+      html: createHtmlLabel(label, nodeSize),
       labels: [label],
       properties: {
         name: label,
@@ -756,8 +803,10 @@ export const generateGraphFromNodeAndRelVals = (
       }
       uniqueNodesMap.set(key, {
         id: `node-${nodeIdCounter}`,
+        size: 40,
         color: schemeVal[node.label],
-        caption: node.label,
+        caption: '',
+        html: createHtmlLabel(node.label, 40),
         labels: [node.label],
         properties: {
           name: node.value,
@@ -772,7 +821,7 @@ export const generateGraphFromNodeAndRelVals = (
   const nodeValueToIdMap: Record<string, string> = {};
   transformedNodes.forEach((node) => {
     // @ts-ignore
-    nodeValueToIdMap[node.caption] = node.id;
+    nodeValueToIdMap[node.labels[0]] = node.id;
   });
   const seenRelTypes = new Set<string>();
   const transformedRelationships: ExtendedRelationship[] = [];

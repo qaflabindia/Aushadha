@@ -1,4 +1,4 @@
-import { NvlOptions } from '@neo4j-nvl/base';
+import type { NvlOptions } from '@neo4j-nvl/base';
 import { GraphType, OptionType, PatternOption } from '../types';
 import { getDateTime, getDescriptionForChatMode } from './Utils';
 import chatbotmessages from '../assets/ChatbotMessages.json';

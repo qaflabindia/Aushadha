@@ -171,3 +171,9 @@
 .ndl-theme-dark ::-webkit-scrollbar-thumb:hover {
   background: var(--luxury-gold);
 }
+
+/* Universal Font Support for SVG layers (Edges) */
+.nvl-container svg text,
+.nvl-container text {
+  font-family: 'Inter', "Noto Sans Tamil", -apple-system, system-ui, sans-serif !important;
+}

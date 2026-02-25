@@ -470,6 +470,7 @@ export interface Chunk {
 
 export interface ExtendedNode extends Node {
   labels: string[];
+  original_labels?: string[];
   properties: {
     fileName?: string;
     [key: string]: any;

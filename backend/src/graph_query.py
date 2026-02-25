@@ -294,6 +294,7 @@ async def translate_graph_labels(nodes, relationships, language, model):
 
     for node in nodes:
         if node and "labels" in node:
+            node["original_labels"] = list(node["labels"])
             node["labels"] = [get_translated(label) for label in node["labels"]]
         if node and "properties" in node:
             prop_id = node["properties"].get("id")
