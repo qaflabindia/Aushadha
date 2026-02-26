@@ -63,7 +63,15 @@ def get_llm(model: str):
         elif "ANTHROPIC" in model:
             api_key = get_value_from_env("ANTHROPIC_API_KEY")
             if api_key:
-                env_value = f"{model.lower().replace('_', '.')},{api_key}"
+                # Map frontend model identifiers to Anthropic API model names
+                anthropic_model_map = {
+                    "ANTHROPIC_CLAUDE_4_5_SONNET": "claude-sonnet-4-20250514",
+                    "ANTHROPIC_CLAUDE_4_5_HAIKU": "claude-haiku-4-20250514",
+                    "ANTHROPIC_CLAUDE_4_OPUS": "claude-opus-4-20250514",
+                    "ANTHROPIC_CLAUDE_3_5_SONNET": "claude-3-5-sonnet-20241022",
+                }
+                api_model_name = anthropic_model_map.get(model, model.lower().replace("anthropic_", "claude-").replace("_", "-"))
+                env_value = f"{api_model_name},{api_key}"
         
         elif "FIREWORKS" in model:
             api_key = get_value_from_env("FIREWORKS_API_KEY")

@@ -728,13 +728,13 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
         if (res.data.status !== 'Failed') {
           const prefiles: CustomFile[] = [];
           if (res.data.data.length) {
-            res.data.data.forEach((item) => {
+            res.data.data.forEach((item: SourceNode) => {
               if (item.fileName != undefined && item.fileName.length) {
                 const waitingFile =
                   waitingQueue.length && waitingQueue.find((f: CustomFile) => f.name === item.fileName);
                 if (isFileCompleted(waitingFile as CustomFile, item)) {
                   setProcessedCount((prev) => calculateProcessedCount(prev, batchSize));
-                  queue.remove((i) => i.name === item.fileName);
+                  queue.remove((i: CustomFile) => i.name === item.fileName);
                 }
                 if (waitingFile && item.status === 'Completed') {
                   setProcessedCount((prev) => {
@@ -743,7 +743,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
                     }
                     return prev + 1;
                   });
-                  queue.remove((i) => i.name === item.fileName);
+                  queue.remove((i: CustomFile) => i.name === item.fileName);
                 }
                 prefiles.push({
                   name: item?.fileName,
@@ -784,7 +784,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
                 });
               }
             });
-            res.data.data.forEach((item) => {
+            res.data.data.forEach((item: SourceNode) => {
               if (isProcessingFileValid(item, userCredentials as UserCredentials)) {
                 item.fileSize < largeFileSize
                   ? handleSmallFile(item, userCredentials as UserCredentials)
@@ -850,7 +850,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             const existingFile = filesData.find((f) => f.name === item.fileName);
             if (existingFile) {
               // Check if file is in queue
-              const isInQueue = queue.items.some((f) => f.name === item.fileName);
+              const isInQueue = queue.items.some((f: CustomFile) => f.name === item.fileName);
               return {
                 ...existingFile,
                 status: isInQueue ? 'Waiting' : getFileSourceStatus(item),
@@ -866,7 +866,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
         setFilesData(updatedFiles as CustomFile[]);
         setRowSelection((prev) => {
           const updated = { ...prev };
-          updatedFiles.forEach((file) => {
+          updatedFiles.forEach((file: CustomFile | undefined) => {
             if (file?.status === 'Cancelled' && updated[file.id]) {
               delete updated[file.id];
             }
@@ -887,8 +887,8 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
 
     setIsCancellingQueue(true);
     try {
-      const queuedFileNames = queue.items.map((f) => f.name as string).filter(Boolean);
-      const queuedFileSources = queue.items.map((f) => f.fileSource as string).filter(Boolean);
+      const queuedFileNames = queue.items.map((f: CustomFile) => f.name as string).filter(Boolean);
+      const queuedFileSources = queue.items.map((f: CustomFile) => f.fileSource as string).filter(Boolean);
       const res = await cancelAPI(queuedFileNames, queuedFileSources);
 
       if (res.data.status === 'Success') {
@@ -946,7 +946,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
           }
           return prev + 1;
         });
-        queue.remove((i) => i.name === fileName);
+        queue.remove((i: CustomFile) => i.name === fileName);
       } else {
         let errorobj = { error: res.data.error, message: res.data.message, fileName };
         throw new Error(JSON.stringify(errorobj));
@@ -1020,7 +1020,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
         }
         return prev + 1;
       });
-      queue.remove((i) => i.name === fileName);
+      queue.remove((i: CustomFile) => i.name === fileName);
     }
   };
 

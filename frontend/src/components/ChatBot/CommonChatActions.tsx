@@ -3,6 +3,9 @@ import { Messages } from '../../types';
 import ButtonWithToolTip from '../UI/ButtonWithToolTip';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
 import { buttonCaptions, tooltips } from '../../utils/Constants';
+import { useContext } from 'react';
+import { ThemeWrapperContext } from '../../context/ThemeWrapper';
+import clsx from 'clsx';
 
 export default function CommonActions({
   chat,
@@ -19,10 +22,19 @@ export default function CommonActions({
   copyHandler: (message: string, id: number) => void;
   listMessages: Messages[];
 }) {
+  const { colorMode } = useContext(ThemeWrapperContext);
+
   return (
-    <>
+    <div className='flex items-center gap-2'>
       <ButtonWithToolTip
-        className='w-4 h-4 inline-block p-6 mt-1.5'
+        className={clsx(
+          'px-4 py-1.5 h-auto rounded-xl text-[10px] uppercase font-extrabold tracking-widest transition-all duration-300 backdrop-blur-md',
+          {
+            'bg-[#D4AF37] !text-black border border-[#D4AF37]/30 hover:bg-[#C5A028] hover:shadow-[0_0_15px_rgba(212,175,55,0.4)]':
+              colorMode === 'dark',
+            'bg-blue-50/80 !text-blue-600 border border-blue-200 hover:bg-blue-100': colorMode === 'light',
+          }
+        )}
         fill='text'
         placement='top'
         clean
@@ -60,6 +72,6 @@ export default function CommonActions({
           <SpeakerWaveIconOutline className='n-size-token-4' />
         )}
       </IconButtonWithToolTip>
-    </>
+    </div>
   );
 }

@@ -170,28 +170,29 @@ export function createHtmlLabel(caption: string, nodeSize: number = 40): HTMLEle
   const diameter = nodeSize * 2;
   htmlEl.innerText = caption;
   htmlEl.style.color = '#000000';
-  
+
   // Font size calculation: scale nicely with node size (e.g. 40 size -> ~11px)
   const fontSize = Math.max(9, Math.round(nodeSize * 0.28));
   htmlEl.style.fontSize = `${fontSize}px`;
   // Generic sans-serif stack supporting all OS-native typographic ligatures
-  htmlEl.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+  htmlEl.style.fontFamily =
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
   htmlEl.style.textAlign = 'center';
-  
+
   // Dynamic sizing perfectly matching circle bounding box bounds
   htmlEl.style.width = `${diameter}px`;
   htmlEl.style.height = `${diameter}px`;
   htmlEl.style.boxSizing = 'border-box';
-  
+
   // Padding based on node size to keep text inside the circle edge
   const padding = Math.max(4, nodeSize * 0.15);
   htmlEl.style.padding = `${padding}px`;
-  
+
   htmlEl.style.wordWrap = 'break-word';
   htmlEl.style.wordBreak = 'break-word';
   htmlEl.style.lineHeight = '1.2';
-  htmlEl.style.pointerEvents = 'none'; 
-  
+  htmlEl.style.pointerEvents = 'none';
+
   // Absolute center alignment inside the bounds
   htmlEl.style.display = 'flex';
   htmlEl.style.alignItems = 'center';
@@ -224,7 +225,7 @@ export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRela
       size: nodeSize,
       captionAlign: 'bottom',
       iconAlign: 'bottom',
-      caption: '', 
+      caption: '',
       html: createHtmlLabel(rawCaption, nodeSize),
       color: schemeVal[g.labels[0]],
       icon: getIcon(g),
@@ -294,8 +295,7 @@ export const filterData = (
     !graphType.includes('Communities')
   ) {
     const entityNodes = allNodes.filter(
-      (node) =>
-        !nodeHasLabel(node, 'Document') && !nodeHasLabel(node, 'Chunk') && !nodeHasLabel(node, '__Community__')
+      (node) => !nodeHasLabel(node, 'Document') && !nodeHasLabel(node, 'Chunk') && !nodeHasLabel(node, '__Community__')
     );
     filteredNodes = entityNodes ? entityNodes : [];
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
@@ -668,7 +668,7 @@ export const userDefinedGraphSchema = (nodes: OptionType[], relationships: Optio
     nodes: transformedNodes,
     relationships: transformedRelationships,
     scheme: schemeVal,
-  };
+  } as any;
 };
 
 export const getSelectedTriplets = (
@@ -714,15 +714,15 @@ export const getSelectedTriplets = (
 export const extractOptions = (schemaTuples: TupleType[]) => {
   const nodeLabelSet = new Set<string>();
   const relationshipSet = new Set<string>();
-  schemaTuples.forEach((tuple) => {
+  schemaTuples.forEach((tuple: any) => {
     if (tuple.source) {
       nodeLabelSet.add(tuple.source);
     }
     if (tuple.target) {
       nodeLabelSet.add(tuple.target);
     }
-    if (tuple.value) {
-      relationshipSet.add(tuple.value);
+    if (tuple.value || tuple.type) {
+      relationshipSet.add(tuple.value || tuple.type);
     }
   });
   const nodeLabelOptions: OptionType[] = Array.from(nodeLabelSet).map((label) => ({
@@ -851,10 +851,10 @@ export const generateGraphFromNodeAndRelVals = (
     });
   });
   return {
-    nodes: transformedNodes,
-    relationships: transformedRelationships,
+    nodelabels: transformedNodes.map((n) => n.properties.name as string),
+    relationshipTypes: transformedRelationships.map((r) => r.type as string),
     scheme: schemeVal,
-  };
+  } as any;
 };
 export function parseRelationshipString(input: string): {
   value: string;

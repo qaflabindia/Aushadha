@@ -51,7 +51,6 @@ export default function DeduplicationTab() {
       }
       if (duplicateNodesData.data.data.length) {
         setDuplicateNodes(duplicateNodesData.data.data);
-        // @ts-ignore
         setNodesCount(duplicateNodesData.data.message.total);
       } else {
         setDuplicateNodes([]);

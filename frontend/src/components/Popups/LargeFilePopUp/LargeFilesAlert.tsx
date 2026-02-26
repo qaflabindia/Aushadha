@@ -16,7 +16,7 @@ import s3logo from '../../../assets/images/s3logo.png';
 import { calculateProcessingTime } from '../../../utils/Utils';
 import { ThemeWrapperContext } from '../../../context/ThemeWrapper';
 
-const LargeFilesAlert: FC<LargefilesProps> = ({ Files, handleToggle, checked }) => {
+const LargeFilesAlert: FC<LargefilesProps> = ({ Files = [], handleToggle = () => {}, checked = [] }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
 
   const imageIcon: Record<string, string> = useMemo(

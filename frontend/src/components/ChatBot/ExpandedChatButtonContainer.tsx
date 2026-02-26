@@ -1,57 +1,94 @@
-import { TrashIconOutline, XMarkIconOutline } from '@neo4j-ndl/react/icons';
-import ChatModeToggle from './ChatModeToggle';
-import { IconButton } from '@neo4j-ndl/react';
-import { IconProps } from '../../types';
+import {
+  TrashIconOutline,
+  ChevronRightIconOutline,
+  ArrowsPointingOutIconSolid,
+  ArrowsPointingInIconSolid,
+  ArrowDownTrayIconOutline,
+} from '@neo4j-ndl/react/icons';
+
+import { Messages } from '../../types';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
 import { tooltips } from '../../utils/Constants';
-import { memo, useRef, useState } from 'react';
-import { RiChatSettingsLine } from 'react-icons/ri';
+import { memo, useRef, useContext } from 'react';
+import clsx from 'clsx';
+import { ThemeWrapperContext } from '../../context/ThemeWrapper';
+import { downloadClickHandler } from '../../utils/Utils';
 
-const ExpandedChatButtonContainer: React.FC<IconProps> = ({ closeChatBot, deleteOnClick, messages }) => {
-  const chatAnchor = useRef<HTMLDivElement>(null);
-  const [showChatModeOption, setshowChatModeOption] = useState<boolean>(false);
+export interface ExpandedChatButtonProps {
+  closeChatBot: () => void;
+  deleteOnClick: () => void;
+  messages: Messages[];
+  isFullScreen?: boolean;
+  toggleFullScreen?: () => void;
+}
+
+const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
+  closeChatBot,
+  deleteOnClick,
+  messages,
+  isFullScreen,
+  toggleFullScreen,
+}) => {
+  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
+  const { colorMode } = useContext(ThemeWrapperContext);
+
   return (
-    <div className='flex items-end justify-end'>
-      <ChatModeToggle
-        closeHandler={(_, reason) => {
-          if (reason.type === 'backdropClick') {
-            setshowChatModeOption(false);
+    <>
+      <a ref={downloadLinkRef} className='hidden' />
+      <div
+        className={clsx(
+          'w-14 min-w-[56px] flex flex-col items-center py-4 gap-4 transition-all duration-700 glass-luxe z-30',
+          {
+            'bg-[#080808]/60 border-l border-white/10': colorMode === 'dark',
+            'bg-white/60 border-l border-gray-200': colorMode === 'light',
           }
-        }}
-        open={showChatModeOption}
-        menuAnchor={chatAnchor}
-        isRoot={false}
-      />
-      <div className='h-[48px]! mx-2 flex! items-center'>
-        <div ref={chatAnchor}>
-          <IconButtonWithToolTip
-            onClick={() => {
-              setshowChatModeOption(true);
-            }}
-            clean
-            text='Chat mode'
-            placement='bottom'
-            label='Chat mode'
-          >
-            <RiChatSettingsLine />
-          </IconButtonWithToolTip>
-        </div>
+        )}
+      >
+        <IconButtonWithToolTip text='Close' onClick={closeChatBot} clean placement='left' label='Close'>
+          <ChevronRightIconOutline className='w-7 h-7 outline-none' />
+        </IconButtonWithToolTip>
+
         <IconButtonWithToolTip
           text={tooltips.clearChat}
           aria-label='Remove chat history'
           clean
           onClick={deleteOnClick}
-          disabled={messages.length === 1}
-          placement={'left'}
+          disabled={messages.length <= 1}
+          placement='left'
           label={tooltips.clearChat}
         >
-          <TrashIconOutline />
+          <TrashIconOutline
+            className={clsx('w-7 h-7 outline-none', messages.length <= 1 ? 'opacity-50' : 'text-red-500')}
+          />
         </IconButtonWithToolTip>
-        <IconButton ariaLabel='Remove chatbot' isClean={true} onClick={closeChatBot}>
-          <XMarkIconOutline className='n-size-token-7' />
-        </IconButton>
+
+        {toggleFullScreen && (
+          <IconButtonWithToolTip
+            text={isFullScreen ? 'Collapse Screen' : 'Expand Screen'}
+            onClick={toggleFullScreen}
+            clean
+            placement='left'
+            label='Toggle Fullscreen'
+          >
+            {isFullScreen ? (
+              <ArrowsPointingInIconSolid className='w-7 h-7 outline-none' />
+            ) : (
+              <ArrowsPointingOutIconSolid className='w-7 h-7 outline-none' />
+            )}
+          </IconButtonWithToolTip>
+        )}
+
+        <IconButtonWithToolTip
+          text='Download Chat'
+          onClick={() => downloadClickHandler({ conversation: messages }, downloadLinkRef as any, 'aushadha-chat.json')}
+          clean
+          placement='left'
+          label='Download'
+        >
+          <ArrowDownTrayIconOutline className='w-7 h-7 outline-none' />
+        </IconButtonWithToolTip>
       </div>
-    </div>
+    </>
   );
 };
 

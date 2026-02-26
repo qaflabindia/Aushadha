@@ -35,7 +35,8 @@ from src.llm import get_llm
 from src.shared.common_fn import load_embedding_model, track_token_usage,get_value_from_env
 from src.shared.constants import (
     CHAT_SYSTEM_TEMPLATE, CHAT_TOKEN_CUT_OFF, CHAT_ENTITY_VECTOR_MODE,
-    CHAT_GLOBAL_VECTOR_FULLTEXT_MODE, CHAT_SEARCH_KWARG_SCORE_THRESHOLD,CHAT_MODE_CONFIG_MAP, CHAT_DEFAULT_MODE, CHAT_GRAPH_MODE,CHAT_EMBEDDING_FILTER_SCORE_THRESHOLD, CHAT_DOC_SPLIT_SIZE, QUESTION_TRANSFORM_TEMPLATE
+    CHAT_GLOBAL_VECTOR_FULLTEXT_MODE, CHAT_SEARCH_KWARG_SCORE_THRESHOLD,CHAT_MODE_CONFIG_MAP, CHAT_DEFAULT_MODE, CHAT_GRAPH_MODE,CHAT_EMBEDDING_FILTER_SCORE_THRESHOLD, CHAT_DOC_SPLIT_SIZE, QUESTION_TRANSFORM_TEMPLATE,
+    CHAT_AYUSH_MODE, AYUSH_MASTER_PROMPT
 )
 load_dotenv() 
 
@@ -630,6 +631,139 @@ def process_graph_response(model, graph, question, messages, history):
             "user": "chatbot"
         }
 
+def process_ayush_response(model: str, graph, document_names: str, question: str, messages: list, history, session_id: str) -> dict:
+    """
+    Handle the `ayush_clinical` chat mode.
+    1. Get LLM (uses the secret vault for the API key).
+    2. Fetch relevant document chunks from Neo4j vector index.
+    3. Fetch live web context (PubMed + DuckDuckGo) from AYUSH trusted sources.
+    4. Invoke the LLM with the AYUSH_MASTER_PROMPT using combined context.
+    """
+    import time
+
+    start_time = time.time()
+    model_version = model
+
+    try:
+        # ── 1. LLM from secret vault ────────────────────────────────────────────
+        if model == "diffbot":
+            model = get_value_from_env("DEFAULT_DIFFBOT_CHAT_MODEL", "openai_gpt_4o_mini")
+        llm, model_version, _ = get_llm(model=model)
+        logging.info(f"AYUSH mode: LLM connection verified — model={model_version}")
+
+        # ── 2. Document chunks from Neo4j ───────────────────────────────────────
+        doc_context = ""
+        doc_sources: list = []
+        try:
+            # Use the vector+fulltext retrieval mode (same as regular RAG)
+            vector_fulltext_settings = get_chat_mode_settings(mode=CHAT_DEFAULT_MODE)
+            doc_names_list = list(map(str.strip, json.loads(document_names))) if document_names else []
+            retriever = get_neo4j_retriever(
+                graph=graph,
+                document_names=doc_names_list,
+                chat_mode_settings=vector_fulltext_settings,
+                score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD
+            )
+            doc_retriever_chain = create_document_retriever_chain(llm, retriever)
+            docs, _ = retrieve_documents(doc_retriever_chain, messages)
+            if docs:
+                chunks = []
+                for d in docs:
+                    src = d.metadata.get("fileName", d.metadata.get("source", ""))
+                    if src and src not in doc_sources:
+                        doc_sources.append(src)
+                    chunks.append(d.page_content)
+                doc_context = "\n\n".join(chunks)
+                logging.info(f"AYUSH mode: retrieved {len(docs)} document chunks from Neo4j")
+            else:
+                logging.info("AYUSH mode: no matching document chunks found.")
+        except Exception as e:
+            logging.warning(f"AYUSH mode: document retrieval failed (non-fatal): {e}")
+
+        # ── 3. Construct Final Context ──────────────────────────────────────────
+        combined_parts = []
+        if doc_context:
+            combined_parts.append(f"### Uploaded Document Excerpts (AYUSH Knowledge Base):\n{doc_context}")
+
+        # DuckDuckGo search removed as per user requirement to use only LLM provider directly
+
+        if not combined_parts:
+            combined_context = "NO UPLOADED DOCUMENT CONTEXT AVAILABLE. YOU MUST PROCEED WITH THE RESEARCH REQUEST using your internal, established AYUSH pharmacology and clinical principles. Clearly note where specific trial evidence is absent, but DO NOT REFUSE the query."
+        else:
+            combined_context = "\n\n".join(combined_parts)
+
+        all_sources = doc_sources
+
+        # ── 5. Call LLM with AYUSH Master Prompt ───────────────────────────────
+        ayush_prompt = ChatPromptTemplate.from_messages([
+            ("system", AYUSH_MASTER_PROMPT),
+            MessagesPlaceholder(variable_name="messages"),
+            ("human", "User question: {input}"),
+        ])
+        ayush_chain = ayush_prompt | llm
+
+        ai_response = ayush_chain.invoke({
+            "messages": messages[:-1],
+            "context": combined_context,
+            "input": question,
+        })
+
+        content = ai_response.content
+        total_tokens = get_total_tokens(ai_response, llm)
+
+        # Save to database
+        try:
+            db_history = create_neo4j_chat_message_history(graph, session_id)
+            db_history.add_user_message(question)
+            db_history.add_ai_message(content)
+        except Exception as e:
+            logging.error(f"AYUSH mode: Failed to persist chat history: {e}")
+        predict_time = time.time() - start_time
+
+        ai_msg = AIMessage(content=content)
+        messages.append(ai_msg)
+
+        summarization_thread = threading.Thread(target=summarize_and_log, args=(history, messages, llm))
+        summarization_thread.start()
+
+        logging.info(f"AYUSH clinical response generated in {predict_time:.2f}s using {model_version}")
+
+        return {
+            "session_id": "",
+            "message": content,
+            "info": {
+                "sources": all_sources,
+                "model": model_version,
+                "nodedetails": {"chunkdetails": [], "entitydetails": [], "communitydetails": []},
+                "total_tokens": total_tokens,
+                "response_time": round(predict_time, 2),
+                "mode": CHAT_AYUSH_MODE,
+                "entities": {"entityids": [], "relationshipids": []},
+                "metric_details": {"question": question, "contexts": combined_context[:500], "answer": content},
+            },
+            "user": "chatbot",
+        }
+
+    except Exception as e:
+        logging.exception(f"Error in AYUSH clinical mode: {e}")
+        return {
+            "session_id": "",
+            "message": f"AYUSH clinical mode encountered an error: {type(e).__name__}: {str(e)[:200]}",
+            "info": {
+                "sources": [],
+                "model": model_version,
+                "nodedetails": {"chunkdetails": [], "entitydetails": [], "communitydetails": []},
+                "total_tokens": 0,
+                "response_time": round(time.time() - start_time, 2),
+                "mode": CHAT_AYUSH_MODE,
+                "entities": {"entityids": [], "relationshipids": []},
+                "metric_details": {},
+            },
+            "user": "chatbot",
+        }
+
+    return chat_mode_settings
+
 def create_neo4j_chat_message_history(graph, session_id, write_access=True):
     """
     Creates and returns a Neo4jChatMessageHistory instance.
@@ -663,7 +797,7 @@ def get_chat_mode_settings(mode,settings_map=CHAT_MODE_CONFIG_MAP):
         raise
 
     return chat_mode_settings
-    
+
 def QA_RAG(graph, model, question, document_names, session_id, mode, write_access=True, email=None, uri=None):
     logging.info(f"Chat Mode: {mode}")
 
@@ -675,6 +809,8 @@ def QA_RAG(graph, model, question, document_names, session_id, mode, write_acces
 
     if mode == CHAT_GRAPH_MODE:
         result = process_graph_response(model, graph, question, messages, history)
+    elif mode == CHAT_AYUSH_MODE:
+        result = process_ayush_response(model, graph, document_names, question, messages, history, session_id)
     else:
         chat_mode_settings = get_chat_mode_settings(mode=mode)
         document_names= list(map(str.strip, json.loads(document_names)))

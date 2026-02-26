@@ -12,25 +12,26 @@ export const llms =
   import.meta.env?.VITE_LLM_MODELS?.trim() != ''
     ? (import.meta.env.VITE_LLM_MODELS?.split(',') as string[])
     : [
-      'gemini_2.5_flash',
-      'openai_gpt_5.2',
-      'openai_gpt_5_mini',
-      'gemini_2.5_pro',
-      'diffbot',
-      'groq_llama3.1_8b',
-      'anthropic_claude_4.5_sonnet',
-      'anthropic_claude_4.5_haiku',
-      'llama4_maverick',
-      'bedrock_nova_micro_v1',
-      'bedrock_nova_lite_v1',
-      'bedrock_nova_pro_v1',
-      'fireworks_deepseek_v3',
-      'fireworks_qwen3_30b',
-      'fireworks_gpt_oss',
-      'local_llama',
-      'sarvam_sarvam-m',
-      'sarvam_local_2b',
-    ];
+        'gemini_2.5_flash',
+        'openai_gpt_5.2',
+        'openai_gpt_5_mini',
+        'gemini_2.5_pro',
+        'diffbot',
+        'groq_llama3.1_8b',
+        'anthropic_claude_4.5_sonnet',
+        'anthropic_claude_4.5_haiku',
+        'anthropic_claude_4_opus',
+        'llama4_maverick',
+        'bedrock_nova_micro_v1',
+        'bedrock_nova_lite_v1',
+        'bedrock_nova_pro_v1',
+        'fireworks_deepseek_v3',
+        'fireworks_qwen3_30b',
+        'fireworks_gpt_oss',
+        'local_llama',
+        'sarvam_sarvam-m',
+        'sarvam_local_2b',
+      ];
 
 export const prodllms =
   import.meta.env.VITE_LLM_MODELS_PROD?.trim() != ''
@@ -47,6 +48,7 @@ export const chatModeLables = {
   unavailableChatMode: 'Chat mode is unavailable when files are selected',
   selected: 'Selected',
   'global search+vector+fulltext': 'global_vector',
+  'ayush clinical': 'ayush_clinical',
 };
 export const chatModeReadableLables: Record<string, string> = {
   vector: 'vector',
@@ -58,43 +60,49 @@ export const chatModeReadableLables: Record<string, string> = {
   unavailableChatMode: 'Chat mode is unavailable when files are selected',
   selected: 'Selected',
   global_vector: 'global search+vector+fulltext',
+  ayush_clinical: 'AYUSH Clinical',
 };
 export const chatModes = import.meta.env?.VITE_CHAT_MODES?.trim()
   ? import.meta.env.VITE_CHAT_MODES?.split(',').map((mode: string) => ({
-    mode: mode.trim(),
-    description: getDescriptionForChatMode(mode.trim()),
-  }))
+      mode: mode.trim(),
+      description: getDescriptionForChatMode(mode.trim()),
+    }))
   : [
-    {
-      mode: chatModeLables.vector,
-      description: 'Performs semantic similarity search on text chunks using vector indexing.',
-    },
-    {
-      mode: chatModeLables.graph,
-      description: 'Translates text to Cypher queries for precise data retrieval from a graph database.',
-    },
-    {
-      mode: chatModeLables['graph+vector'],
-      description: 'Combines vector indexing and graph connections for contextually enhanced semantic search.',
-    },
-    {
-      mode: chatModeLables.fulltext,
-      description: 'Conducts fast, keyword-based search using full-text indexing on text chunks.',
-    },
-    {
-      mode: chatModeLables['graph+vector+fulltext'],
-      description: 'Integrates vector, graph, and full-text indexing for comprehensive search results.',
-    },
-    {
-      mode: chatModeLables['entity search+vector'],
-      description: 'Uses vector indexing on entity nodes for highly relevant entity-based search.',
-    },
-    {
-      mode: chatModeLables['global search+vector+fulltext'],
-      description:
-        'Use vector and full-text indexing on community nodes to provide accurate, context-aware answers globally.',
-    },
-  ];
+      {
+        mode: chatModeLables.vector,
+        description: 'Performs semantic similarity search on text chunks using vector indexing.',
+      },
+      {
+        mode: chatModeLables.graph,
+        description: 'Translates text to Cypher queries for precise data retrieval from a graph database.',
+      },
+      {
+        mode: chatModeLables['graph+vector'],
+        description: 'Combines vector indexing and graph connections for contextually enhanced semantic search.',
+      },
+      {
+        mode: chatModeLables.fulltext,
+        description: 'Conducts fast, keyword-based search using full-text indexing on text chunks.',
+      },
+      {
+        mode: chatModeLables['graph+vector+fulltext'],
+        description: 'Integrates vector, graph, and full-text indexing for comprehensive search results.',
+      },
+      {
+        mode: chatModeLables['entity search+vector'],
+        description: 'Uses vector indexing on entity nodes for highly relevant entity-based search.',
+      },
+      {
+        mode: chatModeLables['global search+vector+fulltext'],
+        description:
+          'Use vector and full-text indexing on community nodes to provide accurate, context-aware answers globally.',
+      },
+      {
+        mode: chatModeLables['ayush clinical'],
+        description:
+          'Live search across authenticated AYUSH government and research databases for evidence-graded clinical intelligence (Ayurveda, Unani, Siddha, Yoga, Homeopathy).',
+      },
+    ];
 
 export const chunkSize = import.meta.env.VITE_CHUNK_SIZE ? Number(import.meta.env.VITE_CHUNK_SIZE) : 1 * 1024 * 1024;
 export const tokenchunkSize = import.meta.env.VITE_TOKENS_PER_CHUNK

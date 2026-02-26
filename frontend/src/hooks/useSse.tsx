@@ -38,8 +38,8 @@ export default function useServerSideEvent(
         const updateState = processed_chunk != processcountmap[fileName];
         if (updateState) {
           processcountmap[fileName] = processed_chunk;
-          setFilesData((prevfiles) => {
-            return prevfiles.map((curfile) => {
+          setFilesData((prevfiles: any) => {
+            return prevfiles.map((curfile: any) => {
               if (curfile.name == fileName) {
                 return {
                   ...curfile,
@@ -63,8 +63,8 @@ export default function useServerSideEvent(
         }
       }
     } else if (status === 'Completed') {
-      setFilesData((prevfiles) => {
-        return prevfiles.map((curfile) => {
+      setFilesData((prevfiles: any) => {
+        return prevfiles.map((curfile: any) => {
           if (curfile.name == fileName) {
             return {
               ...curfile,
@@ -84,7 +84,7 @@ export default function useServerSideEvent(
           return curfile;
         });
       });
-      setProcessedCount((prev) => {
+      setProcessedCount((prev: any) => {
         if (prev == batchSize) {
           return batchSize - 1;
         }
@@ -92,8 +92,8 @@ export default function useServerSideEvent(
       });
       delete processcountmap[fileName];
     } else if (eventSourceRes.status === 'Failed') {
-      setFilesData((prevfiles) => {
-        return prevfiles.map((curfile) => {
+      setFilesData((prevfiles: any) => {
+        return prevfiles.map((curfile: any) => {
           if (curfile.name == fileName) {
             return {
               ...curfile,

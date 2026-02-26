@@ -6,7 +6,8 @@ export const chatBotAPI = async (
   model: string,
   mode: string,
   document_names?: (string | undefined)[],
-  language?: string
+  language?: string,
+  signal?: AbortSignal
 ) => {
   try {
     const formData = new FormData();
@@ -23,6 +24,7 @@ export const chatBotAPI = async (
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      signal: signal,
     });
     const endTime = Date.now();
     const timeTaken = endTime - startTime;

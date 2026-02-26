@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import SideNav from './SideNav';
 import DrawerDropzone from './DrawerDropzone';
 import DrawerChatbot from './DrawerChatbot';
 import Content from '../Content';
@@ -148,7 +147,7 @@ const spotlights = [
   },
 ];
 const PageLayout: React.FC = () => {
-  console.log("PAGE LAYOUT ACTIVE");
+  console.log('PAGE LAYOUT ACTIVE');
   const [openConnection, setOpenConnection] = useState<connectionState>({
     openPopUp: false,
     chunksExists: false,
@@ -159,6 +158,7 @@ const PageLayout: React.FC = () => {
   const [isLeftExpanded, setIsLeftExpanded] = useState<boolean>(false);
   const [isRightExpanded, setIsRightExpanded] = useState<boolean>(false);
   const [showChatBot, setShowChatBot] = useState<boolean>(false);
+  const [isChatFullScreen, setIsChatFullScreen] = useState<boolean>(false);
   const [showEnhancementDialog, toggleEnhancementDialog] = useReducer((s) => !s, false);
   const [shows3Modal, toggleS3Modal] = useReducer((s) => !s, false);
   const [showGCSModal, toggleGCSModal] = useReducer((s) => !s, false);
@@ -320,7 +320,14 @@ const PageLayout: React.FC = () => {
   }, [isLargeDesktop]);
   const toggleRightDrawer = useCallback(() => {
     if (isLargeDesktop) {
-      setIsRightExpanded((prev) => !prev);
+      setIsRightExpanded((prev) => {
+        const isNowExpanded = !prev;
+        // Reset full screen when closing
+        if (!isNowExpanded) {
+          setIsChatFullScreen(false);
+        }
+        return isNowExpanded;
+      });
     } else {
       setIsRightExpanded(false);
     }
@@ -634,9 +641,9 @@ const PageLayout: React.FC = () => {
         toggleRightDrawer={toggleRightDrawer}
         deleteOnClick={deleteOnClick}
       >
-        <div className="flex-1 flex flex-col relative overflow-hidden">
+        <div className='flex-1 flex flex-col relative overflow-hidden'>
           {isLeftExpanded && (
-            <div className="absolute left-0 top-0 bottom-0 z-20 w-80 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl animate-slide-in-left">
+            <div className='absolute left-0 top-0 bottom-0 z-20 w-80 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl animate-slide-in-left'>
               <DrawerDropzone
                 shows3Modal={shows3Modal}
                 showGCSModal={showGCSModal}
@@ -648,7 +655,7 @@ const PageLayout: React.FC = () => {
               />
             </div>
           )}
-          
+
           <Content
             openChatBot={openChatBot}
             showChatBot={showChatBot}
@@ -670,12 +677,17 @@ const PageLayout: React.FC = () => {
           />
 
           {isRightExpanded && (
-            <div className="absolute right-0 top-0 bottom-0 z-20 w-96 bg-black/60 backdrop-blur-3xl border-l border-white/5 animate-slide-in-right shadow-2xl">
+            <div
+              className={`absolute right-0 top-0 bottom-0 z-20 ${isChatFullScreen ? 'w-[calc(100vw-72px)]' : 'w-96'} bg-black/60 backdrop-blur-3xl border-l border-white/5 animate-slide-in-right shadow-2xl transition-all duration-300`}
+            >
               <DrawerChatbot
                 messages={messages}
                 isExpanded={isRightExpanded}
                 clearHistoryData={clearHistoryData}
                 connectionStatus={connectionStatus}
+                isFullScreen={isChatFullScreen}
+                toggleFullScreen={() => setIsChatFullScreen((prev) => !prev)}
+                closeChatBot={toggleRightDrawer}
               />
             </div>
           )}

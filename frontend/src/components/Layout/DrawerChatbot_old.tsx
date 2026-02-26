@@ -1,30 +1,16 @@
 import { Drawer } from '@neo4j-ndl/react';
 import Chatbot from '../ChatBot/Chatbot';
-import { Messages } from '../../types';
-import ExpandedChatButtonContainer from '../ChatBot/ExpandedChatButtonContainer';
+import { DrawerChatbotProps, Messages } from '../../types';
 import { useMessageContext } from '../../context/UserMessages';
 import { useLocation } from 'react-router';
 import { useEffect } from 'react';
 import { useCredentials } from '../../context/UserCredentials';
 
-export interface DrawerChatbotProps {
-  isExpanded: boolean;
-  clearHistoryData: boolean;
-  messages: Messages[];
-  connectionStatus: boolean;
-  isFullScreen?: boolean;
-  toggleFullScreen?: () => void;
-  closeChatBot?: () => void;
-}
-
 const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
   isExpanded,
   clearHistoryData,
-  messages,
-  connectionStatus,
-  isFullScreen,
-  toggleFullScreen,
-  closeChatBot,
+  messages = [],
+  connectionStatus = false,
 }) => {
   const { setMessages, isDeleteChatLoading } = useMessageContext();
   const { setUserCredentials, setIsGCSActive, setGdsActive, setIsReadOnlyUser } = useCredentials();
@@ -58,26 +44,15 @@ const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
     <div className='flex min-h-[calc(-58px+100vh)] relative w-full'>
       <Drawer isExpanded={isExpanded} isCloseable={false} position='right' type='push' className='pt-0!'>
         <Drawer.Body className='overflow-hidden! pr-0!'>
-          <div className='flex flex-row-reverse w-full h-full p-2 gap-4'>
-            <ExpandedChatButtonContainer
-              closeChatBot={closeChatBot || (() => {})}
-              deleteOnClick={() => setMessages([])}
-              messages={messages}
-              isFullScreen={isFullScreen}
-              toggleFullScreen={toggleFullScreen}
-            />
-            <div className='flex-1 w-full relative'>
-              <Chatbot
-                isFullScreen={false}
-                messages={messages}
-                setMessages={setMessages}
-                clear={clearHistoryData}
-                isLoading={getIsLoading(messages)}
-                connectionStatus={connectionStatus}
-                isDeleteChatLoading={isDeleteChatLoading}
-              />
-            </div>
-          </div>
+          <Chatbot
+            isFullScreen={false}
+            messages={messages}
+            setMessages={setMessages}
+            clear={clearHistoryData}
+            isLoading={getIsLoading(messages)}
+            connectionStatus={connectionStatus}
+            isDeleteChatLoading={isDeleteChatLoading}
+          />
         </Drawer.Body>
       </Drawer>
     </div>

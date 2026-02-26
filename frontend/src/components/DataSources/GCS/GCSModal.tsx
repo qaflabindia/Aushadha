@@ -2,7 +2,7 @@ import { TextInput } from '@neo4j-ndl/react';
 import { useCallback, useState } from 'react';
 import { useFileContext } from '../../../context/UsersFiles';
 import { urlScanAPI } from '../../../services/URLScan';
-import { CustomFileBase, GCSModalProps, fileName, nonoautherror } from '../../../types';
+import { CustomFileBase, GCSModalProps, fileName } from '../../../types';
 import { v4 as uuidv4 } from 'uuid';
 import CustomModal from '../../../HOC/CustomModal';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -144,9 +144,9 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
       );
     },
     scope: 'https://www.googleapis.com/auth/devstorage.read_only',
-    onNonOAuthError: (error: nonoautherror) => {
+    onNonOAuthError: (error) => {
       console.log(error);
-      showNormalToast(error.message as string);
+      showNormalToast(error.type ?? 'Unknown error');
     },
   });
 

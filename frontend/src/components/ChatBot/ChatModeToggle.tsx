@@ -5,7 +5,8 @@ import { chatModeLables, chatModes as AvailableModes, chatModeReadableLables } f
 import { capitalize } from '@mui/material';
 import { capitalizeWithPlus } from '../../utils/Utils';
 import { useCredentials } from '../../context/UserCredentials';
-import { JSXElementConstructor, ReactElement, ReactNode, ReactPortal, useMemo } from 'react';
+import { JSXElementConstructor, ReactElement, ReactNode, ReactPortal, useContext, useMemo } from 'react';
+import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 
 export default function ChatModeToggle({
   menuAnchor,
@@ -27,6 +28,11 @@ export default function ChatModeToggle({
   const { setchatModes, chatModes, postProcessingTasks } = useFileContext();
   const isCommunityAllowed = postProcessingTasks.includes('enable_communities');
   const { isGdsActive } = useCredentials();
+  const { colorMode } = useContext(ThemeWrapperContext);
+
+  const textColor = colorMode === 'dark' ? '#D4AF37' : '#1A1A1A';
+  const descriptionColor = colorMode === 'dark' ? 'rgba(212,175,55,0.7)' : '#555555';
+
   if (!chatModes.length) {
     setchatModes([chatModeLables['graph+vector+fulltext']]);
   }
@@ -38,6 +44,7 @@ export default function ChatModeToggle({
           (m: { mode: string | string[] }) => !m.mode.includes(chatModeLables['global search+vector+fulltext'])
         );
   }, [isGdsActive, isCommunityAllowed]);
+
   const menuItems = useMemo(() => {
     return memoizedChatModes?.map(
       (
@@ -55,27 +62,49 @@ export default function ChatModeToggle({
         },
         index: any
       ) => {
+        const isAyush = m.mode === chatModeLables['ayush clinical'];
         const handleModeChange = () => {
           if (chatModes.includes(m.mode)) {
             if (chatModes.length === 1) {
               return;
             }
-            setchatModes((prev) => prev.filter((i) => i !== m.mode));
+            setchatModes((prev: string[]) => prev.filter((i: string) => i !== m.mode));
           } else {
-            setchatModes((prev) => [...prev, m.mode]);
+            setchatModes((prev: string[]) => [...prev, m.mode]);
           }
         };
         return {
-          id: m.mode || `menu-item -${index}`,
+          id: m.mode || `menu-item-${index}`,
           title: (
-            <div style={{ color: 'gold' }}>
-              <Typography variant='subheading-small' style={{ color: 'gold' }}>
-                {chatModeReadableLables[m.mode].includes('+')
-                  ? capitalizeWithPlus(chatModeReadableLables[m.mode])
-                  : capitalize(chatModeReadableLables[m.mode])}
-              </Typography>
+            <div style={{ color: textColor }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isAyush && (
+                  <span
+                    style={{
+                      fontSize: '8px',
+                      fontWeight: 800,
+                      letterSpacing: '0.15em',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      background: colorMode === 'dark' ? 'rgba(212,175,55,0.15)' : '#e6f4ea',
+                      color: colorMode === 'dark' ? '#D4AF37' : '#1a7340',
+                      border: `1px solid ${colorMode === 'dark' ? 'rgba(212,175,55,0.3)' : '#a8d5b5'}`,
+                      textTransform: 'uppercase' as const,
+                    }}
+                  >
+                    LIVE
+                  </span>
+                )}
+                <Typography variant='subheading-small' style={{ color: textColor }}>
+                  {chatModeReadableLables[m.mode].includes('+')
+                    ? capitalizeWithPlus(chatModeReadableLables[m.mode])
+                    : capitalize(chatModeReadableLables[m.mode])}
+                </Typography>
+              </div>
               <div>
-                <Typography variant='body-small' style={{ color: 'gold' }}>{m.description}</Typography>
+                <Typography variant='body-small' style={{ color: descriptionColor }}>
+                  {m.description}
+                </Typography>
               </div>
             </div>
           ),
@@ -96,7 +125,8 @@ export default function ChatModeToggle({
         };
       }
     );
-  }, [chatModes, memoizedChatModes]);
+  }, [chatModes, memoizedChatModes, textColor, descriptionColor, colorMode]);
+
   return (
     <CustomMenu isRoot={isRoot} closeHandler={closeHandler} open={open} anchorOrigin={menuAnchor} items={menuItems} />
   );

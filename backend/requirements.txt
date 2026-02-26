@@ -65,3 +65,7 @@ chardet==5.2.0
 cryptography
 sqlalchemy
 psycopg2-binary
+tavily-python==0.5.0
+duckduckgo-search==6.3.7
+duckduckgo-search==8.1.1
+tavily-python==0.7.2

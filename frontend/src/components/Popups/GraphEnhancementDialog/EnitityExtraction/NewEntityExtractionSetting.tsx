@@ -153,9 +153,9 @@ export default function NewEntityExtractionSetting({
   };
 
   const handlePatternChange = (
-    source: OptionType[] | OptionType | null,
-    type: OptionType[] | OptionType | null,
-    target: OptionType[] | OptionType | null
+    source: OptionType[] | OptionType | null | undefined,
+    type: OptionType[] | OptionType | null | undefined,
+    target: OptionType[] | OptionType | null | undefined
   ) => {
     setSource(source as OptionType);
     setType(type as OptionType);

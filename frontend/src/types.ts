@@ -538,3 +538,548 @@ export type PatternOption = {
   label: string;
   value: string;
 };
+
+export interface duplicateNodesData {
+  status?: string;
+  error?: string;
+  message?: any;
+  data: any;
+}
+
+export interface selectedDuplicateNodes {
+  firstElementId: string;
+  similarElementIds: string[];
+}
+
+export interface ScehmaFromText {
+  labels: string[];
+  relationshipTypes: string[];
+  status?: string;
+  message?: string;
+  data?: any;
+}
+
+export interface ScanProps {
+  url?: string;
+  source_type?: string;
+  urlParam?: string;
+  wikiquery?: string;
+  model?: string;
+  accessKey?: string;
+  secretKey?: string;
+  gcs_bucket_name?: string;
+  gcs_bucket_folder?: string;
+  gcs_project_id?: string;
+  access_token?: string;
+}
+
+export interface ServerResponse {
+  status: string;
+  message: string;
+  data: any;
+}
+
+export interface OrphanNodeResponse {
+  status: string;
+  message: any;
+  total: number;
+  data?: any;
+  file_name?: any;
+}
+
+export interface ServerData {
+  status: string;
+  message: string;
+  data: any;
+}
+
+export interface SourceListServerData {
+  status: string;
+  message: string;
+  data: any;
+  error?: string;
+}
+
+export interface chunksData {
+  chunks: Chunk[];
+  data: {
+    pageitems: any[];
+    total_pages: number;
+  };
+}
+
+export interface ChatInfo_APIResponse {
+  status: string;
+  message: string;
+  data: any;
+}
+
+export interface SpeechSynthesisProps {
+  text?: string;
+  onEnd?: () => void;
+  voiceURI?: string;
+  lang?: string;
+  pitch?: number;
+  rate?: number;
+  volume?: number;
+}
+
+export interface SpeechArgs {
+  text?: string;
+  voiceURI?: string;
+  lang?: string;
+  pitch?: number;
+  rate?: number;
+  volume?: number;
+}
+
+export interface PollingAPI_Response {
+  status: string;
+  data: any;
+}
+
+export interface ContextProps {
+  userCredentials: UserCredentials | null;
+  setUserCredentials: React.Dispatch<React.SetStateAction<UserCredentials | null>>;
+  isGdsActive: boolean;
+  setGdsActive: React.Dispatch<React.SetStateAction<boolean>>;
+  connectionStatus: boolean;
+  setConnectionStatus: React.Dispatch<React.SetStateAction<boolean>>;
+  isReadOnlyUser: boolean;
+  setIsReadOnlyUser: React.Dispatch<React.SetStateAction<boolean>>;
+  isBackendConnected: boolean;
+  setIsBackendConnected: React.Dispatch<React.SetStateAction<boolean>>;
+  errorMessage: string;
+  setErrorMessage: React.Dispatch<React.SetStateAction<string>>;
+  showDisconnectButton: boolean;
+  setShowDisconnectButton: React.Dispatch<React.SetStateAction<boolean>>;
+  isGCSActive: boolean;
+  setIsGCSActive: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export interface MessagesContextProviderProps {
+  children: React.ReactNode;
+}
+
+export interface MessageContextType {
+  messages: Messages[];
+  setMessages: React.Dispatch<React.SetStateAction<Messages[]>>;
+  clearHistoryData: boolean;
+  setClearHistoryData: React.Dispatch<React.SetStateAction<boolean>>;
+  isDeleteChatLoading: boolean;
+  setIsDeleteChatLoading: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export interface FileContextProviderProps {
+  children: React.ReactNode;
+}
+
+export interface FileContextType {
+  files: (File | null)[];
+  filesData: CustomFile[];
+  setFiles: React.Dispatch<React.SetStateAction<(File | null)[]>>;
+  setFilesData: (value: React.SetStateAction<CustomFile[] | []>) => void;
+  model: string;
+  setModel: React.Dispatch<React.SetStateAction<string>>;
+  graphType: string;
+  setGraphType: React.Dispatch<React.SetStateAction<string>>;
+  selectedRels: readonly OptionType[];
+  setSelectedRels: React.Dispatch<React.SetStateAction<readonly OptionType[]>>;
+  selectedNodes: readonly OptionType[];
+  setSelectedNodes: React.Dispatch<React.SetStateAction<readonly OptionType[]>>;
+  selectedTokenChunkSize: number;
+  setSelectedTokenChunkSize: React.Dispatch<React.SetStateAction<number>>;
+  selectedChunk_overlap: number;
+  setSelectedChunk_overlap: React.Dispatch<React.SetStateAction<number>>;
+  selectedChunks_to_combine: number;
+  setSelectedChunks_to_combine: React.Dispatch<React.SetStateAction<number>>;
+  rowSelection: Record<string, boolean>;
+  setRowSelection: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  selectedRows: string[];
+  setSelectedRows: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedSchemas: readonly OptionType[];
+  setSelectedSchemas: React.Dispatch<React.SetStateAction<readonly OptionType[]>>;
+  chatModes: string[];
+  setchatModes: React.Dispatch<React.SetStateAction<string[]>>;
+  setShowTextFromSchemaDialog: React.Dispatch<React.SetStateAction<showTextFromSchemaDialogType>>;
+  showTextFromSchemaDialog: showTextFromSchemaDialogType;
+  postProcessingTasks: string[];
+  setPostProcessingTasks: React.Dispatch<React.SetStateAction<string[]>>;
+  queue: any;
+  setQueue: React.Dispatch<React.SetStateAction<any>>;
+  processedCount: number;
+  setProcessedCount: (value: React.SetStateAction<number>) => void;
+  postProcessingVal: boolean;
+  setPostProcessingVal: React.Dispatch<React.SetStateAction<boolean>>;
+  additionalInstructions: string;
+  setAdditionalInstructions: React.Dispatch<React.SetStateAction<string>>;
+  schemaTextPattern: string[];
+  setSchemaTextPattern: React.Dispatch<React.SetStateAction<string[]>>;
+  allPatterns: string[];
+  setAllPatterns: React.Dispatch<React.SetStateAction<string[]>>;
+  schemaValRels: OptionType[];
+  setSchemaValRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  schemaValNodes: OptionType[];
+  setSchemaValNodes: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  schemaLoadDialog: schemaLoadDialogType;
+  setSchemaLoadDialog: React.Dispatch<React.SetStateAction<schemaLoadDialogType>>;
+  dbNodes: OptionType[];
+  setDbNodes: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  dbRels: OptionType[];
+  setDbRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  dbPattern: string[];
+  setDbPattern: React.Dispatch<React.SetStateAction<string[]>>;
+  predefinedSchemaDialog: predefinedSchemaDialogType;
+  setPredefinedSchemaDialog: React.Dispatch<React.SetStateAction<predefinedSchemaDialogType>>;
+  preDefinedNodes: OptionType[];
+  setPreDefinedNodes: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  preDefinedRels: OptionType[];
+  setPreDefinedRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  preDefinedPattern: string[];
+  setPreDefinedPattern: React.Dispatch<React.SetStateAction<string[]>>;
+  userDefinedNodes: OptionType[];
+  setUserDefinedNodes: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  userDefinedRels: OptionType[];
+  setUserDefinedRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  userDefinedPattern: string[];
+  setUserDefinedPattern: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedPreDefOption: OptionType | null;
+  setSelectedPreDefOption: React.Dispatch<React.SetStateAction<OptionType | null>>;
+  sourceOptions: OptionType[];
+  setSourceOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  typeOptions: OptionType[];
+  setTypeOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  targetOptions: OptionType[];
+  setTargetOptions: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  dataImporterSchemaDialog: dataImporterSchemaDialogType;
+  setDataImporterSchemaDialog: React.Dispatch<React.SetStateAction<dataImporterSchemaDialogType>>;
+  importerNodes: OptionType[];
+  setImporterNodes: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  importerRels: OptionType[];
+  setImporterRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  importerPattern: string[];
+  setImporterPattern: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+export interface showTextFromSchemaDialogType {
+  triggeredFrom: string;
+  show: boolean;
+}
+
+export interface schemaLoadDialogType {
+  triggeredFrom: string;
+  show: boolean;
+}
+
+export interface predefinedSchemaDialogType {
+  triggeredFrom: string;
+  show: boolean;
+}
+
+export interface dataImporterSchemaDialogType {
+  triggeredFrom: string;
+  show: boolean;
+}
+
+export interface Menuitems {
+  title: string;
+  onClick?: () => void;
+  id?: string;
+  disabledCondition?: boolean;
+  isSelected?: boolean;
+  selectedClassName?: string;
+  description?: string;
+}
+
+export interface DatabaseStatusProps {
+  status?: boolean;
+  isConnected?: boolean;
+  isGdsActive?: boolean;
+  uri?: string;
+  database?: string;
+}
+
+export interface ReusableDropdownProps {
+  options: OptionType[];
+  onSelect: (option: OptionType | null | void) => void;
+  placeholder?: string;
+  defaultValue?: string | OptionType;
+  children?: React.ReactNode;
+  view?: string;
+  isDisabled?: boolean;
+  value?: OptionType | string | null;
+}
+
+export interface HoverableLinkProps {
+  url: string;
+  children: React.ReactNode;
+}
+
+export interface SchemaSelectionProps {
+  open: boolean;
+  onClose: () => void;
+  pattern?: any;
+  nodes?: any;
+  rels?: any;
+  handleRemove?: (pattern: string) => void;
+  handleSchemaView?: (view?: string) => void;
+  loading?: boolean;
+  highlightPattern?: string;
+  onApply?: () => void;
+  onCancel?: () => void;
+  message?: string;
+}
+
+export type Side = 'left' | 'right' | 'top' | 'bottom';
+
+export interface VisibilityProps {
+  isVisible: boolean;
+}
+
+export interface MetricsResponse {
+  status: string;
+  data: any;
+}
+
+export type TupleType = any;
+
+export interface UserDefinedGraphSchema {
+  nodelabels: string[];
+  relationshipTypes: string[];
+  nodes: any;
+  relationships: any;
+  scheme: any;
+}
+
+// ─── Graph types ───
+export type EntityType = 'node' | 'relationship';
+
+export interface BasicNode {
+  id: string;
+  labels: string[];
+  properties: Record<string, any>;
+  caption?: string;
+  color?: string;
+  size?: number;
+  html?: HTMLElement;
+  selected?: boolean;
+}
+
+export interface BasicRelationship {
+  id: string;
+  from: string;
+  to: string;
+  caption?: string;
+  type?: string;
+  properties?: Record<string, any>;
+  selected?: boolean;
+}
+
+export interface NeoNode {
+  element_id: string;
+  labels: string[];
+  properties: Record<string, any>;
+}
+
+export interface NeoRelationship {
+  element_id: string;
+  start_node_element_id: string;
+  end_node_element_id: string;
+  type: string;
+  properties?: Record<string, any>;
+}
+
+// ─── Graph Component Props ───
+export interface GraphViewModalProps {
+  open: boolean;
+  inspectedName?: string;
+  setGraphViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  viewPoint?: string;
+  nodeValues?: any[];
+  relationshipValues?: any[];
+  selectedRows?: CustomFile[];
+}
+
+export interface SchemaViewModalProps {
+  open: boolean;
+  setGraphViewOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  viewPoint?: string;
+  nodeValues?: OptionType[] | any[];
+  relationshipValues?: OptionType[] | any[];
+  schemaLoading?: boolean;
+  view?: string;
+}
+
+export interface GraphViewButtonProps {
+  nodeValues: any[];
+  relationshipValues: any[];
+  fill?: any;
+  label?: string;
+  viewType?: string;
+}
+
+export interface GraphPropertiesPanelProps {
+  inspectedItem: BasicNode | BasicRelationship;
+  newScheme: Scheme;
+}
+
+export interface GraphPropertiesTableProps {
+  propertiesWithTypes: { key: string; value: any }[];
+}
+
+export interface CheckboxSectionProps {
+  graphType: GraphType[];
+  loading: boolean;
+  handleChange: (type: GraphType) => void;
+  isCommunity: boolean;
+  isDocChunk: boolean;
+  isEntity: boolean;
+}
+
+// ─── ChatBot Component Props ───
+export interface ChunkProps {
+  loading: boolean;
+  chunks: Chunk[];
+  mode: string;
+}
+
+export interface CommunitiesProps {
+  loading: boolean;
+  communities: Community[];
+  mode: string;
+}
+
+export interface EntitiesProps {
+  loading: boolean;
+  mode: string;
+  graphonly_entities: any[];
+  infoEntities: Entity[];
+}
+
+export interface SourcesProps {
+  loading: boolean;
+  mode: string;
+  chunks: Chunk[];
+  sources: string[];
+}
+
+export interface GroupedEntity {
+  texts: Set<string>;
+  color: string;
+}
+
+// ─── File Table / Content Props ───
+export interface FileTableProps {
+  connectionStatus: boolean;
+  setConnectionStatus: React.Dispatch<React.SetStateAction<boolean>>;
+  onInspect: (name: string) => void;
+  onRetry: (id: string) => void;
+  onChunkView: (name: string) => void;
+  handleGenerateGraph: () => void;
+}
+
+export interface ChildRef {
+  getFiles?: () => void;
+  getSelectedRows?: () => any[];
+}
+
+export interface FileTableHandle {
+  getFiles: () => void;
+  getSelectedRows: () => CustomFile[];
+}
+
+// ─── Popup / Dialog Props ───
+export interface ConnectionModalProps {
+  open: boolean;
+  setOpenConnection: React.Dispatch<React.SetStateAction<connectionState>>;
+  setConnectionStatus: (status: boolean) => void;
+  isVectorIndexMatch?: boolean;
+  chunksExistsWithoutEmbedding?: boolean;
+  chunksExistsWithDifferentEmbedding?: boolean;
+  onSuccess?: () => void;
+  isChatOnly?: boolean;
+}
+
+export interface LargefilesProps {
+  open?: boolean;
+  onClose?: () => void;
+  files?: CustomFile[];
+  onSubmit?: () => void;
+  Files?: CustomFile[];
+  handleToggle?: (isChecked: boolean, id: string) => void;
+  checked?: string[];
+}
+
+export interface orphanNodeProps {
+  e: {
+    elementId: string;
+    id: string;
+    labels: string[];
+    properties: Record<string, any>;
+  };
+  documents: string[];
+  chunkConnections: number;
+}
+
+export interface dupNodes {
+  e: {
+    elementId: string;
+    id: string;
+    labels: string[];
+    properties: Record<string, any>;
+  };
+  similar: {
+    elementId: string;
+    id: string;
+    labels: string[];
+  }[];
+  documents: string[];
+  chunkConnections: number;
+}
+
+// ─── DrawerChatbot ───
+export interface DrawerChatbotProps {
+  isExpanded: boolean;
+  clearHistoryData?: boolean;
+  messages?: Messages[];
+  connectionStatus?: boolean;
+  isFullScreen?: boolean;
+  toggleFullScreen?: () => void;
+  closeChatBot?: () => void;
+}
+
+// ─── S3 / AWS ───
+export interface S3File {
+  fileName: string;
+  fileSize: number;
+  url: string;
+}
+
+// ─── Schema ───
+export interface TupleCreationProps {
+  selectedSource?: OptionType | null;
+  selectedType?: OptionType | null;
+  selectedTarget?: OptionType | null;
+  onPatternChange: (
+    source: OptionType | OptionType[] | null | undefined,
+    type: OptionType | OptionType[] | null | undefined,
+    target: OptionType | OptionType[] | null | undefined
+  ) => void;
+  onAddPattern: () => void;
+  sourceOptions?: OptionType[];
+  targetOptions?: OptionType[];
+  typeOptions?: OptionType[];
+  setSourceOptions?: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  setTargetOptions?: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  setTypeOptions?: React.Dispatch<React.SetStateAction<OptionType[]>>;
+  onAdd?: (pattern: string) => void;
+  selectedTupleOptions?: any[];
+}
+
+// ─── Error Types ───
+export interface nonoautherror {
+  message: string;
+  code?: string;
+  type?: string;
+  [key: string]: any;
+}

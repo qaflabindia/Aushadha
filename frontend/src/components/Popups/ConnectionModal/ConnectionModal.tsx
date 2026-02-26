@@ -1,4 +1,15 @@
-import { Button, Dialog, TextInput, Select, Banner, Dropzone, Typography, TextLink, Flex, Checkbox } from '@neo4j-ndl/react';
+import {
+  Button,
+  Dialog,
+  TextInput,
+  Select,
+  Banner,
+  Dropzone,
+  Typography,
+  TextLink,
+  Flex,
+  Checkbox,
+} from '@neo4j-ndl/react';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { connectAPI } from '../../../services/ConnectAPI';
 import { useCredentials } from '../../../context/UserCredentials';
@@ -17,9 +28,9 @@ export default function ConnectionModal({
   open,
   setOpenConnection,
   setConnectionStatus,
-  isVectorIndexMatch,
-  chunksExistsWithoutEmbedding,
-  chunksExistsWithDifferentEmbedding,
+  isVectorIndexMatch = false,
+  chunksExistsWithoutEmbedding = false,
+  chunksExistsWithDifferentEmbedding = false,
 }: ConnectionModalProps) {
   let prefilledconnection = localStorage.getItem('neo4j.connection');
   let initialuri;
@@ -69,40 +80,44 @@ export default function ConnectionModal({
   const userNameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    const fetchAndSetSecret = async (key: string, setter: (val: string) => void) => {
+      const res = await getSecretValue(key);
+      if (res.data.status === 'Success' && res.data.data) {
+        setter(res.data.data);
+      }
+    };
+
     const fetchSecrets = async () => {
       try {
         const response = await getSecrets();
-        if (response.data.status === 'Success' && Array.isArray(response.data.data)) {
-          const keys = response.data.data;
+        if (response.data.status !== 'Success' || !Array.isArray(response.data.data)) {
+          return;
+        }
+        const keys = response.data.data;
 
-          if (keys.includes('NEO4J_URI')) {
-            const res = await getSecretValue('NEO4J_URI');
-            if (res.data.status === 'Success' && res.data.data) {
-              const fullUri = res.data.data;
-              const uriParts = fullUri.split('://');
-              if (uriParts.length === 2) {
-                setProtocol(uriParts[0]);
-                setURI(uriParts[1]);
-              } else {
-                setURI(fullUri);
-              }
+        if (keys.includes('NEO4J_URI')) {
+          const res = await getSecretValue('NEO4J_URI');
+          if (res.data.status === 'Success' && res.data.data) {
+            const uriParts = res.data.data.split('://');
+            if (uriParts.length === 2) {
+              setProtocol(uriParts[0]);
+              setURI(uriParts[1]);
+            } else {
+              setURI(res.data.data);
             }
           }
-          if (keys.includes('NEO4J_USERNAME')) {
-            const res = await getSecretValue('NEO4J_USERNAME');
-            if (res.data.status === 'Success' && res.data.data) setUsername(res.data.data);
-          }
-          if (keys.includes('NEO4J_DATABASE')) {
-            const res = await getSecretValue('NEO4J_DATABASE');
-            if (res.data.status === 'Success' && res.data.data) setDatabase(res.data.data);
-          }
-          if (keys.includes('NEO4J_PASSWORD')) {
-            const res = await getSecretValue('NEO4J_PASSWORD');
-            if (res.data.status === 'Success' && res.data.data) setPassword(res.data.data);
-          }
         }
-      } catch (error) {
-        console.error('Error fetching secrets from vault', error);
+        if (keys.includes('NEO4J_USERNAME')) {
+          await fetchAndSetSecret('NEO4J_USERNAME', setUsername);
+        }
+        if (keys.includes('NEO4J_DATABASE')) {
+          await fetchAndSetSecret('NEO4J_DATABASE', setDatabase);
+        }
+        if (keys.includes('NEO4J_PASSWORD')) {
+          await fetchAndSetSecret('NEO4J_PASSWORD', setPassword);
+        }
+      } catch {
+        // Error fetching secrets from vault
       }
     };
 
@@ -563,11 +578,7 @@ export default function ConnectionModal({
             </div>
           </form>
           <Flex flexDirection='row' justifyContent='space-between' alignItems='center'>
-            <Checkbox
-              label='Save to Vault'
-              isChecked={saveToVault}
-              onChange={() => setSaveToVault(!saveToVault)}
-            />
+            <Checkbox label='Save to Vault' isChecked={saveToVault} onChange={() => setSaveToVault(!saveToVault)} />
             <Button
               isLoading={isLoading}
               isDisabled={isDisabled}

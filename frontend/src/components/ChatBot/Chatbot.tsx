@@ -1,11 +1,5 @@
 import React, { FC, lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import {
-  TextInput,
-  IconButton,
-  Modal,
-  useCopyToClipboard,
-  SpotlightTarget,
-} from '@neo4j-ndl/react';
+import { TextInput, IconButton, Modal, useCopyToClipboard, SpotlightTarget } from '@neo4j-ndl/react';
 import { XMarkIconOutline } from '@neo4j-ndl/react/icons';
 import {
   ChatbotProps,
@@ -57,17 +51,12 @@ const sessionId = sessionStorage.getItem('session_id') ?? '';
 const Chatbot: FC<ChatbotProps> = (props) => {
   const { colorMode } = useContext(ThemeWrapperContext);
   const t = useTranslation();
-  const {
-    messages: listMessages,
-    setMessages: setListMessages,
-    isLoading,
-    isFullScreen,
-    isDeleteChatLoading,
-  } = props;
+  const { messages: listMessages, setMessages: setListMessages, isLoading, isFullScreen, isDeleteChatLoading } = props;
   const [inputMessage, setInputMessage] = useState('');
   const { model, chatModes, selectedRows, filesData } = useFileContext();
   const { userCredentials } = useCredentials();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
   const [sourcesModal, setSourcesModal] = useState<string[]>([]);
   const [modelModal, setModelModal] = useState<string>('');
@@ -94,7 +83,9 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const [multiModelMetrics, setMultiModelMetrics] = useState<multimodelmetric[]>([]);
 
   const { language } = useLanguage();
-  const { transcript, isListening, startListening, stopListening, isSupported } = useSpeechRecognition({ language: language.speechCode });
+  const { transcript, isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
+    language: language.speechCode,
+  });
   const [preRecordMessage, setPreRecordMessage] = useState('');
 
   useEffect(() => {
@@ -170,6 +161,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const saveMetrics = (metricInfo: metricstate) => {
     setMetricDetails(metricInfo);
   };
+
   const saveCommunities = (chatCommunities: Community[]) => {
     setCommunities(chatCommunities);
   };
@@ -179,7 +171,9 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     let lastTimestamp: number | null = null;
     const TYPING_INTERVAL = 20;
     const animate = (timestamp: number) => {
-      if (lastTimestamp === null) lastTimestamp = timestamp;
+      if (lastTimestamp === null) {
+        lastTimestamp = timestamp;
+      }
       const elapsed = timestamp - lastTimestamp;
       if (elapsed >= TYPING_INTERVAL) {
         if (index < message.length) {
@@ -207,10 +201,14 @@ const Chatbot: FC<ChatbotProps> = (props) => {
             let sortedModes: Record<string, ResponseMode> = {};
             if (activeMessage) {
               sortedModes = Object.fromEntries(
-                chatModes.filter((m: string) => m in activeMessage.modes).map((key: string) => [key, activeMessage.modes[key]])
+                chatModes
+                  .filter((m: string) => m in activeMessage.modes)
+                  .map((key: string) => [key, activeMessage.modes[key]])
               );
             }
-            return msgs.map((msg: Messages) => (msg.id === messageId ? { ...msg, isTyping: false, modes: sortedModes } : msg));
+            return msgs.map((msg: Messages) =>
+              (msg.id === messageId ? { ...msg, isTyping: false, modes: sortedModes } : msg)
+            );
           });
           return;
         }
@@ -222,7 +220,9 @@ const Chatbot: FC<ChatbotProps> = (props) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim()) {
+      return;
+    }
 
     if (userCredentials && shouldShowTokenTracking(userCredentials.email)) {
       const tokenCheck = await checkTokenLimits(userCredentials);
@@ -230,7 +230,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
         showNormalToast(tokenCheck.message);
       }
     }
-    
+
     const datetime = getDateTime();
     const userMsg: Messages = {
       id: Date.now(),
@@ -240,7 +240,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       modes: { [chatModes[0]]: { message: inputMessage } },
     };
     setListMessages([...listMessages, userMsg]);
-    
+
     const chatbotMsgId = Date.now() + 1;
     const chatbotMsg: Messages = {
       id: chatbotMsgId,
@@ -254,9 +254,20 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     setListMessages((prev) => [...prev, chatbotMsg]);
     setInputMessage('');
 
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+
     try {
       const apiCalls = chatModes.map((mode: string) =>
-        chatBotAPI(inputMessage, sessionId, model, mode, selectedFileNames?.map((f) => f.name), language.code)
+        chatBotAPI(
+          inputMessage,
+          sessionId,
+          model,
+          mode,
+          selectedFileNames?.map((f) => f.name),
+          language.code,
+          signal
+        )
       );
       const results = await Promise.allSettled(apiCalls);
       results.forEach((result: PromiseSettledResult<any>, index: number) => {
@@ -279,24 +290,52 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               metric_answer: res.data.info?.metric_details?.answer ?? '',
               metric_contexts: res.data.info?.metric_details?.contexts ?? '',
             };
-            if (index === 0) simulateTypingEffect(chatbotMsgId, responseMode, mode, responseMode.message);
-            else {
-              setListMessages((prev) => prev.map((msg) => 
-                msg.id === chatbotMsgId ? { ...msg, modes: { ...msg.modes, [mode]: responseMode } } : msg
-              ));
+            if (index === 0) {
+              simulateTypingEffect(chatbotMsgId, responseMode, mode, responseMode.message);
+            } else {
+              setListMessages((prev) =>
+                prev.map((msg) =>
+                  (msg.id === chatbotMsgId ? { ...msg, modes: { ...msg.modes, [mode]: responseMode } } : msg)
+                )
+              );
             }
           }
         }
       });
-      setListMessages((prev) => prev.map((msg) => msg.id === chatbotMsgId ? { ...msg, isLoading: false, isTyping: false } : msg));
-    } catch (err) {
-      console.error(err);
+      setListMessages((prev) =>
+        prev.map((msg) => (msg.id === chatbotMsgId ? { ...msg, isLoading: false, isTyping: false } : msg))
+      );
+    } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.message === 'canceled') {
+        setListMessages((prev) =>
+          prev.map((msg) =>
+            (msg.id === chatbotMsgId
+              ? {
+                  ...msg,
+                  isLoading: false,
+                  isTyping: false,
+                  modes: { ...msg.modes, [chatModes[0]]: { message: 'Generation cancelled by user.' } },
+                }
+              : msg)
+          )
+        );
+      } else {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
   const detailsHandler = useCallback((chat: Messages, previousActiveChat: Messages | null) => {
     const currentMode = chat.modes[chat.currentMode];
-    if (!currentMode) return;
+    if (!currentMode) {
+      return;
+    }
     setModelModal(currentMode.model ?? '');
     setSourcesModal(currentMode.sources ?? []);
     setResponseTime(currentMode.response_time ?? 0);
@@ -326,18 +365,24 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     }
   }, []);
 
-  const speechHandler = useCallback((chat: Messages) => {
-    if (chat.speaking) {
-      cancel();
-      setListMessages((msgs) => msgs.map((msg) => (msg.id === chat.id ? { ...msg, speaking: false } : msg)));
-    } else {
-      speak({ text: chat.modes[chat.currentMode]?.message }, typeof window !== 'undefined' && window.speechSynthesis != undefined);
-      setListMessages((msgs) => {
-        const messageWithSpeaking = msgs.find((msg) => msg.speaking);
-        return msgs.map((msg) => (msg.id === chat.id && !messageWithSpeaking ? { ...msg, speaking: true } : msg));
-      });
-    }
-  }, [speak, cancel]);
+  const speechHandler = useCallback(
+    (chat: Messages) => {
+      if (chat.speaking) {
+        cancel();
+        setListMessages((msgs) => msgs.map((msg) => (msg.id === chat.id ? { ...msg, speaking: false } : msg)));
+      } else {
+        speak(
+          { text: chat.modes[chat.currentMode]?.message },
+          typeof window !== 'undefined' && window.speechSynthesis != undefined
+        );
+        setListMessages((msgs) => {
+          const messageWithSpeaking = msgs.find((msg) => msg.speaking);
+          return msgs.map((msg) => (msg.id === chat.id && !messageWithSpeaking ? { ...msg, speaking: true } : msg));
+        });
+      }
+    },
+    [speak, cancel]
+  );
 
   const handleSwitchMode = (messageId: number, newMode: string) => {
     setListMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, currentMode: newMode } : msg)));
@@ -348,33 +393,46 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   }, [listMessages]);
 
   return (
-    <div className={clsx('flex! flex-col justify-between min-h-full max-h-full overflow-hidden relative transition-all duration-700 glass-luxe', {
-      'bg-[#080808]/40': colorMode === 'dark',
-      'bg-white/40': colorMode === 'light',
-    })}>
+    <div
+      className={clsx(
+        'flex! flex-col justify-between min-h-full max-h-full overflow-hidden relative transition-all duration-700 glass-luxe',
+        {
+          'bg-[#080808]/40': colorMode === 'dark',
+          'bg-white/40': colorMode === 'light',
+        }
+      )}
+    >
       {/* Sticky Chat Header */}
-      <div className={clsx("sticky top-0 z-20 px-8 py-5 border-b backdrop-blur-3xl flex items-center justify-between", {
-        'bg-black/60 border-white/5 shadow-2xl': colorMode === 'dark',
-        'bg-white/60 border-gray-100': colorMode === 'light',
-      })}>
-        <div className="flex flex-col">
-          <span className={clsx("text-[10px] uppercase tracking-[0.3em] font-extrabold", {
-            'text-[#D4AF37]': colorMode === 'dark',
-            'text-[#1A1A1A]': colorMode === 'light',
-          })}>
+      <div
+        className={clsx('sticky top-0 z-20 px-8 py-5 border-b backdrop-blur-3xl flex items-center justify-between', {
+          'bg-black/60 border-white/5 shadow-2xl': colorMode === 'dark',
+          'bg-white/60 border-gray-100': colorMode === 'light',
+        })}
+      >
+        <div className='flex flex-col'>
+          <span
+            className={clsx('text-[10px] uppercase tracking-[0.3em] font-extrabold', {
+              'text-[#D4AF37]': colorMode === 'dark',
+              'text-[#1A1A1A]': colorMode === 'light',
+            })}
+          >
             {t('conciergeIntelligence')}
           </span>
-          <span className={clsx("text-[8px] uppercase tracking-[0.2em] font-bold mt-1 opacity-40", {
-            'text-[#D4AF37]': colorMode === 'dark',
-            'text-gray-500': colorMode === 'light',
-          })}>
+          <span
+            className={clsx('text-[8px] uppercase tracking-[0.2em] font-bold mt-1 opacity-40', {
+              'text-[#D4AF37]': colorMode === 'dark',
+              'text-gray-500': colorMode === 'light',
+            })}
+          >
             {t('neuralNetwork')}
           </span>
         </div>
-        <div className={clsx("w-2 h-2 rounded-full animate-pulse", {
-          'bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]': colorMode === 'dark',
-          'bg-blue-500 shadow-[0_0_8px_#3B82F6]': colorMode === 'light',
-        })} />
+        <div
+          className={clsx('w-2 h-2 rounded-full animate-pulse', {
+            'bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]': colorMode === 'dark',
+            'bg-blue-500 shadow-[0_0_8px_#3B82F6]': colorMode === 'light',
+          })}
+        />
       </div>
       {isDeleteChatLoading && (
         <div className='absolute inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center'>
@@ -383,7 +441,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       )}
 
       {/* Signature Message Stream */}
-      <div className='flex-grow overflow-y-auto overflow-x-hidden p-6 gap-8 flex flex-col custom-scrollbar'>
+      <div className='flex-grow overflow-y-auto overflow-x-hidden p-6 pt-28 gap-8 flex flex-col custom-scrollbar'>
         {listMessages.length > 0 &&
           listMessages.map((chat, index) => {
             const messagechatModes = Object.keys(chat.modes);
@@ -399,28 +457,40 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                 <div className='flex items-center gap-3 px-2'>
                   {chat.user === 'chatbot' ? (
                     <>
-                      <div className="w-7 h-7 rounded-full border border-[#D4AF37]/30 flex items-center justify-center bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.1)]">
-                        <RiRobotLine className="text-[#D4AF37] w-3.5 h-3.5" />
+                      <div className='w-7 h-7 rounded-full border border-[#D4AF37]/30 flex items-center justify-center bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.1)]'>
+                        <RiRobotLine className='text-[#D4AF37] w-3.5 h-3.5' />
                       </div>
-                      <span className={clsx("text-[9px] tracking-concierge font-extrabold uppercase", {
-                        'text-[#D4AF37]/60': colorMode === 'dark',
-                        'text-[#D4AF37]': colorMode === 'light',
-                      })}>{t('conciergeIntelligence')}</span>
+                      <span
+                        className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
+                          'text-[#D4AF37]/60': colorMode === 'dark',
+                          'text-[#D4AF37]': colorMode === 'light',
+                        })}
+                      >
+                        {t('conciergeIntelligence')}
+                      </span>
                     </>
                   ) : (
                     <>
-                      <span className={clsx("text-[9px] tracking-concierge font-extrabold uppercase", {
-                        'text-white/30': colorMode === 'dark',
-                        'text-black/40': colorMode === 'light',
-                      })}>{t('authorizedTerminal')}</span>
-                      <div className={clsx("w-7 h-7 rounded-full border flex items-center justify-center", {
-                        'border-white/10 bg-white/5': colorMode === 'dark',
-                        'border-gray-200 bg-gray-50': colorMode === 'light',
-                      })}>
-                        <RiUserLine className={clsx("w-3.5 h-3.5", {
-                          'text-white/40': colorMode === 'dark',
+                      <span
+                        className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
+                          'text-white/30': colorMode === 'dark',
                           'text-black/40': colorMode === 'light',
-                        })} />
+                        })}
+                      >
+                        {t('authorizedTerminal')}
+                      </span>
+                      <div
+                        className={clsx('w-7 h-7 rounded-full border flex items-center justify-center', {
+                          'border-white/10 bg-white/5': colorMode === 'dark',
+                          'border-gray-200 bg-gray-50': colorMode === 'light',
+                        })}
+                      >
+                        <RiUserLine
+                          className={clsx('w-3.5 h-3.5', {
+                            'text-white/40': colorMode === 'dark',
+                            'text-black/40': colorMode === 'light',
+                          })}
+                        />
                       </div>
                     </>
                   )}
@@ -428,31 +498,50 @@ const Chatbot: FC<ChatbotProps> = (props) => {
 
                 {/* Glass Concierge Card */}
                 <div
-                  className={clsx(`p-6 rounded-[24px] border-grad-gs glass-luxe transition-all duration-700`, {
-                    'shadow-2xl': chat.user === 'chatbot',
-                    'bg-[#D4AF37]/5': chat.user !== 'chatbot' && colorMode === 'dark',
-                    'bg-blue-50/50': chat.user !== 'chatbot' && colorMode === 'light',
-                  }, isFullScreen ? 'max-w-[75%]' : 'max-w-[95%]')}
+                  className={clsx(
+                    `p-6 rounded-[24px] border-grad-gs glass-luxe transition-all duration-700`,
+                    {
+                      'shadow-2xl': chat.user === 'chatbot',
+                      'bg-[#D4AF37]/5': chat.user !== 'chatbot' && colorMode === 'dark',
+                      'bg-blue-50/50': chat.user !== 'chatbot' && colorMode === 'light',
+                    },
+                    isFullScreen ? 'max-w-[75%]' : 'max-w-[95%]'
+                  )}
                 >
-                  <div className={clsx("prose prose-sm max-w-none [&_*]:!text-inherit [&_a]:!text-[#D4AF37] [&_code]:!text-[#D4AF37]", {
-                    'prose-invert': colorMode === 'dark',
-                  })}>
-                    <div className={clsx('leading-relaxed font-normal antialiased', {
-                      'text-white/95': chat.user === 'chatbot' && colorMode === 'dark',
-                      'text-[#D4AF37] font-semibold': chat.user !== 'chatbot' && colorMode === 'dark',
-                      'text-[#1A1A1A]': chat.user === 'chatbot' && colorMode === 'light',
-                      'text-blue-700 font-semibold': chat.user !== 'chatbot' && colorMode === 'light',
-                    })} style={{ color: chat.user === 'chatbot' && colorMode === 'dark' ? 'rgba(255,255,255,0.95)' : chat.user !== 'chatbot' && colorMode === 'dark' ? '#D4AF37' : '#1A1A1A' }}>
+                  <div
+                    className={clsx(
+                      'prose prose-sm max-w-none [&_*]:!text-inherit [&_a]:!text-[#D4AF37] [&_code]:!text-[#D4AF37]',
+                      {
+                        'prose-invert': colorMode === 'dark',
+                      }
+                    )}
+                  >
+                    <div
+                      className={clsx('leading-relaxed font-normal antialiased', {
+                        'text-white/95': chat.user === 'chatbot' && colorMode === 'dark',
+                        'text-[#D4AF37] font-semibold': chat.user !== 'chatbot' && colorMode === 'dark',
+                        'text-[#1A1A1A]': chat.user === 'chatbot' && colorMode === 'light',
+                        'text-blue-700 font-semibold': chat.user !== 'chatbot' && colorMode === 'light',
+                      })}
+                      style={{
+                        color:
+                          chat.user === 'chatbot' && colorMode === 'dark'
+                            ? 'rgba(255,255,255,0.95)'
+                            : chat.user !== 'chatbot' && colorMode === 'dark'
+                              ? '#D4AF37'
+                              : '#1A1A1A',
+                      }}
+                    >
                       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
                         {chat.id === 2 && chat.user === 'chatbot' && index === 0
                           ? t('welcomeMessage')
-                          : (chat.modes[chat.currentMode]?.message || '')}
+                          : chat.modes[chat.currentMode]?.message || ''}
                       </ReactMarkdown>
                     </div>
                   </div>
 
                   {chat.user === 'chatbot' && !chat.isLoading && !chat.isTyping && (
-                    <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4">
+                    <div className='mt-5 flex items-center justify-between border-t border-white/5 pt-4'>
                       <CommonActions
                         chat={chat}
                         copyHandler={handleCopy}
@@ -480,48 +569,76 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       </div>
 
       {/* Precision Signature Input Area */}
-      <div className={clsx('p-8 border-t transition-all duration-500 glass-luxe', {
-        'border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]': colorMode === 'dark',
-        'border-gray-100': colorMode === 'light',
-      })}>
-        <form onSubmit={handleSubmit} className="flex gap-4 items-center max-w-[900px] mx-auto">
-          <div className="flex-1 relative group">
+      <div
+        className={clsx('p-8 border-t transition-all duration-500 glass-luxe', {
+          'border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]': colorMode === 'dark',
+          'border-gray-100': colorMode === 'light',
+        })}
+      >
+        <form onSubmit={handleSubmit} className='flex gap-4 items-center w-full'>
+          <div className='flex-1 relative group w-full'>
             <TextInput
               isDisabled={isLoading}
               value={inputMessage}
               onChange={handleInputChange}
+              isFluid
               placeholder={t('inquireVault')}
-              className={clsx('bg-transparent! border-white/10! focus:border-[#D4AF37]/50! py-4! px-8! rounded-2xl! transition-all duration-500 w-full', {
-                'text-white! shadow-inner': colorMode === 'dark',
-                'text-black!': colorMode === 'light',
+              className={clsx('focus:border-[#D4AF37]/50 py-4 px-8 rounded-2xl w-full', {
+                'text-white shadow-inner': colorMode === 'dark',
+                'text-black': colorMode === 'light',
               })}
               aria-label='chatbot-input'
             />
             {isSupported && (
               <button
-                type="button"
+                type='button'
                 onClick={handleMicClick}
-                className={clsx("absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300", {
-                  'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
-                  'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
-                  'text-gray-400 hover:text-gray-600': !isListening && colorMode === 'light',
-                })}
+                className={clsx(
+                  'absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300',
+                  {
+                    'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
+                    'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
+                    'text-gray-400 hover:text-gray-600': !isListening && colorMode === 'light',
+                  }
+                )}
               >
-                {isListening ? <RiMicFill size={20} className="animate-pulse" /> : <RiMicLine size={20} />}
+                {isListening ? <RiMicFill size={20} className='animate-pulse' /> : <RiMicLine size={20} />}
               </button>
             )}
           </div>
           <SpotlightTarget id='chatbtn' hasPulse={true} indicatorVariant='border'>
-            <button
-              type="submit"
-              disabled={isLoading || !inputMessage.trim()}
-              className={clsx("h-[54px] px-10 rounded-2xl flex items-center justify-center transition-all duration-500 disabled:opacity-20 translate-y-[-1px]", {
-                'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]': colorMode === 'dark',
-                'bg-blue-600 text-white font-bold uppercase tracking-widest text-[10px]': colorMode === 'light',
-              })}
-            >
-              Ask
-            </button>
+            {isLoading ? (
+              <button
+                type='button'
+                onClick={handleCancel}
+                className={clsx(
+                  'h-[54px] px-8 rounded-2xl flex items-center justify-center transition-all duration-500 translate-y-[-1px]',
+                  {
+                    'bg-red-900/40 text-red-500 font-extrabold uppercase tracking-[0.15em] text-[10px] border border-red-500/30 hover:bg-red-900/60':
+                      colorMode === 'dark',
+                    'bg-red-100 text-red-600 font-bold uppercase tracking-widest text-[10px] hover:bg-red-200':
+                      colorMode === 'light',
+                  }
+                )}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type='submit'
+                disabled={isLoading || !inputMessage.trim()}
+                className={clsx(
+                  'h-[54px] px-10 rounded-2xl flex items-center justify-center transition-all duration-500 disabled:opacity-20 translate-y-[-1px]',
+                  {
+                    'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]':
+                      colorMode === 'dark',
+                    'bg-blue-600 text-white font-bold uppercase tracking-widest text-[10px]': colorMode === 'light',
+                  }
+                )}
+              >
+                Ask
+              </button>
+            )}
           </SpotlightTarget>
         </form>
       </div>
@@ -533,15 +650,10 @@ const Chatbot: FC<ChatbotProps> = (props) => {
           isOpen={showInfoModal}
           size={'large'}
         >
-          <div className="flex justify-end p-4">
-             <IconButton
-                size='large'
-                isClean
-                ariaLabel='close'
-                onClick={() => setShowInfoModal(false)}
-              >
-                <XMarkIconOutline className='w-6 h-6' />
-              </IconButton>
+          <div className='flex justify-end p-4'>
+            <IconButton size='large' isClean ariaLabel='close' onClick={() => setShowInfoModal(false)}>
+              <XMarkIconOutline className='w-6 h-6' />
+            </IconButton>
           </div>
           <InfoModal
             sources={sourcesModal}

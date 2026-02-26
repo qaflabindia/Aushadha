@@ -31,7 +31,7 @@ export default async function subscribe(
       await new Promise((resolve) => setTimeout(resolve, currentDelay));
       delay *= 2;
       pollingAttempts++;
-    } else if (response.status !== 200) {
+    } else if (Number(response.status) !== 200) {
       throw new Error(
         JSON.stringify({ fileName, message: `Failed To Process ${fileName} or LLM Unable To Parse Content` })
       );

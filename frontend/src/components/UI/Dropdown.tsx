@@ -31,8 +31,7 @@ const DropdownComponent: React.FC<ReusableDropdownProps> = ({
           label='LLM Models'
           helpText={<div className='w-max!'> LLM Model used for Extraction & Chat</div>}
           selectProps={{
-            onChange: handleChange,
-            // @ts-ignore
+            onChange: handleChange as any,
             options: allOptions?.map((option) => {
               const label = typeof option === 'string' ? capitalizeWithUnderscore(option) : capitalize(option.label);
               const value = typeof option === 'string' ? option : option.value;
@@ -51,10 +50,13 @@ const DropdownComponent: React.FC<ReusableDropdownProps> = ({
                 value,
                 isDisabled: !isModelSupported,
               };
-            }),
+            }) as any,
             placeholder: placeholder || 'Select an option',
             defaultValue: defaultValue
-              ? { label: capitalizeWithUnderscore(defaultValue), value: defaultValue }
+              ? {
+                  label: capitalizeWithUnderscore(typeof defaultValue === 'string' ? defaultValue : defaultValue.value),
+                  value: typeof defaultValue === 'string' ? defaultValue : defaultValue.value,
+                }
               : undefined,
             menuPlacement: 'auto',
             isDisabled: isDisabled,

@@ -9,7 +9,7 @@ import { isExpired } from '../../../utils/Utils';
 import { EXPIRATION_DAYS } from '../../../utils/Constants';
 import { IconWithToolTip } from '../../UI/IconButtonToolTip';
 
-const ExpiredFilesAlert: FC<LargefilesProps> = ({ Files, handleToggle, checked }) => {
+const ExpiredFilesAlert: FC<LargefilesProps> = ({ Files = [], handleToggle = () => {}, checked = [] }) => {
   return (
     <div className='n-bg-palette-neutral-bg-weak p-4'>
       <div className='flex! flex-row pb-6 items-center mb-2'>

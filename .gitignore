@@ -181,4 +181,4 @@ startupfrontend.sh
 *.enc
 /data/models/
 /local-llm/
-/data/mmlu-indic/
+/data/mmlu-indic/frontend.zip

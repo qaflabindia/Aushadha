@@ -190,8 +190,8 @@ const Content: React.FC<ContentProps> = ({
               : postProcessingTasks
             : hasSelections
               ? postProcessingTasks.filter(
-                (task) => task !== 'graph_schema_consolidation' && task !== 'enable_communities'
-              )
+                  (task) => task !== 'graph_schema_consolidation' && task !== 'enable_communities'
+                )
               : postProcessingTasks.filter((task) => task !== 'enable_communities');
           if (payload.length) {
             const response = await postProcessing(payload);
@@ -297,7 +297,7 @@ const Content: React.FC<ContentProps> = ({
   };
 
   const extractHandler = async (fileItem: CustomFile, uid: string) => {
-    queue.remove((item) => item.name === fileItem.name);
+    queue.remove((item: CustomFile) => item.name === fileItem.name);
     try {
       if (userCredentials && shouldShowTokenTracking(userCredentials.email)) {
         const tokenCheck = await checkTokenLimits(userCredentials);
@@ -389,7 +389,7 @@ const Content: React.FC<ContentProps> = ({
               return prev + 1;
             });
             const { message, fileName } = error;
-            queue.remove((item) => item.name === fileName);
+            queue.remove((item: CustomFile) => item.name === fileName);
             const errorMessage = error.message;
             showErrorToast(message);
             setFilesData((prevfiles) =>
@@ -594,7 +594,7 @@ const Content: React.FC<ContentProps> = ({
     } else {
       const selectedNewFiles = childRef.current
         ?.getSelectedRows()
-        .filter((f) => f.status === 'New' || f.status == 'Ready to Reprocess');
+        .filter((f: CustomFile) => f.status === 'New' || f.status == 'Ready to Reprocess');
       addFilesToQueue(selectedNewFiles as CustomFile[]);
     }
   }, [filesData, queue]);
@@ -604,8 +604,9 @@ const Content: React.FC<ContentProps> = ({
     let finalUrl = bloomUrl;
     if (userCredentials?.database && userCredentials.uri && userCredentials.userName) {
       const uriCoded = userCredentials.uri.replace(/:\d+$/, '');
-      const connectURL = `${uriCoded.split('//')[0]}//${userCredentials.userName}@${uriCoded.split('//')[1]}:${userCredentials.port ?? '7687'
-        }`;
+      const connectURL = `${uriCoded.split('//')[0]}//${userCredentials.userName}@${uriCoded.split('//')[1]}:${
+        userCredentials.port ?? '7687'
+      }`;
       const encodedURL = encodeURIComponent(connectURL);
       finalUrl = bloomUrl?.replace('{CONNECT_URL}', encodedURL);
     }
@@ -676,12 +677,12 @@ const Content: React.FC<ContentProps> = ({
           return prev.map((f) => {
             return f.name === filename
               ? {
-                ...f,
-                status: 'Ready to Reprocess',
-                processingProgress: isStartFromBeginning ? 0 : f.processingProgress,
-                nodesCount: isStartFromBeginning ? 0 : f.nodesCount,
-                relationshipsCount: isStartFromBeginning ? 0 : f.relationshipsCount,
-              }
+                  ...f,
+                  status: 'Ready to Reprocess',
+                  processingProgress: isStartFromBeginning ? 0 : f.processingProgress,
+                  nodesCount: isStartFromBeginning ? 0 : f.nodesCount,
+                  relationshipsCount: isStartFromBeginning ? 0 : f.relationshipsCount,
+                }
               : f;
           });
         });
@@ -707,12 +708,14 @@ const Content: React.FC<ContentProps> = ({
 
   const newFilecheck = useMemo(
     () =>
-      childRef.current?.getSelectedRows().filter((f) => f.status === 'New' || f.status == 'Ready to Reprocess').length,
+      childRef.current
+        ?.getSelectedRows()
+        .filter((f: CustomFile) => f.status === 'New' || f.status == 'Ready to Reprocess').length,
     [childRef.current?.getSelectedRows()]
   );
 
   const completedfileNo = useMemo(
-    () => childRef.current?.getSelectedRows().filter((f) => f.status === 'Completed').length,
+    () => childRef.current?.getSelectedRows().filter((f: CustomFile) => f.status === 'Completed').length,
     [childRef.current?.getSelectedRows()]
   );
 
@@ -757,7 +760,7 @@ const Content: React.FC<ContentProps> = ({
       setIsDeleteLoading(false);
       if (response.data.status == 'Success') {
         showSuccessToast(response.data.message);
-        const filenames = childRef.current?.getSelectedRows().map((str) => str.name);
+        const filenames = childRef.current?.getSelectedRows().map((str: CustomFile) => str.name);
         if (filenames?.length) {
           for (let index = 0; index < filenames.length; index++) {
             const name = filenames[index];
@@ -785,17 +788,17 @@ const Content: React.FC<ContentProps> = ({
     const selectedRows = childRef.current?.getSelectedRows();
     if (selectedRows?.length) {
       const expiredFilesExists = selectedRows.some(
-        (c) => isFileReadyToProcess(c, true) && isExpired((c?.createdAt as Date) ?? new Date())
+        (c: CustomFile) => isFileReadyToProcess(c, true) && isExpired((c?.createdAt as Date) ?? new Date())
       );
       const largeFileExists = selectedRows.some(
-        (c) => isFileReadyToProcess(c, true) && typeof c.size === 'number' && c.size > largeFileSize
+        (c: CustomFile) => isFileReadyToProcess(c, true) && typeof c.size === 'number' && c.size > largeFileSize
       );
       if (expiredFilesExists) {
         setShowExpirationModal(true);
       } else if (largeFileExists && isGCSActive) {
         setShowConfirmationModal(true);
       } else {
-        handleGenerateGraph(selectedRows.filter((f) => isFileReadyToProcess(f, false)));
+        handleGenerateGraph(selectedRows.filter((f: CustomFile) => isFileReadyToProcess(f, false)));
       }
     } else if (filesData.length) {
       const expiredFileExists = filesData.some((c) => isFileReadyToProcess(c, true) && isExpired(c?.createdAt as Date));
@@ -803,9 +806,8 @@ const Content: React.FC<ContentProps> = ({
         (c) => isFileReadyToProcess(c, true) && typeof c.size === 'number' && c.size > largeFileSize
       );
       const selectAllNewFiles = filesData.filter((f) => isFileReadyToProcess(f, false));
-      const stringified = selectAllNewFiles.reduce((accu, f) => {
+      const stringified = selectAllNewFiles.reduce((accu: Record<string, boolean>, f) => {
         const key = f.id;
-        // @ts-ignore
         accu[key] = true;
         return accu;
       }, {});
@@ -860,13 +862,17 @@ const Content: React.FC<ContentProps> = ({
   };
 
   const handleSyncToKG = async (caseId: string) => {
+    if (!userCredentials) {
+      showErrorToast('Please connect to database first');
+      return;
+    }
     try {
       const formData = new FormData();
       formData.append('case_id', caseId);
-      formData.append('uri', userCredentials.uri);
-      formData.append('database', userCredentials.database);
-      formData.append('userName', userCredentials.userName);
-      formData.append('password', userCredentials.password);
+      formData.append('uri', userCredentials.uri ?? '');
+      formData.append('database', userCredentials.database ?? '');
+      formData.append('userName', userCredentials.userName ?? '');
+      formData.append('password', userCredentials.password ?? '');
 
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/ehr_data/sync_to_kg`, formData);
       if (response.data.status === 'Success') {
@@ -967,35 +973,35 @@ const Content: React.FC<ContentProps> = ({
           setCombinedRels={setCombinedRels}
         ></GraphEnhancementDialog>
       )}
-        <GraphViewModal
-          inspectedName={inspectedName}
-          open={openGraphView}
-          setGraphViewOpen={setOpenGraphView}
-          viewPoint={viewPoint}
-          selectedRows={childRef.current?.getSelectedRows()}
-        />
-        <div className={`main-content-wrapper flex flex-col`}>
-          {/* Prominent Tab Switcher */}
-          <div className="flex items-center justify-center p-4 bg-black/40 border-b border-white/5">
-            <div className="glass-panel p-1 flex gap-2">
-              <Button 
-                onClick={() => setViewPoint('tableView')}
-                size="small"
-                fill={viewPoint === 'tableView' ? 'filled' : 'text'}
-                className={viewPoint === 'tableView' ? 'text-black font-bold' : 'text-gray-400'}
-              >
-                {t('fileManagement')}
-              </Button>
-              <Button 
-                onClick={handleEHRView}
-                size="small"
-                fill={viewPoint === 'ehr_view' ? 'filled' : 'text'}
-                className={viewPoint === 'ehr_view' ? 'text-[#F5A623] font-bold gold-glow' : 'text-gray-400'}
-              >
-                {t('clinicalIntelligence')}
-              </Button>
-            </div>
+      <GraphViewModal
+        inspectedName={inspectedName}
+        open={openGraphView}
+        setGraphViewOpen={setOpenGraphView}
+        viewPoint={viewPoint}
+        selectedRows={childRef.current?.getSelectedRows()}
+      />
+      <div className={`main-content-wrapper flex flex-col`}>
+        {/* Prominent Tab Switcher */}
+        <div className='flex items-center justify-center p-4 bg-black/40 border-b border-white/5'>
+          <div className='glass-panel p-1 flex gap-2'>
+            <Button
+              onClick={() => setViewPoint('tableView')}
+              size='small'
+              fill={viewPoint === 'tableView' ? 'filled' : 'text'}
+              className={viewPoint === 'tableView' ? 'text-black font-bold' : 'text-gray-400'}
+            >
+              {t('fileManagement')}
+            </Button>
+            <Button
+              onClick={handleEHRView}
+              size='small'
+              fill={viewPoint === 'ehr_view' ? 'filled' : 'text'}
+              className={viewPoint === 'ehr_view' ? 'text-[#F5A623] font-bold gold-glow' : 'text-gray-400'}
+            >
+              {t('clinicalIntelligence')}
+            </Button>
           </div>
+        </div>
         <Flex
           className='w-full absolute top-0'
           alignItems='center'
@@ -1004,7 +1010,9 @@ const Content: React.FC<ContentProps> = ({
           flexWrap='wrap'
         >
           <div className='connectionstatus__container'>
-            <span className='h6 px-1'>{t('dbConnection')} {isReadOnlyUser ? '(Read only Mode)' : ''}</span>
+            <span className='h6 px-1'>
+              {t('dbConnection')} {isReadOnlyUser ? '(Read only Mode)' : ''}
+            </span>
             <Typography variant='body-medium'>
               <DatabaseStatusIcon
                 isConnected={connectionStatus}
@@ -1067,17 +1075,17 @@ const Content: React.FC<ContentProps> = ({
         <FileTable
           connectionStatus={connectionStatus}
           setConnectionStatus={setConnectionStatus}
-          onInspect={useCallback((name) => {
+          onInspect={useCallback((name: string) => {
             setInspectedName(name);
             setOpenGraphView(true);
             setViewPoint('tableView');
           }, [])}
-          onRetry={useCallback((id) => {
+          onRetry={useCallback((id: string) => {
             setRetryFile(id);
             toggleRetryPopup();
           }, [])}
           onChunkView={useCallback(
-            async (name) => {
+            async (name: string) => {
               setDocumentName(name);
               if (name != documentName) {
                 toggleChunkPopup();
@@ -1095,35 +1103,33 @@ const Content: React.FC<ContentProps> = ({
         ></FileTable>
 
         {viewPoint === 'ehr_view' && (
-          <div className="absolute inset-0 z-50 bg-[#121212] flex flex-col overflow-auto">
-            <div className="flex justify-between items-center p-4 border-b border-white/5 bg-black/20">
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => setEhrViewType('card')} 
-                  size="small" 
+          <div className='absolute inset-0 z-50 bg-[#121212] flex flex-col overflow-auto'>
+            <div className='flex justify-between items-center p-4 border-b border-white/5 bg-black/20'>
+              <div className='flex gap-2'>
+                <Button
+                  onClick={() => setEhrViewType('card')}
+                  size='small'
                   fill={ehrViewType === 'card' ? 'filled' : 'outlined'}
                 >
                   Clinical Cards
                 </Button>
-                <Button 
-                  onClick={() => setEhrViewType('table')} 
-                  size="small" 
+                <Button
+                  onClick={() => setEhrViewType('table')}
+                  size='small'
                   fill={ehrViewType === 'table' ? 'filled' : 'outlined'}
                 >
                   Postgres Table View
                 </Button>
               </div>
-              <Button onClick={() => setViewPoint('tableView')} size="small" fill="outlined">Close View</Button>
+              <Button onClick={() => setViewPoint('tableView')} size='small' fill='outlined'>
+                Close View
+              </Button>
             </div>
             <Suspense fallback={<FallBackDialog />}>
               {ehrViewType === 'card' ? (
                 <EHRDataTable data={ehrData} />
               ) : (
-                <EHRTabularView 
-                  data={ehrData} 
-                  onUpdate={handleUpdateRecord} 
-                  onSync={handleSyncToKG} 
-                />
+                <EHRTabularView data={ehrData} onUpdate={handleUpdateRecord} onSync={handleSyncToKG} />
               )}
             </Suspense>
           </div>
@@ -1133,7 +1139,7 @@ const Content: React.FC<ContentProps> = ({
           <div>
             <DropdownComponent
               onSelect={handleDropdownChange}
-              options={llms ?? ['']}
+              options={(llms ?? ['']).map((l: string) => ({ label: l, value: l }))}
               placeholder='Select LLM Model'
               defaultValue={model}
               view='ContentView'
@@ -1151,8 +1157,7 @@ const Content: React.FC<ContentProps> = ({
                 className='mr-0.5'
                 size={isTablet ? 'small' : 'medium'}
               >
-                {t('generateGraph')}{' '}
-                {selectedfileslength && !disableCheck && newFilecheck ? `(${newFilecheck})` : ''}
+                {t('generateGraph')} {selectedfileslength && !disableCheck && newFilecheck ? `(${newFilecheck})` : ''}
               </ButtonWithToolTip>
             </SpotlightTarget>
             <ButtonWithToolTip
@@ -1178,13 +1183,13 @@ const Content: React.FC<ContentProps> = ({
                   size={isTablet ? 'small' : 'medium'}
                 >
                   <span className='mx-2'>
-                    {t('previewGraph')}{' '}
-                    {selectedfileslength && completedfileNo ? `(${completedfileNo})` : ''}
+                    {t('previewGraph')} {selectedfileslength && completedfileNo ? `(${completedfileNo})` : ''}
                   </span>
                 </Button>
                 <div
-                  className={`ndl-icon-btn ndl-clean dropdownbtn ${colorMode === 'dark' ? 'darktheme' : ''} ${isTablet ? 'small' : 'medium'
-                    }`}
+                  className={`ndl-icon-btn ndl-clean dropdownbtn ${colorMode === 'dark' ? 'darktheme' : ''} ${
+                    isTablet ? 'small' : 'medium'
+                  }`}
                   onClick={(e) => {
                     setIsGraphBtnMenuOpen((old) => !old);
                     e.stopPropagation();
