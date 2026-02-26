@@ -80,44 +80,47 @@ export default function ConnectionModal({
   const userNameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    const fetchAndSetSecret = async (key: string, setter: (val: string) => void) => {
-      const res = await getSecretValue(key);
-      if (res.data.status === 'Success' && res.data.data) {
-        setter(res.data.data);
-      }
-    };
-
     const fetchSecrets = async () => {
       try {
         const response = await getSecrets();
-        if (response.data.status !== 'Success' || !Array.isArray(response.data.data)) {
-          return;
-        }
-        const keys = response.data.data;
+        if (response.data.status === 'Success' && Array.isArray(response.data.data)) {
+          const keys = response.data.data;
 
-        if (keys.includes('NEO4J_URI')) {
-          const res = await getSecretValue('NEO4J_URI');
-          if (res.data.status === 'Success' && res.data.data) {
-            const uriParts = res.data.data.split('://');
-            if (uriParts.length === 2) {
-              setProtocol(uriParts[0]);
-              setURI(uriParts[1]);
-            } else {
-              setURI(res.data.data);
+          if (keys.includes('NEO4J_URI')) {
+            const res = await getSecretValue('NEO4J_URI');
+            if (res.data.status === 'Success' && res.data.data) {
+              const fullUri = res.data.data;
+              const uriParts = fullUri.split('://');
+              // eslint-disable-next-line max-depth
+              if (uriParts.length === 2) {
+                setProtocol(uriParts[0]);
+                setURI(uriParts[1]);
+              } else {
+                setURI(fullUri);
+              }
+            }
+          }
+          if (keys.includes('NEO4J_USERNAME')) {
+            const res = await getSecretValue('NEO4J_USERNAME');
+            if (res.data.status === 'Success' && res.data.data) {
+              setUsername(res.data.data);
+            }
+          }
+          if (keys.includes('NEO4J_DATABASE')) {
+            const res = await getSecretValue('NEO4J_DATABASE');
+            if (res.data.status === 'Success' && res.data.data) {
+              setDatabase(res.data.data);
+            }
+          }
+          if (keys.includes('NEO4J_PASSWORD')) {
+            const res = await getSecretValue('NEO4J_PASSWORD');
+            if (res.data.status === 'Success' && res.data.data) {
+              setPassword(res.data.data);
             }
           }
         }
-        if (keys.includes('NEO4J_USERNAME')) {
-          await fetchAndSetSecret('NEO4J_USERNAME', setUsername);
-        }
-        if (keys.includes('NEO4J_DATABASE')) {
-          await fetchAndSetSecret('NEO4J_DATABASE', setDatabase);
-        }
-        if (keys.includes('NEO4J_PASSWORD')) {
-          await fetchAndSetSecret('NEO4J_PASSWORD', setPassword);
-        }
-      } catch {
-        // Error fetching secrets from vault
+      } catch (error) {
+        console.error('Error fetching secrets from vault', error);
       }
     };
 

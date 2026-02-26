@@ -161,7 +161,6 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const saveMetrics = (metricInfo: metricstate) => {
     setMetricDetails(metricInfo);
   };
-
   const saveCommunities = (chatCommunities: Community[]) => {
     setCommunities(chatCommunities);
   };

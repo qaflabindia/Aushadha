@@ -322,10 +322,9 @@ const PageLayout: React.FC = () => {
     if (isLargeDesktop) {
       setIsRightExpanded((prev) => {
         const isNowExpanded = !prev;
-        // Reset full screen when closing
         if (!isNowExpanded) {
           setIsChatFullScreen(false);
-        }
+        } // Reset full screen when closing
         return isNowExpanded;
       });
     } else {
