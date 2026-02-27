@@ -120,14 +120,72 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# =============================================================================
+# Credentials, Secrets & Keys — NEVER COMMIT
+# =============================================================================
+
+# Environment files (may contain API keys & passwords)
 .env
+.env.*
+!.env.example
+*.env.local
+backend/.env
+frontend/.env
+
+# Virtual environments
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Secret Vault (Fernet AES)
+.vault.key
+.secrets.json.enc
+*.key
+*.enc
+
+# RSA / JWT auth keys
+.auth_rsa_private.pem
+.auth_rsa_public.pem
+*.pem
+*.p12
+*.pfx
+
+# TLS / SSL certificates
+*.crt
+*.cert
+*.cer
+
+# GCP service account keys
+*-credentials.json
+*service-account*.json
+*sa-key*.json
+/data/llm-experiments-387609-c73d512ca3b1.json
+
+# SSH keys
+id_rsa
+id_ed25519
+*.pub
+
+# Common secret file patterns
+credentials.json
+secrets.json
+secrets.yaml
+secrets.yml
+secret_key.txt
+api_keys.json
+token.json
+oauth_token.json
+
+# AWS
+.aws/
+aws-credentials
+
+# =============================================================================
+# IDE & Editors
+# =============================================================================
 
 # Spyder project settings
 .spyderproject
@@ -153,17 +211,16 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+# PyCharm / JetBrains
 #.idea/
 .vscode/launch.json
+
+# =============================================================================
+# Project-specific
+# =============================================================================
 temp.pdf
 google-cloud-sdk
 google-cloud-cli-469.0.0-linux-x86_64.tar.gz
-/data/llm-experiments-387609-c73d512ca3b1.json
 /backend/src/merged_files
 /backend/src/chunks
 /backend/merged_files
@@ -175,11 +232,8 @@ files
 startupbackend.sh
 startupfrontend.sh
 /backend/local_model
-.vault.key
-.secrets.json.enc
-*.key
-*.enc
 /data/models/
 /local-llm/
 /data/mmlu-indic/frontend.zip
 frontend.zip
+

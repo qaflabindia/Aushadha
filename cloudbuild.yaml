@@ -1,0 +1,141 @@
+# =============================================================================
+# Aushadha — GCP Cloud Build Configuration
+# =============================================================================
+# This file enables automated builds and deployments via Google Cloud Build.
+# Branch-aware: deploys to dev, staging, or prod based on $BRANCH_NAME.
+#
+# Usage (manual):
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_REGION=us-central1,_OPENAI_API_KEY=xxx,...
+#
+# Usage (automated):
+#   Connect repo in Cloud Build > Triggers > select this file.
+# =============================================================================
+
+substitutions:
+  _REGION: us-central1
+  _REPO: aushadha
+  _BACKEND_SERVICE: aushadha-backend
+  _FRONTEND_SERVICE: aushadha-frontend
+  # Secret substitutions (override via trigger or CLI):
+  _OPENAI_API_KEY: ""
+  _DIFFBOT_API_KEY: ""
+  _NEO4J_URI: ""
+  _NEO4J_USERNAME: "neo4j"
+  _NEO4J_PASSWORD: ""
+  _NEO4J_DATABASE: "neo4j"
+  _TRACK_TOKEN_USAGE: "true"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  # -------------------------------------------------------------------------
+  # Step 1: Build backend Docker image
+  # -------------------------------------------------------------------------
+  - id: build-backend
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:${SHORT_SHA}"
+      - -t
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:latest"
+      - ./backend
+    waitFor: ["-"]
+
+  # -------------------------------------------------------------------------
+  # Step 2: Push backend image to Artifact Registry
+  # -------------------------------------------------------------------------
+  - id: push-backend
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:${SHORT_SHA}"
+    waitFor: ["build-backend"]
+
+  - id: push-backend-latest
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:latest"
+    waitFor: ["build-backend"]
+
+  # -------------------------------------------------------------------------
+  # Step 3: Deploy backend to Cloud Run
+  # -------------------------------------------------------------------------
+  - id: deploy-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        # Determine environment suffix from branch
+        case "$BRANCH_NAME" in
+          main)    SVC="${_BACKEND_SERVICE}" ;;
+          staging) SVC="${_BACKEND_SERVICE}-staging" ;;
+          *)       SVC="${_BACKEND_SERVICE}-dev" ;;
+        esac
+
+        gcloud run deploy "$$SVC" \
+          --image "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:${SHORT_SHA}" \
+          --region "${_REGION}" \
+          --platform managed \
+          --port 8000 \
+          --memory 2Gi \
+          --cpu 2 \
+          --timeout 300 \
+          --min-instances 0 \
+          --max-instances 5 \
+          --allow-unauthenticated \
+          --set-env-vars "NEO4J_URI=${_NEO4J_URI}" \
+          --set-env-vars "NEO4J_USERNAME=${_NEO4J_USERNAME}" \
+          --set-env-vars "NEO4J_PASSWORD=${_NEO4J_PASSWORD}" \
+          --set-env-vars "NEO4J_DATABASE=${_NEO4J_DATABASE}" \
+          --set-env-vars "OPENAI_API_KEY=${_OPENAI_API_KEY}" \
+          --set-env-vars "DIFFBOT_API_KEY=${_DIFFBOT_API_KEY}" \
+          --set-env-vars "TRACK_TOKEN_USAGE=${_TRACK_TOKEN_USAGE}"
+    waitFor: ["push-backend"]
+
+  # -------------------------------------------------------------------------
+  # Step 4: Build frontend Docker image (commented out by default)
+  # Uncomment when ready to deploy frontend via Cloud Build.
+  # -------------------------------------------------------------------------
+  # - id: build-frontend
+  #   name: gcr.io/cloud-builders/docker
+  #   args:
+  #     - build
+  #     - -t
+  #     - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${SHORT_SHA}"
+  #     - --build-arg
+  #     - "VITE_BACKEND_API_URL=${_BACKEND_API_URL}"
+  #     - --build-arg
+  #     - "VITE_ENV=PROD"
+  #     - ./frontend
+  #   waitFor: ["-"]
+
+  # - id: push-frontend
+  #   name: gcr.io/cloud-builders/docker
+  #   args:
+  #     - push
+  #     - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${SHORT_SHA}"
+  #   waitFor: ["build-frontend"]
+
+  # - id: deploy-frontend
+  #   name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  #   entrypoint: bash
+  #   args:
+  #     - -c
+  #     - |
+  #       gcloud run deploy "${_FRONTEND_SERVICE}" \
+  #         --image "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${SHORT_SHA}" \
+  #         --region "${_REGION}" \
+  #         --platform managed \
+  #         --port 8080 \
+  #         --allow-unauthenticated
+  #   waitFor: ["push-frontend"]
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:${SHORT_SHA}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_BACKEND_SERVICE}:latest"
