@@ -14,7 +14,7 @@ import useSpeechSynthesis from '../../hooks/useSpeech';
 import FallBackDialog from '../UI/FallBackDialog';
 import { envConnectionAPI } from '../../services/ConnectAPI';
 import { healthStatus } from '../../services/HealthStatus';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { showErrorToast } from '../../utils/Toasts';
 import { APP_SOURCES } from '../../utils/Constants';
 import { createDefaultFormData } from '../../API/Index';
@@ -204,7 +204,7 @@ const PageLayout: React.FC = () => {
     setTypeOptions,
   } = useFileContext();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth0();
+  const { user, isAuthenticated } = useGoogleAuth();
   const { cancel } = useSpeechSynthesis();
   const { setActiveSpotlight } = useSpotlightContext();
   const isYoutubeOnly = useMemo(
@@ -272,12 +272,12 @@ const PageLayout: React.FC = () => {
           const storedCredentials = localStorage.getItem('neo4j.connection');
           if (storedCredentials) {
             const credentials = JSON.parse(storedCredentials);
-            setUserCredentials({ ...credentials, password: atob(credentials.password) });
+            setUserCredentials({ ...credentials, password: credentials.password });
             createDefaultFormData({
               uri: credentials.uri,
               database: credentials.database,
               userName: credentials.userName,
-              password: atob(credentials?.password),
+              password: credentials?.password,
               email: credentials.email ?? '',
             });
             setIsGCSActive(credentials.isGCSActive);

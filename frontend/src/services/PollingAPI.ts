@@ -17,9 +17,7 @@ export default async function subscribe(
   if (userCredentials.userName) {
     queryParams.append('userName', userCredentials.userName);
   }
-  if (userCredentials.password) {
-    queryParams.append('password', btoa(userCredentials.password));
-  }
+  // Password transmission omitted to prevent credential leakage
   if (userCredentials.database) {
     queryParams.append('database', userCredentials.database);
   }

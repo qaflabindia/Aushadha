@@ -5,7 +5,7 @@ from langchain_neo4j import Neo4jGraph
 from langchain_text_splitters import TokenTextSplitter
 
 from src.document_sources.youtube import get_calculated_timestamps, get_chunks_with_timestamps
-from src.shared.common_fn import get_value_from_env
+from src.shared.env_utils import get_value_from_env
 
 logging.basicConfig(format="%(asctime)s - %(message)s", level="INFO")
 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 from fastapi import Form, HTTPException
+from src.shared.env_utils import get_value_from_env
 
 class Neo4jCredentials(BaseModel):
     """
@@ -66,6 +67,15 @@ async def get_neo4j_credentials(
     Raises:
         HTTPException: If validation fails
     """
+    if not uri:
+        uri = get_value_from_env("NEO4J_URI")
+    if not userName:
+        userName = get_value_from_env("NEO4J_USERNAME")
+    if not password:
+        password = get_value_from_env("NEO4J_PASSWORD")
+    if not database:
+        database = get_value_from_env("NEO4J_DATABASE", "neo4j")
+
     return Neo4jCredentials(
         uri=uri,
         userName=userName,

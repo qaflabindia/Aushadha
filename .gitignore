@@ -163,6 +163,7 @@ venv.bak/
 *service-account*.json
 *sa-key*.json
 /data/llm-experiments-387609-c73d512ca3b1.json
+data/client_secret_*.json
 
 # SSH keys
 id_rsa

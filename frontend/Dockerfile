@@ -1,5 +1,5 @@
 # Step 1: Build the React application
-FROM node:20 AS build
+FROM node:20.12.2-alpine AS build
 
 ARG VITE_BACKEND_API_URL="http://localhost:8000"
 ARG VITE_REACT_APP_SOURCES=""
@@ -45,7 +45,7 @@ RUN VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL \
     yarn run build
 
 # Step 2: Serve the application using Nginx
-FROM nginx:alpine
+FROM nginx:1.25.4-alpine
 ARG DEPLOYMENT_ENV="local"
 ENV DEPLOYMENT_ENV=$DEPLOYMENT_ENV
 COPY --from=build /app/dist /usr/share/nginx/html

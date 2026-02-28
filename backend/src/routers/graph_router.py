@@ -29,7 +29,8 @@ from src.main import (
     manually_cancelled_job, populate_graph_schema_from_text, set_status_retry, update_graph, upload_file
 )
 from src.post_processing import create_entity_embedding, create_vector_fulltext_indexes, graph_schema_consolidation
-from src.shared.common_fn import formatted_time, get_value_from_env
+from src.shared.common_fn import formatted_time
+from src.shared.env_utils import get_value_from_env
 from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
 
 logger = CustomLogger()
@@ -535,7 +536,17 @@ async def update_extract_status(
         url = uri
         if url and " " in url:
             url= url.replace(" ","+")
-        credentials= Neo4jCredentials(uri=url, userName=userName, password=decoded_password, database=database)
+        
+        if not url:
+            url = get_value_from_env("NEO4J_URI")
+        if not userName:
+            userName = get_value_from_env("NEO4J_USERNAME")
+        if not decoded_password:
+            decoded_password = get_value_from_env("NEO4J_PASSWORD")
+        if not database:
+            database = get_value_from_env("NEO4J_DATABASE", "neo4j")
+            
+        credentials = Neo4jCredentials(uri=url, userName=userName, password=decoded_password, database=database)
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
         while True:
@@ -576,11 +587,21 @@ async def get_document_status(file_name, url, userName, password, database):
     decoded_password = decode_password(password)
 
     try:
-        if " " in url:
+        if not url:
+            uri = get_value_from_env("NEO4J_URI")
+        elif " " in url:
             uri= url.replace(" ","+")
         else:
             uri=url
-        credentials= Neo4jCredentials(uri=url, userName=userName, password=decoded_password, database=database)
+        
+        if not userName:
+            userName = get_value_from_env("NEO4J_USERNAME")
+        if not decoded_password:
+            decoded_password = get_value_from_env("NEO4J_PASSWORD")
+        if not database:
+            database = get_value_from_env("NEO4J_DATABASE", "neo4j")
+            
+        credentials= Neo4jCredentials(uri=uri, userName=userName, password=decoded_password, database=database)
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
         result = graphDb_data_Access.get_current_status_document_node(file_name)

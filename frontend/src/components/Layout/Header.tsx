@@ -10,6 +10,7 @@ import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { useMessageContext } from '../../context/UserMessages';
 import { RiChatSettingsLine, RiBarChart2Line, RiLayoutMasonryLine } from 'react-icons/ri';
 import ChatModeToggle from '../ChatBot/ChatModeToggle';
+import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { HeaderProp } from '../../types';
 import Profile from '../User/Profile';
 import SecretVaultModal from '../Popups/SecretVaultModal';
@@ -25,6 +26,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick, showBackB
   const [showChatModeOption, setShowChatModeOption] = useState<boolean>(false);
   const [showSecretVault, setShowSecretVault] = useState<boolean>(false);
   const t = useTranslation();
+  const { user } = useGoogleAuth();
 
   return (
     <div className='flex items-center justify-between h-full px-8'>
@@ -60,33 +62,35 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick, showBackB
       {/* Global Interface Controls */}
       <section className='flex items-center gap-8'>
         {/* Glass Search Trigger with Gold/Silver Typography */}
-        <div
-          ref={chatAnchor}
-          onClick={() => setShowChatModeOption(true)}
-          className={clsx(
-            'flex items-center gap-3 px-5 py-2 rounded-full border transition-all cursor-pointer group glass-luxe',
-            {
-              'border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.1)]': colorMode === 'dark',
-              'border-gray-200': colorMode === 'light',
-            }
-          )}
-        >
-          <RiChatSettingsLine
-            className={clsx('text-sm transition-colors', {
-              'text-[#D4AF37]': colorMode === 'dark',
-              'text-gray-500': colorMode === 'light',
-            })}
-          />
-          <span
-            className={clsx('text-[10px] uppercase tracking-[0.25em] font-extrabold transition-all', {
-              'bg-gradient-to-r from-white via-[#D4AF37] to-white bg-clip-text text-transparent group-hover:via-white group-hover:to-[#D4AF37]':
-                colorMode === 'dark',
-              'text-[#1A1A1A] group-hover:text-gray-600': colorMode === 'light',
-            })}
+        {(user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
+          <div
+            ref={chatAnchor}
+            onClick={() => setShowChatModeOption(true)}
+            className={clsx(
+              'flex items-center gap-3 px-5 py-2 rounded-full border transition-all cursor-pointer group glass-luxe',
+              {
+                'border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.1)]': colorMode === 'dark',
+                'border-gray-200': colorMode === 'light',
+              }
+            )}
           >
-            Intelligence Search
-          </span>
-        </div>
+            <RiChatSettingsLine
+              className={clsx('text-sm transition-colors', {
+                'text-[#D4AF37]': colorMode === 'dark',
+                'text-gray-500': colorMode === 'light',
+              })}
+            />
+            <span
+              className={clsx('text-[10px] uppercase tracking-[0.25em] font-extrabold transition-all', {
+                'bg-gradient-to-r from-white via-[#D4AF37] to-white bg-clip-text text-transparent group-hover:via-white group-hover:to-[#D4AF37]':
+                  colorMode === 'dark',
+                'text-[#1A1A1A] group-hover:text-gray-600': colorMode === 'light',
+              })}
+            >
+              Intelligence Search
+            </span>
+          </div>
+        )}
 
         <div className='flex items-center gap-6'>
           <TooltipWrapper tooltip={t('dataInsights')} placement='bottom'>
@@ -118,15 +122,17 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick, showBackB
           </IconButtonWithToolTip>
 
           <TooltipWrapper tooltip='Secret Vault' placement='bottom'>
-            <div
-              onClick={() => setShowSecretVault(true)}
-              className={clsx('cursor-pointer transition-all hover:text-[#D4AF37] opacity-60 hover:opacity-100', {
-                'text-white': colorMode === 'dark',
-                'text-gray-400': colorMode === 'light',
-              })}
-            >
-              <LockClosedIconOutline className='w-5 h-5' />
-            </div>
+            {user?.role === 'Admin' && (
+              <div
+                onClick={() => setShowSecretVault(true)}
+                className={clsx('cursor-pointer transition-all hover:text-[#D4AF37] opacity-60 hover:opacity-100', {
+                  'text-white': colorMode === 'dark',
+                  'text-gray-400': colorMode === 'light',
+                })}
+              >
+                <LockClosedIconOutline className='w-5 h-5' />
+              </div>
+            )}
           </TooltipWrapper>
 
           <Profile />

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { Menu, Typography, IconButton, Avatar } from '@neo4j-ndl/react';
+import { Menu, Typography, Avatar } from '@neo4j-ndl/react';
 import { ChevronDownIconOutline } from '@neo4j-ndl/react/icons';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { getTokenLimits, TokenLimitsResponse } from '../../services/TokenLimits';
 import { useCredentials } from '../../context/UserCredentials';
 import { isNeo4jUser } from '../../utils/Utils';
@@ -12,7 +12,7 @@ export default function Profile() {
   const [isLoadingTokens, setIsLoadingTokens] = useState<boolean>(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const iconbtnRef = useRef<HTMLButtonElement | null>(null);
-  const { user, isAuthenticated, isLoading, logout } = useAuth0();
+  const { user, isAuthenticated, isLoading, logout } = useGoogleAuth();
   const { userCredentials, connectionStatus } = useCredentials();
 
   const fetchTokenLimits = useCallback(async () => {
@@ -109,7 +109,8 @@ export default function Profile() {
       {
         title: 'Logout',
         onClick: () => {
-          logout({ logoutParams: { returnTo: `${window.location.origin}/readonly` } });
+          logout();
+          window.location.href = '/login';
         },
       },
     ];
@@ -127,40 +128,40 @@ export default function Profile() {
   }
   if (isAuthenticated) {
     return (
-      <div className=' p-1.5 h-12 profile-container'>
-        <>
-          <Avatar
-            className='md:flex hidden'
-            name={user?.name?.charAt(0).toLocaleUpperCase()}
-            size='large'
-            type='letters'
-            shape='square'
-          />
-          <div className='flex flex-col'>
-            <Typography variant='body-medium' className='p-0.5'>
-              {user?.name?.split('@')[0] ?? 'Jhon doe'}
-            </Typography>
+      <div
+        className='p-1.5 h-12 profile-container cursor-pointer hover:bg-white/5 rounded-lg transition-colors flex items-center gap-3'
+        onClick={handleClick}
+        ref={iconbtnRef as any}
+      >
+        <Avatar
+          className='md:flex hidden'
+          name={user?.name?.charAt(0).toLocaleUpperCase()}
+          size='large'
+          type='letters'
+          shape='square'
+        />
+        <div className='flex flex-col'>
+          <Typography variant='body-medium' className='p-0.5 leading-none'>
+            {user?.name?.split('@')[0] ?? 'John Doe'}
+          </Typography>
 
-            <Typography variant='body-small' className='p-0.5'>
-              {user?.email ?? 'john.doe@neo4j.com'}
-            </Typography>
-          </div>
-          <IconButton ref={iconbtnRef} ariaLabel='settings' isClean onClick={handleClick}>
-            <ChevronDownIconOutline />
-          </IconButton>
-          <Menu anchorRef={iconbtnRef} isOpen={showMenu} onClose={handleClose}>
-            <Menu.Items>
-              {settings.map((setting, index) => (
-                <Menu.Item
-                  key={`${setting.title}-${index}`}
-                  onClick={() => !('disabled' in setting && setting.disabled) && setting.onClick()}
-                  title={setting.title}
-                  isDisabled={'disabled' in setting ? setting.disabled : false}
-                />
-              ))}
-            </Menu.Items>
-          </Menu>
-        </>
+          <Typography variant='body-small' className='p-0.5 leading-none opacity-60'>
+            {user?.email ?? 'john.doe@neo4j.com'}
+          </Typography>
+        </div>
+        <ChevronDownIconOutline className='w-4 h-4 opacity-40' />
+        <Menu anchorRef={iconbtnRef} isOpen={showMenu} onClose={handleClose}>
+          <Menu.Items>
+            {settings.map((setting, index) => (
+              <Menu.Item
+                key={`${setting.title}-${index}`}
+                onClick={() => !('disabled' in setting && setting.disabled) && setting.onClick()}
+                title={setting.title}
+                isDisabled={'disabled' in setting ? setting.disabled : false}
+              />
+            ))}
+          </Menu.Items>
+        </Menu>
       </div>
     );
   }

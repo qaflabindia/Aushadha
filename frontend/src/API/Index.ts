@@ -20,6 +20,10 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
   // Add interceptor to automatically inject credentials into all requests
   api.interceptors.request.use(
     (config) => {
+      const authToken = localStorage.getItem('aushadha_auth_token');
+      if (authToken) {
+        config.headers.Authorization = `Bearer ${authToken}`;
+      }
       if (config.url?.includes('secrets')) {
         return config;
       }
@@ -34,8 +38,12 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
         if (globalCredentials.userName && !config.data.has('userName')) {
           config.data.append('userName', globalCredentials.userName);
         }
+        // Password transmission is allowed if explicitly provided in the initial data.
+        // We only omit auto-injection from globalCredentials if not present to minimize leakage.
         if (globalCredentials.password && !config.data.has('password')) {
-          config.data.append('password', globalCredentials.password);
+          // config.data.append('password', globalCredentials.password);
+          // Still omitting auto-injection for general requests as a security measure.
+          // Endpoints that need it (like /connect) should have it explicitly in their FormData.
         }
         if (globalCredentials.email && !config.data.has('email')) {
           config.data.append('email', globalCredentials.email);
@@ -54,9 +62,12 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
         if (globalCredentials.userName) {
           formData.append('userName', globalCredentials.userName);
         }
-        if (globalCredentials.password) {
-          formData.append('password', globalCredentials.password);
+        // For JSON requests, we should generally preserve the payload type unless we need auto-injection.
+        // If we are dealing with /secrets, we must NOT convert to FormData as the backend expects JSON.
+        if (config.url?.startsWith('/secrets')) {
+          return config;
         }
+        // Password transmission omitted for auto-injection to prevent credential leakage
         if (globalCredentials.email) {
           formData.append('email', globalCredentials.email);
         }
@@ -91,6 +102,7 @@ export const createCredentialsFormData = (userCredentials: UserCredentials): For
   if (userCredentials?.userName) {
     formData.append('userName', userCredentials.userName);
   }
+  // Allow password transmission if explicitly provided for connection/setup
   if (userCredentials?.password) {
     formData.append('password', userCredentials.password);
   }

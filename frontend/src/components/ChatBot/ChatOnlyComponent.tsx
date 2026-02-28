@@ -48,7 +48,7 @@ const ChatContent: React.FC<ChatProps> = ({ chatMessages }) => {
       const credentialsForAPI: UserCredentials = {
         uri,
         userName: user,
-        password: atob(atob(encodedPassword)),
+        password: encodedPassword,
         database,
         port,
         email: email ?? '',

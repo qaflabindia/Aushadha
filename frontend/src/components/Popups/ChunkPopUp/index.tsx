@@ -6,7 +6,6 @@ import { useMemo } from 'react';
 import chunklogo from '../../../assets/images/chunks.svg';
 import { tokens } from '@neo4j-ndl/base';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import ReactMarkdown from 'react-markdown';
 const ChunkPopUp = ({
   showChunkPopup,
@@ -76,9 +75,7 @@ const ChunkPopUp = ({
                   ) : null}
 
                   <div className='prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none'>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
-                      {c.text}
-                    </ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.text}</ReactMarkdown>
                   </div>
                 </Flex>
               </li>

@@ -6,7 +6,6 @@ import { chatModeLables } from '../../utils/Constants';
 import GraphViewModal from '../Graph/GraphViewModal';
 import { handleGraphNodeClick } from './chatInfo';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 const CommunitiesInfo: FC<CommunitiesProps> = ({ loading, communities, mode }) => {
   const [neoNodes, setNeoNodes] = useState<any[]>([]);
   const [neoRels, setNeoRels] = useState<any[]>([]);
@@ -53,9 +52,7 @@ const CommunitiesInfo: FC<CommunitiesProps> = ({ loading, communities, mode }) =
                     </Flex>
                   )}
                   <div className='prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none'>
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
-                      {community.summary}
-                    </ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{community.summary}</ReactMarkdown>
                   </div>
                 </div>
               </li>

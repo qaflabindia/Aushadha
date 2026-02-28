@@ -32,17 +32,17 @@ from pydantic import BaseModel
 # ---------------------------------------------------------------------------
 GOOGLE_CLIENT_ID = os.getenv(
     "GOOGLE_CLIENT_ID",
-    "256164019269-3hshk7f2f8l86g8n3v6ouchodb9c1vmv.apps.googleusercontent.com",
+    "256164019269-o0174fcoksuls9hf9b9nkto42fc1c649.apps.googleusercontent.com",
 )
 AUTH_MODE = os.getenv("AUTH_MODE", "all")  # "google", "local", "all", "none"
-SKIP_AUTH = os.getenv("VITE_SKIP_AUTH", "true").strip().lower() == "true"
+SKIP_AUTH = os.getenv("VITE_SKIP_AUTH", "false").strip().lower() == "true"
 
 # Local RSA-256 key paths (auto-generated if missing)
 LOCAL_RSA_PRIVATE_KEY_PATH = Path(os.getenv("RSA_PRIVATE_KEY_PATH", "/code/.auth_rsa_private.pem"))
 LOCAL_RSA_PUBLIC_KEY_PATH = Path(os.getenv("RSA_PUBLIC_KEY_PATH", "/code/.auth_rsa_public.pem"))
 
 # Local token settings
-LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "24"))
+LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "4"))
 LOCAL_TOKEN_ISSUER = "aushadha-local"
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ class AuthenticatedUser(BaseModel):
     name: str = ""
     picture: str = ""
     auth_method: str = "unknown"  # "google" or "local"
+    role: str = ""
 
 
 # ---------------------------------------------------------------------------

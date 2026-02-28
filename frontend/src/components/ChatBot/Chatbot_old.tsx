@@ -42,7 +42,6 @@ import ChatModesSwitch from './ChatModesSwitch';
 import CommonActions from './CommonChatActions';
 import Loader from '../../utils/Loader';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 const InfoModal = lazy(() => import('./ChatInfoModal'));
 if (typeof window !== 'undefined') {
   if (!sessionStorage.getItem('session_id')) {
@@ -476,7 +475,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                             : 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none'
                         }
                       >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {chat.modes[chat.currentMode]?.message || ''}
                         </ReactMarkdown>
                       </div>

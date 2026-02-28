@@ -36,9 +36,12 @@ from src.make_relationships import (
 )
 from src.shared.common_fn import (
     check_url_source, create_gcs_bucket_folder_name_hashed, create_graph_database_connection,
-    delete_uploaded_local_file, get_chunk_and_graphDocument, get_value_from_env,
+    delete_uploaded_local_file, get_chunk_and_graphDocument,
     handle_backticks_nodes_relationship_id_type, last_url_segment, save_graphDocuments_in_neo4j, track_token_usage
 )
+from src.shared.common_fn import formatted_time
+from src.shared.env_utils import get_value_from_env
+
 from src.shared.constants import (
     DELETE_ENTITIES_AND_START_FROM_BEGINNING, QUERY_TO_DELETE_EXISTING_ENTITIES,
     QUERY_TO_GET_CHUNKS, QUERY_TO_GET_LAST_PROCESSED_CHUNK_POSITION,
@@ -79,20 +82,21 @@ def sanitize_uploaded_fileName(filename, max_length=100):
     Returns:
         str: Sanitized filename.
     """
-    print("Original filename or incoming file Name:", filename)
-    # safe_name = unicodedata.normalize('NFKD', filename).encode('ascii', 'ignore').decode('ascii')
-    # safe_name = re.sub(r'[^A-Za-z0-9._-]', '_', safe_name)
-    # if '.' in filename:
-    #     base, ext = os.path.splitext(filename)
-    # else:
-    #     base, ext = filename, ''
-    # if len(safe_name) == 0 or len(safe_name) > max_length:
-    #     hash_part = hashlib.sha256(filename.encode('utf-8')).hexdigest()[:16]
-    #     safe_name = (safe_name[:max_length] if len(safe_name) > 0 else 'file') + '_' + hash_part + ext
-    #     if len(safe_name) > max_length:
-    #         safe_name = safe_name[:max_length - len(ext) - 17] + '_' + hash_part + ext
-    # print("Sanitized filename:", safe_name)
-    return filename
+    print("Original incoming file Name:", filename)
+    filename = os.path.basename(filename) # Prevent path traversal
+    safe_name = unicodedata.normalize('NFKD', filename).encode('ascii', 'ignore').decode('ascii')
+    safe_name = re.sub(r'[^A-Za-z0-9._-]', '_', safe_name)
+    if '.' in filename:
+        base, ext = os.path.splitext(filename)
+    else:
+        base, ext = filename, ''
+    if len(safe_name) == 0 or len(safe_name) > max_length:
+        hash_part = hashlib.sha256(filename.encode('utf-8')).hexdigest()[:16]
+        safe_name = (safe_name[:max_length] if len(safe_name) > 0 else 'file') + '_' + hash_part + ext
+        if len(safe_name) > max_length:
+            safe_name = safe_name[:max_length - len(ext) - 17] + '_' + hash_part + ext
+    print("Sanitized filename:", safe_name)
+    return safe_name
 
 
 def create_source_node_graph_url_s3(graph, params):
@@ -145,7 +149,8 @@ def create_source_node_graph_url_s3(graph, params):
                 'url': obj_source_node.url,
                 'status': 'Success'
             })
-        except Exception:
+        except Exception as e:
+            logging.exception(f"Failed to process S3 file {obj_source_node.file_name}: {e}")
             failed_count += 1
             lst_file_name.append({
                 'fileName': obj_source_node.file_name,
@@ -185,7 +190,7 @@ def create_source_node_graph_url_gcs(graph, params, credentials):
       obj_source_node.gcsBucketFolder = file_metadata['gcsBucketFolder']
       obj_source_node.gcsProjectId = file_metadata['gcsProjectId']
       obj_source_node.created_at = datetime.now()
-      obj_source_node.access_token = credentials.token
+      # Explicitly NOT persisting the oauth access_token directly onto the graph node (C1)
       obj_source_node.chunkNodeCount=0
       obj_source_node.chunkRelCount=0
       obj_source_node.entityNodeCount=0
@@ -200,6 +205,7 @@ def create_source_node_graph_url_gcs(graph, params, credentials):
           lst_file_name.append({'fileName':obj_source_node.file_name,'fileSize':obj_source_node.file_size,'url':obj_source_node.url,'status':'Success', 
                                 'gcsBucketName': params.gcs_bucket_name, 'gcsBucketFolder':obj_source_node.gcsBucketFolder, 'gcsProjectId':obj_source_node.gcsProjectId})
       except Exception as e:
+        logging.exception(f"Failed to process GCS file {obj_source_node.file_name}: {e}")
         failed_count+=1
         lst_file_name.append({'fileName':obj_source_node.file_name,'fileSize':obj_source_node.file_size,'url':obj_source_node.url,'status':'Failed', 
                               'gcsBucketName': params.gcs_bucket_name, 'gcsBucketFolder':obj_source_node.gcsBucketFolder, 'gcsProjectId':obj_source_node.gcsProjectId})
@@ -219,7 +225,7 @@ def create_source_node_graph_web_url(graph, params):
     success_count=0
     failed_count=0
     lst_file_name = []
-    pages = WebBaseLoader(params.source_url, verify_ssl=False).load()
+    pages = WebBaseLoader(params.source_url).load()
     if pages==None or len(pages)==0:
       failed_count+=1
       message = f"Unable to read data for given url : {params.source_url}"

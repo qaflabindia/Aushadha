@@ -90,7 +90,7 @@ export const LoginPage: React.FC = () => {
         {/* Logo / Branding */}
         <div style={styles.header}>
           <h1 style={styles.title}>Aushadha</h1>
-          <p style={styles.subtitle}>Knowledge Graph Intelligence Platform</p>
+          <p style={styles.subtitle}>Clinical Intelligence Platform</p>
         </div>
 
         {error && <div style={styles.errorBanner}>{error}</div>}

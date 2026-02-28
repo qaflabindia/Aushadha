@@ -18,7 +18,7 @@ import { buttonCaptions } from '../../../utils/Constants';
 import { createVectorIndex } from '../../../services/VectorIndexCreation';
 import { ConnectionModalProps, Message, UserCredentials } from '../../../types';
 import VectorIndexMisMatchAlert from './VectorIndexMisMatchAlert';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useGoogleAuth } from '../../../context/GoogleAuthContext';
 import { createDefaultFormData } from '../../../API/Index';
 import { getNodeLabelsAndRelTypesFromText } from '../../../services/SchemaFromTextAPI';
 import { useFileContext } from '../../../context/UsersFiles';
@@ -58,7 +58,7 @@ export default function ConnectionModal({
   const [password, setPassword] = useState<string>('');
   const [saveToVault, setSaveToVault] = useState<boolean>(true);
   const [connectionMessage, setMessage] = useState<Message | null>({ type: 'unknown', content: '' });
-  const { user } = useAuth0();
+  const { user } = useGoogleAuth();
   const {
     setUserCredentials,
     userCredentials,
@@ -158,7 +158,7 @@ export default function ConnectionModal({
               JSON.stringify({
                 uri: usercredential?.uri,
                 userName: usercredential?.userName,
-                password: btoa(usercredential.password ?? ''),
+                password: usercredential.password ?? '',
                 database: usercredential?.database,
                 userDbVectorIndex: 384,
               })
@@ -335,7 +335,7 @@ export default function ConnectionModal({
           JSON.stringify({
             uri: connectionURI,
             userName: username,
-            password: btoa(password),
+            password: password,
             database: database,
             userDbVectorIndex,
             isgdsActive,

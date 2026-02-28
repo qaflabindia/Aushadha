@@ -31,12 +31,12 @@ import ChatModesSwitch from './ChatModesSwitch';
 import CommonActions from './CommonChatActions';
 import Loader from '../../utils/Loader';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { useContext } from 'react';
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
 import { useLanguage, useTranslation } from '../../context/LanguageContext';
-import { RiRobotLine, RiUserLine, RiMicLine, RiMicFill } from 'react-icons/ri';
+import { RiRobotLine, RiUserLine, RiMicLine, RiMicFill, RiChatSettingsLine } from 'react-icons/ri';
+import ChatModeToggle from './ChatModeToggle';
 
 const InfoModal = lazy(() => import('./ChatInfoModal'));
 // ... (rest of imports should remain)
@@ -81,6 +81,8 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const [metricsLoading, toggleMetricsLoading] = useReducer((s: boolean) => !s, false);
   const [activeChat, setActiveChat] = useState<Messages | null>(null);
   const [multiModelMetrics, setMultiModelMetrics] = useState<multimodelmetric[]>([]);
+  const [showChatModeOption, setShowChatModeOption] = useState<boolean>(false);
+  const chatAnchor = useRef<HTMLButtonElement>(null);
 
   const { language } = useLanguage();
   const { transcript, isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
@@ -531,7 +533,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                               : '#1A1A1A',
                       }}
                     >
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {chat.id === 2 && chat.user === 'chatbot' && index === 0
                           ? t('welcomeMessage')
                           : chat.modes[chat.currentMode]?.message || ''}
@@ -582,12 +584,28 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               onChange={handleInputChange}
               isFluid
               placeholder={t('inquireVault')}
-              className={clsx('focus:border-[#D4AF37]/50 py-4 px-8 rounded-2xl w-full', {
+              className={clsx('focus:border-[#D4AF37]/50 py-4 px-12 rounded-2xl w-full', {
                 'text-white shadow-inner': colorMode === 'dark',
                 'text-black': colorMode === 'light',
               })}
               aria-label='chatbot-input'
             />
+            <button
+              type='button'
+              ref={chatAnchor}
+              onClick={() => setShowChatModeOption(true)}
+              className={clsx(
+                'absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 hover:bg-[#D4AF37]/10',
+                {
+                  'text-[#D4AF37]': colorMode === 'dark',
+                  'text-gray-500': colorMode === 'light',
+                }
+              )}
+              title='Intelligence Search Mode'
+            >
+              <RiChatSettingsLine size={18} />
+            </button>
+
             {isSupported && (
               <button
                 type='button'
@@ -692,6 +710,16 @@ const Chatbot: FC<ChatbotProps> = (props) => {
           />
         </Modal>
       </Suspense>
+      <ChatModeToggle
+        closeHandler={(_, reason) => {
+          if (reason.type === 'backdropClick' || reason.type === 'itemClick') {
+            setShowChatModeOption(false);
+          }
+        }}
+        open={showChatModeOption}
+        menuAnchor={chatAnchor}
+        isRoot={false}
+      />
     </div>
   );
 };

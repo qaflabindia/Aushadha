@@ -15,9 +15,7 @@ export function triggerStatusUpdateAPI(
   if (userCredentials.userName) {
     params.append('userName', userCredentials.userName);
   }
-  if (userCredentials.password) {
-    params.append('password', btoa(userCredentials.password));
-  }
+  // Password transmission omitted to prevent credential leakage
   const queryString = params.toString();
   const requestUrl = queryString
     ? `${url()}/update_extract_status/${name}?${queryString}`

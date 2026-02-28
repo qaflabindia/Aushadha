@@ -5,6 +5,7 @@ import { chatModeLables, chatModes as AvailableModes, chatModeReadableLables } f
 import { capitalize } from '@mui/material';
 import { capitalizeWithPlus } from '../../utils/Utils';
 import { useCredentials } from '../../context/UserCredentials';
+import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { JSXElementConstructor, ReactElement, ReactNode, ReactPortal, useContext, useMemo } from 'react';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 
@@ -29,6 +30,7 @@ export default function ChatModeToggle({
   const isCommunityAllowed = postProcessingTasks.includes('enable_communities');
   const { isGdsActive } = useCredentials();
   const { colorMode } = useContext(ThemeWrapperContext);
+  const { user } = useGoogleAuth();
 
   const textColor = colorMode === 'dark' ? '#D4AF37' : '#1A1A1A';
   const descriptionColor = colorMode === 'dark' ? 'rgba(212,175,55,0.7)' : '#555555';
@@ -38,12 +40,18 @@ export default function ChatModeToggle({
   }
 
   const memoizedChatModes = useMemo(() => {
-    return isGdsActive && isCommunityAllowed
-      ? AvailableModes
-      : AvailableModes?.filter(
-          (m: { mode: string | string[] }) => !m.mode.includes(chatModeLables['global search+vector+fulltext'])
-        );
-  }, [isGdsActive, isCommunityAllowed]);
+    let filtered = AvailableModes;
+    if (!(isGdsActive && isCommunityAllowed)) {
+      filtered = filtered?.filter(
+        (m: { mode: string }) => !m.mode.includes(chatModeLables['global search+vector+fulltext'])
+      );
+    }
+    // Only Admin, Doctor, and Staff can see AYUSH Clinical mode
+    if (!(user?.role === 'Admin' || user?.role === 'Doctor' || user?.role === 'Staff')) {
+      filtered = filtered?.filter((m: { mode: string }) => m.mode !== chatModeLables['ayush clinical']);
+    }
+    return filtered;
+  }, [isGdsActive, isCommunityAllowed, user?.role]);
 
   const menuItems = useMemo(() => {
     return memoizedChatModes?.map(

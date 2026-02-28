@@ -19,7 +19,8 @@ from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
 import re
 from typing import List
 from langchain_core.callbacks.manager import CallbackManager
-from src.shared.common_fn import UniversalTokenUsageHandler,get_value_from_env
+from src.shared.common_fn import UniversalTokenUsageHandler
+from src.shared.env_utils import get_value_from_env
 
 def get_llm(model: str):
     """Retrieve the specified language model based on the model name."""

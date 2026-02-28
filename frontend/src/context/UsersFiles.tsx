@@ -37,9 +37,13 @@ const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
   const { userCredentials } = useCredentials();
   const [files, setFiles] = useState<(File | null)[] | []>([]);
   const [filesData, setFilesData] = useState<CustomFile[] | []>([]);
-  const [queue, setQueue] = useState<Queue<CustomFile>>(
-    new Queue(JSON.parse(persistedQueue ?? JSON.stringify({ queue: [] })).queue)
-  );
+  let initialQueue = [];
+  try {
+    initialQueue = JSON.parse(persistedQueue ?? '{"queue": []}').queue;
+  } catch (e) {
+    initialQueue = [];
+  }
+  const [queue, setQueue] = useState<Queue<CustomFile>>(new Queue(initialQueue));
   const [model, setModel] = useState<string>(isProdDefaultModel ? selectedModel : isProdEnv ? PRODMODELS[0] : llms[0]);
   const [graphType, setGraphType] = useState<string>('Knowledge Graph Entities');
   const [selectedNodes, setSelectedNodes] = useState<readonly OptionType[]>([]);
@@ -104,41 +108,45 @@ const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
   const [importerPattern, setImporterPattern] = useState<string[]>([]);
 
   useEffect(() => {
-    if (selectedNodeLabelstr != null) {
-      const selectedNodeLabel = JSON.parse(selectedNodeLabelstr);
-      if (userCredentials?.uri === selectedNodeLabel.db) {
-        setSelectedNodes(selectedNodeLabel.selectedOptions);
+    try {
+      if (selectedNodeLabelstr != null) {
+        const selectedNodeLabel = JSON.parse(selectedNodeLabelstr);
+        if (userCredentials?.uri === selectedNodeLabel.db) {
+          setSelectedNodes(selectedNodeLabel.selectedOptions);
+        }
       }
-    }
-    if (selectedNodeRelsstr != null) {
-      const selectedNodeRels = JSON.parse(selectedNodeRelsstr);
-      if (userCredentials?.uri === selectedNodeRels.db) {
-        setSelectedRels(selectedNodeRels.selectedOptions);
+      if (selectedNodeRelsstr != null) {
+        const selectedNodeRels = JSON.parse(selectedNodeRelsstr);
+        if (userCredentials?.uri === selectedNodeRels.db) {
+          setSelectedRels(selectedNodeRels.selectedOptions);
+        }
       }
-    }
-    if (selectedNodeRelsstr != null) {
-      const selectedNodeRels = JSON.parse(selectedNodeRelsstr);
-      if (userCredentials?.uri === selectedNodeRels.db) {
-        const rels = selectedNodeRels.selectedOptions;
-        setSelectedRels(rels);
-        const generatedPatterns = rels.map((rel: { value: string }) => {
-          const [source, type, target] = rel.value.split(',');
-          return `(${source})-[${type}]->(${target})`;
-        });
-        setAllPatterns(generatedPatterns);
+      if (selectedNodeRelsstr != null) {
+        const selectedNodeRels = JSON.parse(selectedNodeRelsstr);
+        if (userCredentials?.uri === selectedNodeRels.db) {
+          const rels = selectedNodeRels.selectedOptions;
+          setSelectedRels(rels);
+          const generatedPatterns = rels.map((rel: { value: string }) => {
+            const [source, type, target] = rel.value.split(',');
+            return `(${source})-[${type}]->(${target})`;
+          });
+          setAllPatterns(generatedPatterns);
+        }
       }
-    }
-    if (selectedTokenChunkSizeStr != null) {
-      const parsedSelectedChunk_size = JSON.parse(selectedTokenChunkSizeStr);
-      setSelectedTokenChunkSize(parsedSelectedChunk_size.selectedOption);
-    }
-    if (selectedChunk_overlapStr != null) {
-      const parsedSelectedChunk_overlap = JSON.parse(selectedChunk_overlapStr);
-      setSelectedChunk_overlap(parsedSelectedChunk_overlap.selectedOption);
-    }
-    if (selectedChunks_to_combineStr != null) {
-      const parsedSelectedChunks_to_combine = JSON.parse(selectedChunks_to_combineStr);
-      setSelectedChunk_overlap(parsedSelectedChunks_to_combine.selectedOption);
+      if (selectedTokenChunkSizeStr != null) {
+        const parsedSelectedChunk_size = JSON.parse(selectedTokenChunkSizeStr);
+        setSelectedTokenChunkSize(parsedSelectedChunk_size.selectedOption);
+      }
+      if (selectedChunk_overlapStr != null) {
+        const parsedSelectedChunk_overlap = JSON.parse(selectedChunk_overlapStr);
+        setSelectedChunk_overlap(parsedSelectedChunk_overlap.selectedOption);
+      }
+      if (selectedChunks_to_combineStr != null) {
+        const parsedSelectedChunks_to_combine = JSON.parse(selectedChunks_to_combineStr);
+        setSelectedChunk_overlap(parsedSelectedChunks_to_combine.selectedOption);
+      }
+    } catch (e) {
+      console.error('Failed to parse settings from localStorage', e);
     }
     if (selectedInstructstr != null) {
       const selectedInstructions = selectedInstructstr;

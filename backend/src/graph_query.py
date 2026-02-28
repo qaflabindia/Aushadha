@@ -1,7 +1,7 @@
 import logging
 from neo4j import time 
 from neo4j import GraphDatabase
-from src.shared.common_fn import get_value_from_env
+from src.shared.env_utils import get_value_from_env
 import os
 import json
 

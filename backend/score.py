@@ -97,7 +97,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SessionMiddleware, secret_key=os.urandom(24))
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", os.urandom(24).hex()))
 app.add_api_route("/health", health([healthy_condition, healthy]))
 
 
@@ -111,6 +111,7 @@ from src.routers.clinical_router import router as clinical_router
 from src.routers.admin_router import router as admin_router
 from src.routers.metrics_router import router as metrics_router
 from src.routers.auth_router import router as auth_router
+from src.routers.rbac_router import router as rbac_router
 
 app.include_router(graph_router)
 app.include_router(chat_router)
@@ -118,6 +119,7 @@ app.include_router(clinical_router)
 app.include_router(admin_router)
 app.include_router(metrics_router)
 app.include_router(auth_router)
+app.include_router(rbac_router)
 
 
 if __name__ == "__main__":

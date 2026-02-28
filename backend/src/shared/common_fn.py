@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any
 from src.entities.user_credential import Neo4jCredentials
+from src.shared.env_utils import get_value_from_env, convert_type
 from transformers import AutoTokenizer, AutoModel
 from langchain_huggingface import HuggingFaceEmbeddings
 from threading import Lock
@@ -255,49 +256,7 @@ def get_bedrock_embeddings():
        logging.error(f"An unexpected error occurred: {e}")
        raise
    
-def get_value_from_env(key_name: str, default_value: Any = None, data_type: type = str):
-  
-  # First check the secret vault
-  value = get_secret(key_name)
-  
-  # Then check environment variables
-  if value is None:
-    value = os.getenv(key_name, None)
-    
-  if value is not None and str(value).strip() != "":
-    return convert_type(value, data_type)
-  elif default_value is not None:
-    return convert_type(default_value, data_type)
-  else:
-    error_msg = f"Environment variable or secret '{key_name}' not found and no default value provided."
-    logging.error(error_msg)
-    return None
-
-
-def convert_type(value: str, data_type: type):
-    """Convert value to the specified data type."""
-    try:
-        if data_type in (int, "int"):
-            return int(value)
-        elif data_type in (float, "float"):
-            return float(value)
-        elif data_type in (bool, "bool"):
-            if isinstance(value, bool):
-                return value
-            if isinstance(value, (int, float)):
-                return bool(value)
-            if isinstance(value, str):
-                return value.strip().lower() in ["true", "1", "yes"]
-            raise ValueError(f"Cannot convert {value!r} to bool")
-        elif data_type in (list, dict, "list", "dict"):
-            return json.loads(value)
-        elif data_type in (str, "str"):
-            return str(value)
-        else:
-            raise TypeError(f"Unsupported data type for conversion: {data_type}")
-    except Exception as e:
-        logging.error(f"Type conversion error: {e}")
-        raise
+# convert_type and get_value_from_env have been moved to src.shared.env_utils
 
 
 class UniversalTokenUsageHandler(BaseCallbackHandler):

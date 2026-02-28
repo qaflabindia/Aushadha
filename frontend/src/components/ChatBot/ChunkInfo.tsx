@@ -14,7 +14,6 @@ import GraphViewModal from '../Graph/GraphViewModal';
 import { handleGraphNodeClick } from './chatInfo';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
   const themeUtils = useContext(ThemeWrapperContext);
   const [neoNodes, setNeoNodes] = useState<any[]>([]);
@@ -267,14 +266,10 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                   </>
                 )}
                 <div className='mt-2 prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none'>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
-                    {chunk?.text}
-                  </ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{chunk?.text}</ReactMarkdown>
                 </div>
                 <div className='mt-2 prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none'>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw] as any}>
-                    {chunk?.text}
-                  </ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{chunk?.text}</ReactMarkdown>
                 </div>
               </li>
             ))}

@@ -15,6 +15,29 @@ from src.main import create_graph_database_connection
 from src.shared.common_fn import formatted_time
 from src.shared.google_auth import require_auth, AuthenticatedUser
 from src.shared.secret_vault import get_secret, set_secret, list_secret_keys
+import os
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.models import User, Role
+
+async def require_admin(
+    user: AuthenticatedUser = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    if user.auth_method == "skip":
+        return user
+    
+    # Query the user from the database
+    db_user = db.query(User).filter(User.email == user.email).first()
+    if not db_user:
+        raise HTTPException(status_code=403, detail="User not found in system")
+    
+    # Check if they have a role and if that role is Admin
+    if not db_user.role or db_user.role.name.upper() != "ADMIN":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+        
+    return user
 
 logger = CustomLogger()
 router = APIRouter(tags=["Administration"])
@@ -25,7 +48,7 @@ router = APIRouter(tags=["Administration"])
 # =============================================================================
 
 @router.get("/secrets")
-async def get_secrets_list(user: AuthenticatedUser = Depends(require_auth)):
+async def get_secrets_list(user: AuthenticatedUser = Depends(require_admin)):
     """Get the list of secret keys stored in the vault."""
     try:
         keys = list_secret_keys()
@@ -34,19 +57,21 @@ async def get_secrets_list(user: AuthenticatedUser = Depends(require_auth)):
         return create_api_response("Failed", error=str(e))
 
 @router.get("/secrets/values")
-async def get_secret_value(name: str, user: AuthenticatedUser = Depends(require_auth)):
+async def get_secret_value(name: str, user: AuthenticatedUser = Depends(require_admin)):
     """Get the value of a secret from the vault."""
     try:
         value = get_secret(name)
         if value is None:
             return create_api_response("Failed", message=f"Secret '{name}' not found")
-        return create_api_response("Success", data={"name": name, "value": value})
+        # Obscure the secret value to prevent leakage
+        is_set = bool(value)
+        return create_api_response("Success", data={"name": name, "is_set": is_set})
     except Exception as e:
         return create_api_response("Failed", error=str(e))
 
 
 @router.post("/secrets")
-async def save_secret(request: Request, user: AuthenticatedUser = Depends(require_auth)):
+async def save_secret(request: Request, user: AuthenticatedUser = Depends(require_admin)):
     """Save a secret to the vault."""
     try:
         data = await request.json()
@@ -65,7 +90,10 @@ async def save_secret(request: Request, user: AuthenticatedUser = Depends(requir
 # =============================================================================
 
 @router.post("/get_unconnected_nodes_list")
-async def get_unconnected_nodes_list(credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
+async def get_unconnected_nodes_list(
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    user: AuthenticatedUser = Depends(require_admin)
+):
     """Get the list of unconnected nodes in the graph database."""
     try:
         start = time.time()
@@ -89,7 +117,8 @@ async def get_unconnected_nodes_list(credentials: Neo4jCredentials = Depends(get
 @router.post("/delete_unconnected_nodes")
 async def delete_orphan_nodes(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
-    unconnected_entities_list=Form()
+    unconnected_entities_list=Form(),
+    user: AuthenticatedUser = Depends(require_admin)
 ):
     """Delete unconnected (orphan) nodes from the graph database."""
     try:
@@ -112,7 +141,10 @@ async def delete_orphan_nodes(
         gc.collect()
 
 @router.post("/get_duplicate_nodes")
-async def get_duplicate_nodes(credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
+async def get_duplicate_nodes(
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    user: AuthenticatedUser = Depends(require_admin)
+):
     """Get the list of duplicate nodes in the graph database."""
     try:
         start = time.time()
@@ -136,7 +168,8 @@ async def get_duplicate_nodes(credentials: Neo4jCredentials = Depends(get_neo4j_
 @router.post("/merge_duplicate_nodes")
 async def merge_duplicate_nodes(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
-    duplicate_nodes_list=Form()
+    duplicate_nodes_list=Form(),
+    user: AuthenticatedUser = Depends(require_admin)
 ):
     """Merge duplicate nodes in the graph database."""
     try:
@@ -162,7 +195,8 @@ async def merge_duplicate_nodes(
 @router.post("/drop_create_vector_index")
 async def drop_create_vector_index(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
-    isVectorIndexExist=Form()
+    isVectorIndexExist=Form(),
+    user: AuthenticatedUser = Depends(require_admin)
 ):
     """Drop and re-create the vector index in the graph database."""
     try:

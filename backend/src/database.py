@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from src.shared.common_fn import get_value_from_env
+from src.shared.env_utils import get_value_from_env
 
 POSTGRES_USER = get_value_from_env("POSTGRES_USER", "aushadha_user")
 POSTGRES_PASSWORD = get_value_from_env("POSTGRES_PASSWORD", "aushadha_pass")

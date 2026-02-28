@@ -8,7 +8,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.proxies import GenericProxyConfig
 
 from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
-from src.shared.common_fn import get_value_from_env
+from src.shared.env_utils import get_value_from_env
 from src.shared.constants import YOUTUBE_CHUNK_SIZE_SECONDS
 
 logger = logging.getLogger(__name__)

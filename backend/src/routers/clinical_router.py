@@ -12,7 +12,7 @@ from src.database import SessionLocal
 from src.entities.user_credential import Neo4jCredentials, get_neo4j_credentials
 from src.logger import CustomLogger
 from src.main import create_graph_database_connection
-from src.models import Patient, Visit, Vital, Symptom, LifestyleFactor
+from src.models import Patient, Visit, Vital, Symptom, LifestyleFactor, User
 from src.shared.common_fn import formatted_time
 from src.shared.google_auth import require_auth, AuthenticatedUser
 
@@ -109,7 +109,25 @@ async def get_all_ehr_data(user: AuthenticatedUser = Depends(require_auth)):
     try:
         db = SessionLocal()
         try:
-            visits = db.query(Visit).join(Patient).order_by(Visit.visit_date.desc()).all()
+            db_user = db.query(User).filter(User.email == user.email).first()
+            if not db_user or not db_user.role:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=403, detail="Unregistered user or role missing")
+                
+            role = db_user.role.name.upper()
+            
+            base_query = db.query(Visit).join(Patient)
+            
+            if role == "PATIENT":
+                base_query = base_query.filter(Patient.user_id == db_user.id)
+            elif role in ["DOCTOR", "STAFF"]:
+                assigned_ids = [p.id for p in db_user.assigned_patients]
+                base_query = base_query.filter(Patient.id.in_(assigned_ids))
+            elif role != "ADMIN":
+                from fastapi import HTTPException
+                raise HTTPException(status_code=403, detail="Unknown role")
+                
+            visits = base_query.order_by(Visit.visit_date.desc()).all()
 
             data = []
             for v in visits:
@@ -141,7 +159,25 @@ async def get_ehr_data(file_name: str, user: AuthenticatedUser = Depends(require
     try:
         db = SessionLocal()
         try:
-            visits = db.query(Visit).join(Patient).order_by(Visit.visit_date.desc()).all()
+            db_user = db.query(User).filter(User.email == user.email).first()
+            if not db_user or not db_user.role:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=403, detail="Unregistered user or role missing")
+                
+            role = db_user.role.name.upper()
+            
+            base_query = db.query(Visit).join(Patient).filter(Patient.case_id == file_name)
+            
+            if role == "PATIENT":
+                base_query = base_query.filter(Patient.user_id == db_user.id)
+            elif role in ["DOCTOR", "STAFF"]:
+                assigned_ids = [p.id for p in db_user.assigned_patients]
+                base_query = base_query.filter(Patient.id.in_(assigned_ids))
+            elif role != "ADMIN":
+                from fastapi import HTTPException
+                raise HTTPException(status_code=403, detail="Unknown role")
+            
+            visits = base_query.order_by(Visit.visit_date.desc()).all()
 
             data = []
             for v in visits:

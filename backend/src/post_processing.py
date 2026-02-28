@@ -4,7 +4,8 @@ import time
 from langchain_neo4j import Neo4jGraph
 import os
 from src.graph_query import get_graphDB_driver
-from src.shared.common_fn import load_embedding_model,execute_graph_query,get_value_from_env
+from src.shared.common_fn import load_embedding_model,execute_graph_query
+from src.shared.env_utils import get_value_from_env
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from src.shared.constants import GRAPH_CLEANUP_PROMPT
@@ -210,8 +211,15 @@ def graph_schema_consolidation(graph):
 
     nodes_relations_input = {'nodes': node_labels, 'relationships': relation_labels}
     mappings = chain.invoke({'input': nodes_relations_input})
-    node_mapping = {old: new for new, old_list in mappings['nodes'].items() for old in old_list if new != old}
-    relation_mapping = {old: new for new, old_list in mappings['relationships'].items() for old in old_list if new != old}
+    def sanitize_label(label: str) -> str:
+        return label.replace("`", "").strip()
+
+    node_mapping = {sanitize_label(new): [sanitize_label(old) for old in old_list] for new, old_list in mappings['nodes'].items() if new not in old_list}
+    # Flatten it mapping old to new
+    node_mapping = {old: new for new, old_list in node_mapping.items() for old in old_list}
+
+    relation_mapping = {sanitize_label(new): [sanitize_label(old) for old in old_list] for new, old_list in mappings['relationships'].items() if new not in old_list}
+    relation_mapping = {old: new for new, old_list in relation_mapping.items() for old in old_list}
 
     logging.info(f"Node Labels: Total = {len(node_labels)}, Reduced to = {len(set(node_mapping.values()))} (from {len(node_mapping)})")
     logging.info(f"Relationship Types: Total = {len(relation_labels)}, Reduced to = {len(set(relation_mapping.values()))} (from {len(relation_mapping)})")

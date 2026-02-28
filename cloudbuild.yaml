@@ -18,11 +18,8 @@ substitutions:
   _BACKEND_SERVICE: aushadha-backend
   _FRONTEND_SERVICE: aushadha-frontend
   # Secret substitutions (override via trigger or CLI):
-  _OPENAI_API_KEY: ""
-  _DIFFBOT_API_KEY: ""
   _NEO4J_URI: ""
   _NEO4J_USERNAME: "neo4j"
-  _NEO4J_PASSWORD: ""
   _NEO4J_DATABASE: "neo4j"
   _TRACK_TOKEN_USAGE: "true"
 
@@ -89,13 +86,8 @@ steps:
           --min-instances 0 \
           --max-instances 5 \
           --allow-unauthenticated \
-          --set-env-vars "NEO4J_URI=${_NEO4J_URI}" \
-          --set-env-vars "NEO4J_USERNAME=${_NEO4J_USERNAME}" \
-          --set-env-vars "NEO4J_PASSWORD=${_NEO4J_PASSWORD}" \
-          --set-env-vars "NEO4J_DATABASE=${_NEO4J_DATABASE}" \
-          --set-env-vars "OPENAI_API_KEY=${_OPENAI_API_KEY}" \
-          --set-env-vars "DIFFBOT_API_KEY=${_DIFFBOT_API_KEY}" \
-          --set-env-vars "TRACK_TOKEN_USAGE=${_TRACK_TOKEN_USAGE}"
+          --set-env-vars "NEO4J_URI=${_NEO4J_URI},NEO4J_USERNAME=${_NEO4J_USERNAME},NEO4J_DATABASE=${_NEO4J_DATABASE},TRACK_TOKEN_USAGE=${_TRACK_TOKEN_USAGE}" \
+          --set-secrets="NEO4J_PASSWORD=NEO4J_PASSWORD:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,DIFFBOT_API_KEY=DIFFBOT_API_KEY:latest"
     waitFor: ["push-backend"]
 
   # -------------------------------------------------------------------------

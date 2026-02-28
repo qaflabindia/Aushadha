@@ -15,6 +15,7 @@ interface AuthUser {
   name: string;
   picture: string;
   auth_method: 'google' | 'local' | 'skip';
+  role: string;
 }
 
 interface GoogleAuthContextType {
@@ -103,6 +104,7 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
             name: data.data.name,
             picture: data.data.picture || '',
             auth_method: 'google',
+            role: data.data.role || '',
           };
           setUser(authUser);
           setToken(data.data.token);
@@ -134,6 +136,7 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
             name: data.data.name || email.split('@')[0],
             picture: '',
             auth_method: 'local',
+            role: data.data.role || '',
           };
           setUser(authUser);
           setToken(data.data.token);
