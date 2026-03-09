@@ -38,6 +38,7 @@ from src.shared.constants import (
     CHAT_GLOBAL_VECTOR_FULLTEXT_MODE, CHAT_SEARCH_KWARG_SCORE_THRESHOLD,CHAT_MODE_CONFIG_MAP, CHAT_DEFAULT_MODE, CHAT_GRAPH_MODE,CHAT_EMBEDDING_FILTER_SCORE_THRESHOLD, CHAT_DOC_SPLIT_SIZE, QUESTION_TRANSFORM_TEMPLATE,
     CHAT_AYUSH_MODE, AYUSH_MASTER_PROMPT
 )
+from src.shared.localization import translate_metadata
 load_dotenv() 
 
 EMBEDDING_MODEL = get_value_from_env("EMBEDDING_MODEL", "sentence_transformer")
@@ -434,7 +435,7 @@ def setup_chat(model, graph, document_names, chat_mode_settings):
     
     return llm, doc_retriever, model_name
 
-def process_chat_response(messages, history, question, model, graph, document_names, chat_mode_settings, email=None, uri=None):
+async def process_chat_response(messages, history, question, model, graph, document_names, chat_mode_settings, email=None, uri=None, language="en"):
     try:
         if get_value_from_env("TRACK_TOKEN_USAGE", "false", "bool"):
             try:
@@ -448,6 +449,11 @@ def process_chat_response(messages, history, question, model, graph, document_na
 
         if docs:
             content, result, total_tokens,formatted_docs = process_documents(docs, question, messages, llm, model, chat_mode_settings)
+            
+            # Translate metadata (entities and nodedetails)
+            if language and language != "en":
+                result = await translate_metadata(result, language, model)
+                
             if get_value_from_env("TRACK_TOKEN_USAGE", "false", "bool"):
                 latest_token = track_token_usage(email=email, uri=uri, usage=total_tokens, last_used_model=model)
                 logging.info(f"Total token usage {latest_token} for user {email} ")
@@ -584,7 +590,7 @@ def get_graph_response(graph_chain, question):
     except Exception as e:
         logging.error(f"An error occurred while getting the graph response : {e}")
 
-def process_graph_response(model, graph, question, messages, history):
+async def process_graph_response(model, graph, question, messages, history, language="en"):
     try:
         graph_chain, qa_llm, model_version = create_graph_chain(model, graph)
         
@@ -598,6 +604,11 @@ def process_graph_response(model, graph, question, messages, history):
         summarization_thread = threading.Thread(target=summarize_and_log, args=(history, messages, qa_llm))
         summarization_thread.start()
         logging.info("Summarization thread started.")
+        
+        # Translate context if needed (it often contains node/rel info)
+        if language and language != "en":
+             graph_response["context"] = await translate_metadata({"context": graph_response.get("context", [])}, language, model).get("context", [])
+
         metric_details = {"question":question,"contexts":graph_response.get("context", ""),"answer":ai_response_content}
         result = {
             "session_id": "", 
@@ -631,7 +642,7 @@ def process_graph_response(model, graph, question, messages, history):
             "user": "chatbot"
         }
 
-def process_ayush_response(model: str, graph, document_names: str, question: str, messages: list, history, session_id: str) -> dict:
+async def process_ayush_response(model: str, graph, document_names: str, question: str, messages: list, history, session_id: str, language: str = "en") -> dict:
     """
     Handle the `ayush_clinical` chat mode.
     1. Get LLM (uses the secret vault for the API key).
@@ -728,19 +739,24 @@ def process_ayush_response(model: str, graph, document_names: str, question: str
 
         logging.info(f"AYUSH clinical response generated in {predict_time:.2f}s using {model_version}")
 
+        result_metadata = {
+            "sources": all_sources,
+            "model": model_version,
+            "nodedetails": {"chunkdetails": [], "entitydetails": [], "communitydetails": []},
+            "total_tokens": total_tokens,
+            "response_time": round(predict_time, 2),
+            "mode": CHAT_AYUSH_MODE,
+            "entities": {"entityids": [], "relationshipids": []},
+            "metric_details": {"question": question, "contexts": combined_context[:500], "answer": content},
+        }
+
+        if language and language != "en":
+            result_metadata = await translate_metadata(result_metadata, language, model)
+
         return {
             "session_id": "",
             "message": content,
-            "info": {
-                "sources": all_sources,
-                "model": model_version,
-                "nodedetails": {"chunkdetails": [], "entitydetails": [], "communitydetails": []},
-                "total_tokens": total_tokens,
-                "response_time": round(predict_time, 2),
-                "mode": CHAT_AYUSH_MODE,
-                "entities": {"entityids": [], "relationshipids": []},
-                "metric_details": {"question": question, "contexts": combined_context[:500], "answer": content},
-            },
+            "info": result_metadata,
             "user": "chatbot",
         }
 
@@ -798,7 +814,7 @@ def get_chat_mode_settings(mode,settings_map=CHAT_MODE_CONFIG_MAP):
 
     return chat_mode_settings
 
-def QA_RAG(graph, model, question, document_names, session_id, mode, write_access=True, email=None, uri=None):
+async def QA_RAG(graph, model, question, document_names, session_id, mode, write_access=True, email=None, uri=None, language="en"):
     logging.info(f"Chat Mode: {mode}")
 
     history = create_neo4j_chat_message_history(graph, session_id, write_access)
@@ -808,9 +824,9 @@ def QA_RAG(graph, model, question, document_names, session_id, mode, write_acces
     messages.append(user_question)
 
     if mode == CHAT_GRAPH_MODE:
-        result = process_graph_response(model, graph, question, messages, history)
+        result = await process_graph_response(model, graph, question, messages, history, language=language)
     elif mode == CHAT_AYUSH_MODE:
-        result = process_ayush_response(model, graph, document_names, question, messages, history, session_id)
+        result = await process_ayush_response(model, graph, document_names, question, messages, history, session_id, language=language)
     else:
         chat_mode_settings = get_chat_mode_settings(mode=mode)
         document_names= list(map(str.strip, json.loads(document_names)))
@@ -831,7 +847,7 @@ def QA_RAG(graph, model, question, document_names, session_id, mode, write_acces
                 "user": "chatbot"
             }
         else:
-            result = process_chat_response(messages,history, question, model, graph, document_names,chat_mode_settings, email, uri)
+            result = await process_chat_response(messages,history, question, model, graph, document_names,chat_mode_settings, email, uri, language=language)
 
     result["session_id"] = session_id
     

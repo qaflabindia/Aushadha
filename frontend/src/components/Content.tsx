@@ -19,13 +19,11 @@ import { postProcessing } from '../services/PostProcessing';
 import { triggerStatusUpdateAPI } from '../services/ServerSideStatusUpdateAPI';
 import useServerSideEvent from '../hooks/useSse';
 import {
-  batchSize,
-  buttonCaptions,
+   batchSize,
   chatModeLables,
   largeFileSize,
   llms,
   RETRY_OPIONS,
-  tooltips,
   tokenchunkSize,
   chunkOverlap,
   chunksToCombine,
@@ -65,7 +63,7 @@ const Content: React.FC<ContentProps> = ({
   showEnhancementDialog,
   toggleEnhancementDialog,
   setOpenConnection,
-  showDisconnectButton,
+  showDisconnectButton: _showDisconnectButton,
   connectionStatus,
   combinedPatterns,
   setCombinedPatterns,
@@ -1059,15 +1057,13 @@ const Content: React.FC<ContentProps> = ({
                   className='mr-2!'
                   onClick={() => setOpenConnection((prev) => ({ ...prev, openPopUp: true }))}
                 >
-                  {buttonCaptions.connectToDB}
+                  {t('connectToDB')}
                 </Button>
               </SpotlightTarget>
             ) : (
-              showDisconnectButton && (
                 <Button size={isTablet ? 'small' : 'medium'} className='mr-2.5' onClick={disconnect}>
-                  {buttonCaptions.disconnect}
+                  {t('disconnect')}
                 </Button>
-              )
             )}
           </div>
         </Flex>
@@ -1149,7 +1145,7 @@ const Content: React.FC<ContentProps> = ({
           <Flex flexDirection='row' gap='4' className='self-end mb-2.5' flexWrap='wrap'>
             <SpotlightTarget id='generategraphbtn'>
               <ButtonWithToolTip
-                text={tooltips.generateGraph}
+                text={t('generateGraph')}
                 placement='top'
                 label='generate graph'
                 onClick={onClickHandler}
@@ -1161,9 +1157,7 @@ const Content: React.FC<ContentProps> = ({
               </ButtonWithToolTip>
             </SpotlightTarget>
             <ButtonWithToolTip
-              text={
-                !selectedfileslength ? tooltips.deleteFile : `${selectedfileslength} ${tooltips.deleteSelectedFiles}`
-              }
+                text={!selectedfileslength ? t('deleteFile') : `${selectedfileslength} ${t('deleteSelectedFiles')}`}
               placement='top'
               onClick={() => setShowDeletePopUp(true)}
               disabled={!selectedfileslength || isReadOnlyUser}

@@ -67,6 +67,12 @@ async def google_verify(request: Request, db: Session = Depends(get_db)):
             return create_api_response("Failed", message="Invalid Google token")
 
         db_user = db.query(User).filter(User.email == user.email).first()
+        if not db_user:
+            db_user = User(email=user.email)
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+        
         role = db_user.role.name if db_user and db_user.role else ""
 
         local_token = create_local_token(email=user.email, name=user.name)

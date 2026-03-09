@@ -20,6 +20,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models import User, Role
+from src.llm import translate_text
 
 async def require_admin(
     user: AuthenticatedUser = Depends(require_auth),
@@ -218,3 +219,43 @@ async def drop_create_vector_index(
         return create_api_response(job_status, message=message, error=error_message)
     finally:
         gc.collect()
+
+@router.post("/translate")
+async def translate(request: Request):
+    """Translate text using Sarvam AI Cloud API with PostgreSQL caching."""
+    try:
+        payload = await request.json()
+        text = payload.get("text", "")
+        target_lang = payload.get("target_lang", "hi")
+        source_lang = payload.get("source_lang", "en")
+
+        if not text:
+            return create_api_response("Failed", error="Text is required")
+
+        translated = await translate_text(text, target_lang, source_lang)
+        return create_api_response("Success", data={"translated_text": translated, "source_lang": source_lang, "target_lang": target_lang})
+    except Exception as e:
+        return create_api_response("Failed", error=str(e))
+
+@router.get("/translate/cache-stats")
+async def cache_stats():
+    """Get translation cache statistics (hit rates, cached terms count)."""
+    from src.translation_cache import get_cache_stats
+    from src.database import SessionLocal
+    db = SessionLocal()
+    try:
+        stats = get_cache_stats(db)
+        return create_api_response("Success", data=stats)
+    finally:
+        db.close()
+
+@router.post("/translate/seed")
+async def seed_terms(user: AuthenticatedUser = Depends(require_admin)):
+    """Seed medical terminology into the translation cache."""
+    from src.seed_medical_terms import seed_medical_terms
+    try:
+        seed_medical_terms()
+        return create_api_response("Success", message="Medical terms seeded successfully")
+    except Exception as e:
+        return create_api_response("Failed", error=str(e))
+

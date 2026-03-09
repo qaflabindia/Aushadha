@@ -12,6 +12,7 @@ import YoutubeInput from './Youtube/YoutubeInput';
 import { APP_SOURCES } from '../../utils/Constants';
 import Neo4jDataImportFromCloud from '../../assets/images/data-from-cloud.svg';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
+import { useTranslate } from '../../context/TranslationContext';
 
 export default function GenericModal({
   open,
@@ -27,6 +28,7 @@ export default function GenericModal({
   isOnlyWeb?: boolean;
 }) {
   const themeUtils = useContext(ThemeWrapperContext);
+  const t = useTranslate();
   const [activeTab, setActiveTab] = useState<number>(isOnlyYoutube ? 0 : isOnlyWikipedia ? 1 : isOnlyWeb ? 2 : 0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -47,9 +49,9 @@ export default function GenericModal({
             alt='data-source-logo'
           />
           <div className='flex flex-col'>
-            <Typography variant='h2'>Web Sources</Typography>
+            <Typography variant='h2'>{t('Web Sources')}</Typography>
             <Typography variant='body-medium' className='mb-2'>
-              Convert Any Web Source to Knowledge graph
+              {t('Convert Any Web Source to Knowledge graph')}
             </Typography>
           </div>
         </div>

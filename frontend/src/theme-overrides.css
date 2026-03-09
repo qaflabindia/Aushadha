@@ -2,11 +2,11 @@
 .ndl-theme-dark {
   /* Core Palette */
   --theme-palette-neutral-bg-default: #050505 !important;
-  --theme-palette-neutral-bg-weak: #0A0A0A !important;
+  --theme-palette-neutral-bg-weak: #0a0a0a !important;
   --theme-palette-neutral-bg-strong: #111111 !important;
 
   /* Accent Gradients */
-  --luxury-gradient: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+  --luxury-gradient: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
   --border-gradient: linear-gradient(180deg, rgba(212, 175, 55, 0.3) 0%, rgba(212, 175, 55, 0.05) 100%);
 
   /* Transparency */
@@ -19,35 +19,31 @@
 .ndl-theme-dark .ndl-drawer,
 .ndl-theme-dark .ndl-dialog {
   background: rgba(5, 5, 5, 0.9) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   border: 1px solid rgba(212, 175, 55, 0.2) !important;
 }
 
 /* Typography Overrides - No more Saffron, back to Ivory & Gold */
 .ndl-theme-dark {
-  --theme-palette-primary-text: #D4AF37 !important;
-  --theme-palette-neutral-text-default: #FFFFFF !important;
-  --theme-palette-neutral-text-strong: #FFFFFF !important;
-  --theme-palette-neutral-text-weak: #A0A0A0 !important;
+  --theme-palette-primary-text: #d4af37 !important;
+  --theme-palette-neutral-text-default: #ffffff !important;
+  --theme-palette-neutral-text-strong: #ffffff !important;
+  --theme-palette-neutral-text-weak: #a0a0a0 !important;
 }
 
 .ndl-theme-dark h1,
 .ndl-theme-dark h2,
 .ndl-theme-dark h3,
 .ndl-theme-dark h4 {
-  color: #D4AF37 !important; /* Gold for headers */
+  color: #d4af37 !important; /* Gold for headers */
   letter-spacing: -0.02em;
 }
 
-.ndl-theme-dark p,
-.ndl-theme-dark span:not(.ndl-icon),
-.ndl-theme-dark div:not(.ndl-icon) {
-  /* color: #FFFFFF; -- Controlled by --theme-palette-neutral-text-default */
-}
+
 
 /* Action Buttons */
 .ndl-theme-dark .ndl-button-primary,
-.ndl-theme-dark button[class*="primary"] {
+.ndl-theme-dark button[class*='primary'] {
   background: var(--luxury-gradient) !important;
   color: #000000 !important;
   border: none !important;
@@ -65,8 +61,8 @@
 .ndl-theme-dark .ndl-data-grid-header,
 .ndl-theme-dark .ndl-table-header {
   background: rgba(20, 20, 20, 0.95) !important;
-  color: #D4AF37 !important;
-  border-bottom: 2px solid #D4AF37 !important;
+  color: #d4af37 !important;
+  border-bottom: 2px solid #d4af37 !important;
   font-weight: 700 !important;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -75,20 +71,34 @@
 /* Icons */
 .ndl-theme-dark .ndl-icon,
 .ndl-theme-dark svg:not(.ndl-logo) {
-  color: #D4AF37 !important;
-  fill: #D4AF37 !important;
+  color: #d4af37 !important;
+  fill: #d4af37 !important;
 }
 
 /* Input Fields - High Contrast Visibility */
 .ndl-theme-dark .ndl-text-input input,
 .ndl-theme-dark .ndl-text-input textarea {
-    background: #000000 !important;
-    color: #FFFFFF !important;
-    border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
 }
 
 .ndl-theme-dark .ndl-text-input label {
-    color: #FFFFFF !important;
-    font-weight: 600 !important;
-    opacity: 1 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown Menu Overrides */
+.ndl-theme-dark [role='menu'],
+.ndl-theme-dark [role='menu'] *,
+.ndl-theme-dark [role='menuitem'],
+.ndl-theme-dark [role='menuitem'] * {
+  color: #d4af37 !important;
+}
+
+.ndl-theme-dark [role='menuitem']:hover,
+.ndl-theme-dark [role='menuitem']:focus {
+  background-color: rgba(212, 175, 55, 0.1) !important;
+  color: #d4af37 !important;
 }

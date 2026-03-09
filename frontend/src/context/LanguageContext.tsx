@@ -36,15 +36,20 @@ interface LanguageProviderProps {
 export const LanguageProvider: FC<LanguageProviderProps> = ({ children }) => {
   const stored = localStorage.getItem('appLanguage');
   const initial = SUPPORTED_LANGUAGES.find(l => l.code === stored) || SUPPORTED_LANGUAGES[0];
-  const [language, setLanguage] = useState<AppLanguage>(initial);
+  const [language] = useState<AppLanguage>(initial);
 
   const setLanguageByCode = useCallback((code: string) => {
     const found = SUPPORTED_LANGUAGES.find(l => l.code === code);
-    if (found) {
-      setLanguage(found);
-      localStorage.setItem('appLanguage', code);
+    if (found && found.code !== language.code) {
+      const confirmed = window.confirm(
+        `Changing the language to ${found.name} requires refreshing the application. Any unsaved work may be lost. Proceed?`
+      );
+      if (confirmed) {
+        localStorage.setItem('appLanguage', code);
+        window.location.reload();
+      }
     }
-  }, []);
+  }, [language.code]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguageByCode }}>

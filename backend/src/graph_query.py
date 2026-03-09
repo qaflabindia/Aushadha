@@ -6,6 +6,7 @@ import os
 import json
 
 from src.shared.constants import GRAPH_CHUNK_LIMIT,GRAPH_QUERY,CHUNK_TEXT_QUERY,COUNT_CHUNKS_QUERY,SCHEMA_VISUALIZATION_QUERY
+from src.shared.localization import translate_graph_labels
 
 def get_graphDB_driver(credentials):
     """
@@ -239,130 +240,6 @@ async def get_graph_results(credentials, document_names, language="en", model=No
         raise Exception(f"graph_query module: An error occurred in get_graph_results. Please check the logs for more details.") from e
         logging.info("Closing connection for graph_query api")
         driver.close()
-
-# Translation cache to avoid repeated LLM calls for the same terms
-_translation_cache = {}
-
-async def translate_graph_labels(nodes, relationships, language, model):
-    """
-    Translate node labels, node property 'id', and relationship types to the target language.
-    Uses a simple LLM call for batch translation with caching.
-    """
-    lang_map = {
-        "hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali",
-        "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam",
-        "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"
-    }
-    lang_name = lang_map.get(language, language)
-
-    # Collect all unique terms that need translation
-    terms_to_translate = set()
-    for node in nodes:
-        if node and "labels" in node:
-            for label in node["labels"]:
-                terms_to_translate.add(label)
-        if node and "properties" in node:
-            prop_id = node["properties"].get("id")
-            if prop_id and isinstance(prop_id, str):
-                terms_to_translate.add(prop_id)
-    for rel in relationships:
-        if rel and "type" in rel:
-            terms_to_translate.add(rel["type"])
-
-    # Check cache first, find terms needing translation
-    cache_key_prefix = f"{language}:"
-    uncached_terms = []
-    for term in terms_to_translate:
-        if f"{cache_key_prefix}{term}" not in _translation_cache:
-            uncached_terms.append(term)
-
-    # Batch translate uncached terms via LLM
-    if uncached_terms:
-        try:
-            translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
-            for original, translated in translations.items():
-                _translation_cache[f"{cache_key_prefix}{original}"] = translated
-        except Exception as e:
-            logging.warning(f"Translation failed, using original labels: {e}")
-            # Fallback: use original terms
-            for term in uncached_terms:
-                _translation_cache[f"{cache_key_prefix}{term}"] = term
-
-    # Apply translations
-    def get_translated(term):
-        return _translation_cache.get(f"{cache_key_prefix}{term}", term)
-
-    for node in nodes:
-        if node and "labels" in node:
-            node["original_labels"] = list(node["labels"])
-            node["labels"] = [get_translated(label) for label in node["labels"]]
-        if node and "properties" in node:
-            prop_id = node["properties"].get("id")
-            if prop_id and isinstance(prop_id, str):
-                node["properties"]["id"] = get_translated(prop_id)
-    for rel in relationships:
-        if rel and "type" in rel:
-            rel["type"] = get_translated(rel["type"])
-
-    return nodes, relationships
-
-
-async def _batch_translate_with_llm(terms, target_language, model):
-    """
-    Translate a list of English terms to the target language using the user's selected LLM.
-    Returns a dict mapping original -> translated.
-    """
-    from src.llm import get_llm
-    from langchain_core.messages import SystemMessage, HumanMessage
-    import re
-    
-    terms_list = "\n".join([f"- {term}" for term in terms])
-    prompt = f"""Translate the following English terms to {target_language}. 
-Return ONLY a valid JSON object mapping each original English term to its {target_language} translation.
-Do not add any explanations, markdown blocks, or surrounding text. Keep technical/medical terms transliterated if no standard translation exists.
-
-Terms to translate:
-{terms_list}
-
-Strict Output Format:
-{{"original_term": "translated_term", ...}}"""
-
-    try:
-        # Fallback to OpenAI gpt-4o if no model provided or if model is diffbot
-        model_name = model if model else "openai_gpt_4o"
-        if model_name.lower() == "diffbot":
-            model_name = "openai_gpt_4o"
-            
-        llm, _, _ = get_llm(model_name)
-        
-        messages = [
-            SystemMessage(content="You are a professional medical translator. Output valid JSON only, without any markdown formatting wrappers like ```json."),
-            HumanMessage(content=prompt)
-        ]
-        
-        # We try to enforce JSON parsing robustness natively through LLM invocation
-        response = await llm.ainvoke(messages)
-        result_text = response.content.strip()
-        
-        # Clean potential markdown formatting
-        if result_text.startswith("```json"):
-            result_text = result_text[7:]
-        if result_text.startswith("```"):
-            result_text = result_text[3:]
-        if result_text.endswith("```"):
-            result_text = result_text[:-3]
-        result_text = result_text.strip()
-            
-        translations = json.loads(result_text)
-        
-        # Ensure all terms have a translation (fallback to original)
-        for term in terms:
-            if term not in translations:
-                translations[term] = term
-        return translations
-    except Exception as e:
-        logging.error(f"LLM translation error: {e}")
-        return {term: term for term in terms}
 
 
 

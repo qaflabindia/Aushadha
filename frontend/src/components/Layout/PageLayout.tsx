@@ -1,11 +1,14 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import DrawerDropzone from './DrawerDropzone';
+import ResearchDrawer from './ResearchDrawer';
 import DrawerChatbot from './DrawerChatbot';
 import Content from '../Content';
+import AdminPage from '../Admin/AdminPage';
+import SettingsPage from '../Settings/SettingsPage';
 import DashboardScaffold from './DashboardScaffold';
 import { clearChatAPI } from '../../services/QnaAPI';
 import { useCredentials } from '../../context/UserCredentials';
-import { connectionState, OptionType } from '../../types';
+import { connectionState, OptionType, DrawerMode } from '../../types';
 import { useMessageContext } from '../../context/UserMessages';
 import { useMediaQuery, Spotlight, SpotlightTour, useSpotlightContext } from '@neo4j-ndl/react';
 import { useFileContext } from '../../context/UsersFiles';
@@ -163,6 +166,7 @@ const PageLayout: React.FC = () => {
   const [shows3Modal, toggleS3Modal] = useReducer((s) => !s, false);
   const [showGCSModal, toggleGCSModal] = useReducer((s) => !s, false);
   const [showGenericModal, toggleGenericModal] = useReducer((s) => !s, false);
+  const [leftDrawerMode, setLeftDrawerMode] = useState<DrawerMode>('upload');
   const {
     connectionStatus,
     setIsReadOnlyUser,
@@ -639,41 +643,53 @@ const PageLayout: React.FC = () => {
         toggleLeftDrawer={toggleLeftDrawer}
         toggleRightDrawer={toggleRightDrawer}
         deleteOnClick={deleteOnClick}
+        activeDrawerMode={leftDrawerMode}
+        setActiveDrawerMode={setLeftDrawerMode}
       >
         <div className='flex-1 flex flex-col relative overflow-hidden'>
           {isLeftExpanded && (
             <div className='absolute left-0 top-0 bottom-0 z-20 w-80 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl animate-slide-in-left'>
-              <DrawerDropzone
-                shows3Modal={shows3Modal}
-                showGCSModal={showGCSModal}
-                showGenericModal={showGenericModal}
-                toggleGCSModal={toggleGCSModal}
-                toggleGenericModal={toggleGenericModal}
-                toggleS3Modal={toggleS3Modal}
-                isExpanded={isLeftExpanded}
-              />
+              {leftDrawerMode === 'upload' ? (
+                <DrawerDropzone
+                  shows3Modal={shows3Modal}
+                  showGCSModal={showGCSModal}
+                  showGenericModal={showGenericModal}
+                  toggleGCSModal={toggleGCSModal}
+                  toggleGenericModal={toggleGenericModal}
+                  toggleS3Modal={toggleS3Modal}
+                  isExpanded={isLeftExpanded}
+                />
+              ) : (
+                <ResearchDrawer isExpanded={isLeftExpanded} toggleRightDrawer={toggleRightDrawer} />
+              )}
             </div>
           )}
 
-          <Content
-            openChatBot={openChatBot}
-            showChatBot={showChatBot}
-            openTextSchema={openTextSchema}
-            openLoadSchema={openLoadSchema}
-            openPredefinedSchema={openPredefinedSchema}
-            openDataImporterSchema={openDataImporterSchema}
-            showEnhancementDialog={showEnhancementDialog}
-            toggleEnhancementDialog={toggleEnhancementDialog}
-            setOpenConnection={setOpenConnection}
-            showDisconnectButton={showDisconnectButton}
-            connectionStatus={connectionStatus}
-            combinedPatterns={combinedPatternsVal}
-            setCombinedPatterns={setCombinedPatternsVal}
-            combinedNodes={combinedNodesVal}
-            setCombinedNodes={setCombinedNodesVal}
-            combinedRels={combinedRelsVal}
-            setCombinedRels={setCombinedRelsVal}
-          />
+          {leftDrawerMode === 'admin' ? (
+            <AdminPage />
+          ) : leftDrawerMode === 'settings' ? (
+            <SettingsPage />
+          ) : (
+            <Content
+              openChatBot={openChatBot}
+              showChatBot={showChatBot}
+              openTextSchema={openTextSchema}
+              openLoadSchema={openLoadSchema}
+              openPredefinedSchema={openPredefinedSchema}
+              openDataImporterSchema={openDataImporterSchema}
+              showEnhancementDialog={showEnhancementDialog}
+              toggleEnhancementDialog={toggleEnhancementDialog}
+              setOpenConnection={setOpenConnection}
+              showDisconnectButton={showDisconnectButton}
+              connectionStatus={connectionStatus}
+              combinedPatterns={combinedPatternsVal}
+              setCombinedPatterns={setCombinedPatternsVal}
+              combinedNodes={combinedNodesVal}
+              setCombinedNodes={setCombinedNodesVal}
+              combinedRels={combinedRelsVal}
+              setCombinedRels={setCombinedRelsVal}
+            />
+          )}
 
           {isRightExpanded && (
             <div

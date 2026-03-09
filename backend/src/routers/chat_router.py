@@ -50,7 +50,7 @@ async def chat_bot(
             lang_name = lang_map.get(language, language)
             lang_instruction = f" IMPORTANT: You MUST respond entirely in {lang_name}. All text, explanations, and labels must be in {lang_name}."
             question = f"{question}{lang_instruction}"
-        result = await asyncio.to_thread(QA_RAG, graph=graph, model=model, question=question, document_names=document_names, session_id=session_id, mode=mode, write_access=write_access, email=credentials.email, uri=credentials.uri)
+        result = await QA_RAG(graph=graph, model=model, question=question, document_names=document_names, session_id=session_id, mode=mode, write_access=write_access, email=credentials.email, uri=credentials.uri, language=language)
 
         total_call_time = time.time() - qa_rag_start_time
         logging.info(f"Total Response time is  {total_call_time:.2f} seconds")

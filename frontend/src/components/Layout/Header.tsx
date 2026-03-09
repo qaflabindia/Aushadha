@@ -1,73 +1,64 @@
 import LuxuryLogo from '../../assets/images/aushadha_luxury_logo.png';
-import { MoonIconOutline, SunIconOutline, LockClosedIconOutline } from '@neo4j-ndl/react/icons';
 import { Typography } from '@neo4j-ndl/react';
 import { memo, useContext, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
-import { tooltips } from '../../utils/Constants';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
-
 import { useMessageContext } from '../../context/UserMessages';
-import { RiChatSettingsLine, RiBarChart2Line, RiLayoutMasonryLine } from 'react-icons/ri';
+import { RiChatSettingsLine } from 'react-icons/ri';
 import ChatModeToggle from '../ChatBot/ChatModeToggle';
 import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { HeaderProp } from '../../types';
-import Profile from '../User/Profile';
-import SecretVaultModal from '../Popups/SecretVaultModal';
-import LanguageSelector from '../UI/LanguageSelector';
+import { Avatar } from '@neo4j-ndl/react';
 import TooltipWrapper from '../UI/TipWrapper';
-import { useTranslation } from '../../context/LanguageContext';
+import { useTranslate } from '../../context/TranslationContext';
 
-const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick, showBackButton: _showBackButton }) => {
-  const { colorMode, toggleColorMode } = useContext(ThemeWrapperContext);
+const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick}) => {
+  const { colorMode } = useContext(ThemeWrapperContext);
 
   const { messages: _messages } = useMessageContext();
   const chatAnchor = useRef<HTMLDivElement>(null);
   const [showChatModeOption, setShowChatModeOption] = useState<boolean>(false);
-  const [showSecretVault, setShowSecretVault] = useState<boolean>(false);
-  const t = useTranslation();
+  const t = useTranslate();
   const { user } = useGoogleAuth();
 
   return (
-    <div className='flex items-center justify-between h-full px-8'>
-      {/* Precision Brand Block */}
-      <section className='flex items-center gap-6'>
-        <div className='flex items-center gap-4'>
-          <div className='relative p-0.5 rounded-full border border-white/5 bg-white/5 transition-all duration-500'>
-            <img src={LuxuryLogo} className='h-8 w-8 rounded-full' alt='Logo' />
-          </div>
-          <div className='flex flex-col'>
-            <Typography
-              variant='h5'
-              className={clsx('!m-0 transition-colors tracking-brand', {
-                'text-white': colorMode === 'dark',
-                'text-[#1A1A1A]': colorMode === 'light',
-              })}
-            >
-              AUSHADHA
-            </Typography>
-            <Typography
-              variant='body-small'
-              className={clsx('!m-0 transition-colors opacity-60 tracking-concierge text-[7px]', {
-                'text-[#D4AF37]': colorMode === 'dark',
-                'text-gray-500': colorMode === 'light',
-              })}
-            >
-              Medical Intelligence
-            </Typography>
-          </div>
+    <div className='flex items-center justify-between h-full px-6'>
+      {/* ── Brand Block ── */}
+      <section className='flex items-center gap-4'>
+        <div className='relative p-0.5 rounded-full border border-white/5 bg-white/5 transition-all duration-500'>
+          <img src={LuxuryLogo} className='h-8 w-8 rounded-full' alt='Logo' />
+        </div>
+        <div className='flex flex-col'>
+          <Typography
+            variant='h5'
+            className={clsx('!m-0 transition-colors tracking-brand', {
+              'text-white': colorMode === 'dark',
+              'text-[#1A1A1A]': colorMode === 'light',
+            })}
+          >
+            AYUSHPRAGYA
+          </Typography>
+          <Typography
+            variant='body-small'
+            className={clsx('!m-0 transition-colors opacity-60 tracking-concierge text-[7px]', {
+              'text-[#D4AF37]': colorMode === 'dark',
+              'text-gray-500': colorMode === 'light',
+            })}
+          >
+            Medical Intelligence
+          </Typography>
         </div>
       </section>
 
-      {/* Global Interface Controls */}
-      <section className='flex items-center gap-8'>
-        {/* Glass Search Trigger with Gold/Silver Typography */}
+      {/* ── Right Controls ── */}
+      <section className='flex items-center gap-5'>
+        {/* Intelligence Search / Chat Mode Trigger */}
         {(user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
           <div
             ref={chatAnchor}
             onClick={() => setShowChatModeOption(true)}
             className={clsx(
-              'flex items-center gap-3 px-5 py-2 rounded-full border transition-all cursor-pointer group glass-luxe',
+              'flex items-center gap-3 px-4 py-1.5 rounded-full border transition-all cursor-pointer group glass-luxe',
               {
                 'border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.1)]': colorMode === 'dark',
                 'border-gray-200': colorMode === 'light',
@@ -87,56 +78,21 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick, showBackB
                 'text-[#1A1A1A] group-hover:text-gray-600': colorMode === 'light',
               })}
             >
-              Intelligence Search
+              {t('Intelligence Search')}
             </span>
           </div>
         )}
 
-        <div className='flex items-center gap-6'>
-          <TooltipWrapper tooltip={t('dataInsights')} placement='bottom'>
-            <div className='cursor-pointer transition-opacity hover:opacity-100 opacity-40'>
-              <RiBarChart2Line size={20} className={colorMode === 'dark' ? 'text-white' : 'text-gray-700'} />
-            </div>
+        {/* Active User Avatar (compact display — full profile in Settings) */}
+        {user && (
+          <TooltipWrapper tooltip={`${user.name ?? user.email} · ${user.role ?? 'User'} — Open Settings for full profile`} placement="bottom">
+            <Avatar
+              name={user.name ?? user.email}
+              source={user.picture ?? undefined}
+              size="small"
+            />
           </TooltipWrapper>
-
-          <TooltipWrapper tooltip={t('knowledgeGraph')} placement='bottom'>
-            <div className='cursor-pointer transition-opacity hover:opacity-100 opacity-40'>
-              <RiLayoutMasonryLine size={20} className={colorMode === 'dark' ? 'text-white' : 'text-gray-700'} />
-            </div>
-          </TooltipWrapper>
-
-          <LanguageSelector />
-
-          <IconButtonWithToolTip
-            label={tooltips.theme}
-            clean
-            text={tooltips.theme}
-            onClick={toggleColorMode}
-            className='hover:rotate-12 transition-transform opacity-60 hover:opacity-100'
-          >
-            {colorMode === 'dark' ? (
-              <SunIconOutline className='w-5 h-5 text-white' />
-            ) : (
-              <MoonIconOutline className='w-5 h-5 text-gray-700' />
-            )}
-          </IconButtonWithToolTip>
-
-          <TooltipWrapper tooltip='Secret Vault' placement='bottom'>
-            {user?.role === 'Admin' && (
-              <div
-                onClick={() => setShowSecretVault(true)}
-                className={clsx('cursor-pointer transition-all hover:text-[#D4AF37] opacity-60 hover:opacity-100', {
-                  'text-white': colorMode === 'dark',
-                  'text-gray-400': colorMode === 'light',
-                })}
-              >
-                <LockClosedIconOutline className='w-5 h-5' />
-              </div>
-            )}
-          </TooltipWrapper>
-
-          <Profile />
-        </div>
+        )}
       </section>
 
       <ChatModeToggle
@@ -149,7 +105,6 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick, showBackB
         menuAnchor={chatAnchor}
         isRoot={false}
       />
-      <SecretVaultModal open={showSecretVault} onClose={() => setShowSecretVault(false)} />
     </div>
   );
 };

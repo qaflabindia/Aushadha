@@ -42,7 +42,7 @@ LOCAL_RSA_PRIVATE_KEY_PATH = Path(os.getenv("RSA_PRIVATE_KEY_PATH", "/code/.auth
 LOCAL_RSA_PUBLIC_KEY_PATH = Path(os.getenv("RSA_PUBLIC_KEY_PATH", "/code/.auth_rsa_public.pem"))
 
 # Local token settings
-LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "4"))
+LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "720"))  # default: 30 days
 LOCAL_TOKEN_ISSUER = "aushadha-local"
 
 logger = logging.getLogger(__name__)

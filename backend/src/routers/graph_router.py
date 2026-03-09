@@ -229,7 +229,7 @@ async def upload_large_file_into_chunks(
     try:
         start = time.time()
         graph = create_graph_database_connection(credentials)
-        result = await asyncio.to_thread(upload_file, graph, model, file, chunkNumber, totalChunks, originalname, credentials.uri, CHUNK_DIR, MERGED_DIR)
+        result = await asyncio.to_thread(upload_file, graph, model, file, chunkNumber, totalChunks, originalname, credentials.uri, CHUNK_DIR, MERGED_DIR, credentials.email)
         end = time.time()
         elapsed_time = end - start
         if int(chunkNumber) == int(totalChunks):
@@ -523,7 +523,8 @@ async def update_extract_status(
     uri: str = None,
     userName: str = None,
     password: str = None,
-    database: str = None
+    database: str = None,
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials)
 ):
     """Stream updates on extract status for a given file name."""
     async def generate():
@@ -555,7 +556,11 @@ async def update_extract_status(
                     logging.info(" SSE Client disconnected")
                     break
                 else:
-                    result = graphDb_data_Access.get_current_status_document_node(file_name)
+                    if credentials.user_role == "Admin" and not credentials.target_user_email:
+                        owner_filter = None
+                    else:
+                        owner_filter = credentials.target_user_email or credentials.email
+                    result = graphDb_data_Access.get_current_status_document_node(file_name, owner_filter)
                     if len(result) > 0:
                         status = json.dumps({'fileName':file_name,
                         'status':result[0]['Status'],
@@ -582,7 +587,7 @@ async def update_extract_status(
     return EventSourceResponse(generate(),ping=60)
 
 @router.get('/document_status/{file_name}')
-async def get_document_status(file_name, url, userName, password, database):
+async def get_document_status(file_name, url, userName, password, database, credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
     """Get the status of a document in the graph database."""
     decoded_password = decode_password(password)
 
@@ -604,7 +609,13 @@ async def get_document_status(file_name, url, userName, password, database):
         credentials= Neo4jCredentials(uri=uri, userName=userName, password=decoded_password, database=database)
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
-        result = graphDb_data_Access.get_current_status_document_node(file_name)
+        
+        if credentials.user_role == "Admin" and not credentials.target_user_email:
+            owner_filter = None
+        else:
+            owner_filter = credentials.target_user_email or credentials.email
+            
+        result = graphDb_data_Access.get_current_status_document_node(file_name, owner_filter)
         if len(result) > 0:
             status = {'fileName':file_name,
                 'status':result[0]['Status'],
@@ -645,7 +656,13 @@ async def delete_document_and_entities(
         start = time.time()
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
-        files_list_size = await asyncio.to_thread(graphDb_data_Access.delete_file_from_graph, filenames, source_types, deleteEntities, MERGED_DIR, credentials.uri)
+        
+        if credentials.user_role == "Admin" and not credentials.target_user_email:
+            owner_filter = None
+        else:
+            owner_filter = credentials.target_user_email or credentials.email
+            
+        files_list_size = await asyncio.to_thread(graphDb_data_Access.delete_file_from_graph, filenames, source_types, deleteEntities, MERGED_DIR, credentials.uri, owner_filter)
         message = f"Deleted {files_list_size} documents with entities from database"
         end = time.time()
         elapsed_time = end - start

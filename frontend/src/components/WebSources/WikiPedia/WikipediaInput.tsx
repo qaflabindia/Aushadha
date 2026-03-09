@@ -1,6 +1,7 @@
 import { wikiValidation } from '../../../utils/Utils';
 import useSourceInput from '../../../hooks/useSourceInput';
 import CustomSourceInput from '../CustomSourceInput';
+import { useTranslate } from '../../../context/TranslationContext';
 
 export default function WikipediaInput({
   loading,
@@ -22,13 +23,14 @@ export default function WikipediaInput({
     onClose,
     onPasteHandler,
   } = useSourceInput(wikiValidation, setIsLoading, 'Wikipedia', true, false, false);
+  const t = useTranslate();
   return (
     <CustomSourceInput
       onCloseHandler={onClose}
       isFocused={isFocused}
       isValid={isValid}
       disabledCheck={Boolean(loading)}
-      label='Wikipedia Link'
+      label={t('Wikipedia Link')}
       placeHolder='https://en.wikipedia.org/wiki/Albert_Einstein'
       value={inputVal}
       onChangeHandler={onChangeHandler}

@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date
 from sqlalchemy.orm import relationship
 import datetime
 from .database import Base
+from .translation_cache import TranslationCache  # noqa: F401 — ensures table is created
 
 # Association table for Many-to-Many relationship between Doctors/Staff and Patients
 user_patient_association = Table(

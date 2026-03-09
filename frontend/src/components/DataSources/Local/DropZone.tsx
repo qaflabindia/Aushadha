@@ -10,6 +10,7 @@ import { InformationCircleIconOutline } from '@neo4j-ndl/react/icons';
 import { IconButtonWithToolTip } from '../../UI/IconButtonToolTip';
 import { uploadAPI } from '../../../utils/FileAPI';
 import { showErrorToast, showSuccessToast } from '../../../utils/Toasts';
+import { useTranslate } from '../../../context/TranslationContext';
 
 const DropZone: FunctionComponent = () => {
   const { filesData, setFilesData, model } = useFileContext();
@@ -17,6 +18,7 @@ const DropZone: FunctionComponent = () => {
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const { userCredentials } = useCredentials();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const t = useTranslate();
   const onDropHandler = (f: Partial<globalThis.File>[]) => {
     setIsClicked(true);
     setSelectedFiles(f.map((f) => f as File));
@@ -156,7 +158,7 @@ const DropZone: FunctionComponent = () => {
         } catch (error) {
           setIsLoading(false);
           if (error instanceof Error) {
-            showErrorToast(`Error Occurred: ${error.message}`, true);
+            showErrorToast(`${t('Error Occurred:')} ${error.message}`, true);
           }
           setFilesData((prevfiles) =>
             prevfiles.map((curfile) => {
@@ -187,7 +189,7 @@ const DropZone: FunctionComponent = () => {
         );
         setIsClicked(false);
         setIsLoading(false);
-        showSuccessToast(`${file.name} uploaded successfully`);
+        showSuccessToast(`${file.name} ${t('uploaded successfully')}`);
       }
     };
 
@@ -204,16 +206,16 @@ const DropZone: FunctionComponent = () => {
         borderRadius={11}
       >
         <Dropzone
-          loadingComponent={isLoading && <Loader title='Uploading' />}
+          loadingComponent={isLoading && <Loader title={t('Uploading')} />}
           isTesting={true}
           className='bg-none! dropzoneContainer'
           supportedFilesDescription={
             <Typography variant='body-small'>
               <Flex>
-                <span>{buttonCaptions.dropzoneSpan}</span>
+                <span>{t(buttonCaptions.dropzoneSpan)}</span>
                 <div className='align-self-center'>
                   <IconButtonWithToolTip
-                    label='Source info'
+                    label={t('Source info')}
                     clean
                     text={
                       <Typography variant='body-small'>
@@ -249,7 +251,7 @@ const DropZone: FunctionComponent = () => {
             },
             onDropRejected: (e) => {
               if (e.length) {
-                showErrorToast('Failed To Upload, Unsupported file extention');
+                showErrorToast(t('Failed To Upload, Unsupported file extention'));
               }
             },
           }}

@@ -5,6 +5,8 @@ import { useContext } from 'react';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import clsx from 'clsx';
 
+import { DrawerMode } from '../../types';
+
 interface DashboardScaffoldProps {
   children: React.ReactNode;
   isLeftExpanded: boolean;
@@ -13,6 +15,8 @@ interface DashboardScaffoldProps {
   toggleRightDrawer: () => void;
   deleteOnClick: () => void;
   showBackButton?: boolean;
+  activeDrawerMode: DrawerMode;
+  setActiveDrawerMode: (mode: DrawerMode) => void;
 }
 
 const DashboardScaffold: React.FC<DashboardScaffoldProps> = ({ 
@@ -22,6 +26,8 @@ const DashboardScaffold: React.FC<DashboardScaffoldProps> = ({
   toggleLeftDrawer,
   toggleRightDrawer,
   deleteOnClick,
+  activeDrawerMode,
+  setActiveDrawerMode,
 }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
 
@@ -47,7 +53,7 @@ const DashboardScaffold: React.FC<DashboardScaffoldProps> = ({
           'border-b border-white/5': colorMode === 'dark',
           'border-b border-gray-200': colorMode === 'light',
         })}>
-          <Header deleteOnClick={deleteOnClick} />
+          <Header deleteOnClick={deleteOnClick} hidePatientDropdown={activeDrawerMode === 'admin'} />
         </header>
 
         {/* Workspace Body */}
@@ -62,6 +68,8 @@ const DashboardScaffold: React.FC<DashboardScaffoldProps> = ({
                 toggleRightDrawer={toggleRightDrawer}
                 isLeftExpanded={isLeftExpanded}
                 isRightExpanded={isRightExpanded}
+                activeDrawerMode={activeDrawerMode}
+                setActiveDrawerMode={setActiveDrawerMode}
               />
           </aside>
 

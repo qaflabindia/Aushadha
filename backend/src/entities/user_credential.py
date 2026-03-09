@@ -13,6 +13,8 @@ class Neo4jCredentials(BaseModel):
     password: Optional[str] = Field(None, description="Neo4j password")
     database: Optional[str] = Field(None, description="Neo4j database name")
     email: Optional[str] = Field(None, description="User email for logging")
+    target_user_email: Optional[str] = Field(None, description="Email of the patient being impersonated by an Admin/Doctor/Staff")
+    user_role: Optional[str] = Field(None, description="Role of the authenticated user")
 
     def validate_required(self) -> None:
         """Validate that required credentials are present"""
@@ -49,7 +51,9 @@ async def get_neo4j_credentials(
     userName: Optional[str] = Form(None),
     password: Optional[str] = Form(None),
     database: Optional[str] = Form(None),
-    email: Optional[str] = Form(None)
+    email: Optional[str] = Form(None),
+    target_user_email: Optional[str] = Form(None),
+    user_role: Optional[str] = Form(None)
 ) -> Neo4jCredentials:
     """
     FastAPI dependency function to extract and validate Neo4j credentials from form data.
@@ -81,5 +85,7 @@ async def get_neo4j_credentials(
         userName=userName,
         password=password,
         database=database,
-        email=email
+        email=email,
+        target_user_email=target_user_email,
+        user_role=user_role
     )

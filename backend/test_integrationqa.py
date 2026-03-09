@@ -429,6 +429,7 @@ if __name__ == "__main__":
         "graph+vector",
         "fulltext",
         "graph+vector+fulltext",
-        "entity search+vector"
+        "entity search+vector",
+        "ayush_clinical"
     ]
     run_tests_sequential(models, chatbot_modes)

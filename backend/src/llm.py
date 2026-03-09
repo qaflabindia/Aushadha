@@ -89,7 +89,7 @@ def get_llm(model: str):
                   env_value = f"{formatted_model},https://api.groq.com/openai/v1,{api_key}"
         
         elif "SARVAM" in model:
-            api_key = get_value_from_env("SARVAMAI_API_KEY")
+            api_key = get_value_from_env("SARVAM_API_KEY")
             if api_key:
                 # Default to sarvam-m if no specific model requested
                 formatted_model = model.lower().replace("sarvam_", "").replace("_", "-")
@@ -99,7 +99,8 @@ def get_llm(model: str):
         
         elif "LOCAL" in model:
              if "SARVAM" in model:
-                 env_value = "data/models/sarvam-2b,local,no-key"
+                 # Point to the new indic-llm service
+                 env_value = "sarvam-2b,http://indic-llm:8000/v1,no-key"
              else:
                  # Point to the local-llm-proxy service
                  env_value = "mistral-7b,http://local-llm-proxy:8090/v1,no-key"
@@ -249,6 +250,118 @@ def get_llm(model: str):
  
     logging.info(f"Model created - Model Version: {model}")
     return llm, model_name, callback_handler
+
+async def translate_text(text: str, target_lang: str, source_lang: str = "en") -> str:
+    """
+    Smart, cost-conscious translation:
+    1. Check PostgreSQL cache for each sentence/term
+    2. Only call Sarvam AI Cloud API for UNCACHED segments
+    3. Cache new translations for future reuse
+    """
+    import httpx
+    import re
+    from .translation_cache import get_cached, save_to_cache, ensure_table
+    from .database import SessionLocal
+
+    if not text or not text.strip():
+        return text
+    if target_lang == source_lang:
+        return text
+
+    # Sarvam AI language code mapping
+    SARVAM_LANG_MAP = {
+        "en": "en-IN", "hi": "hi-IN", "ta": "ta-IN", "te": "te-IN",
+        "bn": "bn-IN", "mr": "mr-IN", "kn": "kn-IN", "ml": "ml-IN",
+        "gu": "gu-IN", "pa": "pa-IN", "or": "od-IN",
+    }
+
+    ensure_table()
+    db = SessionLocal()
+
+    try:
+        # --- Step 1: Try full-text cache first (fastest path) ---
+        cached_full = get_cached(db, text.strip(), source_lang, target_lang)
+        if cached_full:
+            logging.info(f"[CACHE HIT] Full text: '{text[:50]}...' → {target_lang}")
+            return cached_full
+
+        # --- Step 2: Split into sentences and check cache per-sentence ---
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?।])\s+', text.strip()) if s.strip()]
+        if not sentences:
+            sentences = [text.strip()]
+
+        translated_parts = []
+        uncached_segments = []  # (index, text) pairs for API call
+
+        for i, sentence in enumerate(sentences):
+            cached = get_cached(db, sentence, source_lang, target_lang)
+            if cached:
+                translated_parts.append((i, cached))
+                logging.info(f"[CACHE HIT] Sentence: '{sentence[:40]}...'")
+            else:
+                translated_parts.append((i, None))  # placeholder
+                uncached_segments.append((i, sentence))
+
+        # --- Step 3: Batch uncached segments to Sarvam AI Cloud API ---
+        if uncached_segments:
+            api_key = os.getenv("SARVAM_API_KEY", "")
+            if not api_key:
+                logging.error("SARVAM_API_KEY not set. Returning original text.")
+                return text
+
+            src_code = SARVAM_LANG_MAP.get(source_lang, "en-IN")
+            tgt_code = SARVAM_LANG_MAP.get(target_lang, "hi-IN")
+
+            logging.info(f"[API CALL] Sending {len(uncached_segments)} uncached segments to Sarvam AI")
+
+            async with httpx.AsyncClient() as client:
+                for idx, segment in uncached_segments:
+                    try:
+                        response = await client.post(
+                            "https://api.sarvam.ai/translate",
+                            headers={
+                                "api-subscription-key": api_key,
+                                "Content-Type": "application/json",
+                            },
+                            json={
+                                "input": segment[:2000],  # sarvam-translate:v1 limit
+                                "source_language_code": src_code,
+                                "target_language_code": tgt_code,
+                                "model": "mayura:v1",
+                                "mode": "formal",
+                            },
+                            timeout=30.0,
+                        )
+
+                        if response.status_code == 200:
+                            data = response.json()
+                            translated = data.get("translated_text", segment)
+                            # Cache the new translation
+                            save_to_cache(db, segment, source_lang, target_lang, translated)
+                            # Update the placeholder
+                            translated_parts[idx] = (idx, translated)
+                        else:
+                            logging.error(f"Sarvam API error {response.status_code}: {response.text}")
+                            translated_parts[idx] = (idx, segment)  # fallback to original
+
+                    except Exception as api_err:
+                        logging.error(f"Sarvam API call failed for segment: {api_err}")
+                        translated_parts[idx] = (idx, segment)
+
+        # --- Step 4: Reassemble ---
+        result = " ".join(part for _, part in sorted(translated_parts, key=lambda x: x[0]))
+
+        # Cache the full assembled translation too
+        if len(sentences) > 1:
+            save_to_cache(db, text.strip(), source_lang, target_lang, result)
+
+        return result
+
+    except Exception as e:
+        logging.error(f"Translation error: {e}")
+        return text
+    finally:
+        db.close()
 
 def get_llm_model_name(llm):
     """Extract name of llm model from llm object"""

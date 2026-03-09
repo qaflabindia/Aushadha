@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import CustomModal from '../../../HOC/CustomModal';
 import { buttonCaptions } from '../../../utils/Constants';
 import { useCredentials } from '../../../context/UserCredentials';
+import { useTranslate } from '../../../context/TranslationContext';
 
 const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
   const [bucketUrl, setBucketUrl] = useState<string>('');
@@ -19,6 +20,7 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
   const [isValid, setValid] = useState<boolean>(false);
   const { setFilesData, model, filesData } = useFileContext();
   const { userCredentials } = useCredentials();
+  const t = useTranslate();
 
   const reset = () => {
     setBucketUrl('');
@@ -59,12 +61,12 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
     if (isValid && accessKey.trim() != '' && secretKey.trim() != '') {
       if (!userCredentials) {
         setStatus('danger');
-        setStatusMessage('Please connect to database first');
+        setStatusMessage(t('Please connect to database first'));
         return;
       }
       try {
         setStatus('info');
-        setStatusMessage('Scanning...');
+        setStatusMessage(t('Scanning...'));
         const apiResponse = await urlScanAPI(
           {
             urlParam: url.trim(),
@@ -78,7 +80,7 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
         setStatus('success');
         if (apiResponse?.data.status == 'Failed' || !apiResponse.data) {
           setStatus('danger');
-          setStatusMessage('Please Fill The Valid Credentials');
+          setStatusMessage(t('Please Fill The Valid Credentials'));
           setTimeout(() => {
             hideModal();
             setStatus('unknown');
@@ -86,7 +88,7 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
           }, 5000);
           return;
         }
-        setStatusMessage(`Successfully Created Source Nodes for ${apiResponse.data.success_count} Files`);
+        setStatusMessage(`${t('Successfully Created Source Nodes for')} ${apiResponse.data.success_count} ${t('Files')}`);
         const copiedFilesData: CustomFile[] = [...filesData];
         apiResponse?.data?.file_name?.forEach((item: S3File) => {
           const filedataIndex = copiedFilesData.findIndex((filedataitem) => filedataitem?.name === item?.fileName);
@@ -120,11 +122,11 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
         reset();
       } catch (error) {
         setStatus('danger');
-        setStatusMessage('Some Error Occurred or Please Check your Instance Connection');
+        setStatusMessage(t('Some Error Occurred or Please Check your Instance Connection'));
       }
     } else {
       setStatus('warning');
-      setStatusMessage('Please Fill The Valid Credentials');
+      setStatusMessage(t('Please Fill The Valid Credentials'));
       setTimeout(() => {
         setStatus('unknown');
       }, 5000);
@@ -161,7 +163,7 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
       submitHandler={() => submitHandler(bucketUrl)}
       status={status}
       setStatus={setStatus}
-      submitLabel={buttonCaptions.submit}
+      submitLabel={t(buttonCaptions.submit)}
     >
       <div className='w-full inline-block'>
         <form>
@@ -176,10 +178,10 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
             }}
             value={bucketUrl}
             isDisabled={false}
-            label='Bucket URL'
+            label={t('Bucket URL')}
             isFluid={true}
             isRequired={true}
-            errorText={!isValid && isFocused && 'Please Fill The Valid URL'}
+            errorText={!isValid && isFocused && t('Please Fill The Valid URL')}
             onChange={(e) => {
               setIsFocused(true);
               setBucketUrl(e.target.value);
@@ -196,7 +198,7 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
               }}
               value={accessKey}
               isDisabled={false}
-              label='Access Key'
+              label={t('Access Key')}
               className='w-full'
               isFluid={true}
               isRequired={true}
@@ -214,7 +216,7 @@ const S3Modal: React.FC<S3ModalProps> = ({ hideModal, open }) => {
               }}
               value={secretKey}
               isDisabled={false}
-              label='Secret Key'
+              label={t('Secret Key')}
               className='w-full'
               isFluid={true}
               isRequired={true}

@@ -1,6 +1,7 @@
 import CustomSourceInput from '../CustomSourceInput';
 import useSourceInput from '../../../hooks/useSourceInput';
 import { youtubeLinkValidation } from '../../../utils/Utils';
+import { useTranslate } from '../../../context/TranslationContext';
 
 export default function YoutubeInput({
   loading,
@@ -22,13 +23,14 @@ export default function YoutubeInput({
     onClose,
     onPasteHandler,
   } = useSourceInput(youtubeLinkValidation, setIsLoading, 'youtube', false, true, false);
+  const t = useTranslate();
   return (
     <CustomSourceInput
       onCloseHandler={onClose}
       isFocused={isFocused}
       isValid={isValid}
       disabledCheck={Boolean(loading)}
-      label='Youtube Link'
+      label={t('Youtube Link')}
       placeHolder='https://www.youtube.com/watch?v=2W9HM1xBibo'
       value={inputVal}
       onChangeHandler={onChangeHandler}

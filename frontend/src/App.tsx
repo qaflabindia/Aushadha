@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import ChatOnlyComponent from './components/ChatBot/ChatOnlyComponent';
-import { AuthenticationGuard, LoginPage } from './components/Auth/Auth';
+import AdminPage from './components/Admin/AdminPage';
+import { AuthenticationGuard, LoginPage, AdminGuard } from './components/Auth/Auth';
 import Home from './Home';
 import { SKIP_AUTH } from './utils/Constants.ts';
 
@@ -8,6 +9,7 @@ const App = () => {
   return (
     <Routes>
       <Route path='/' element={SKIP_AUTH ? <Home /> : <AuthenticationGuard component={Home} />}></Route>
+      <Route path='/admin' element={<AdminGuard component={AdminPage} />}></Route>
       <Route path='/login' element={<LoginPage />}></Route>
       <Route path='/readonly' element={<Home />}></Route>
       <Route path='/chat-only' element={<ChatOnlyComponent />}></Route>

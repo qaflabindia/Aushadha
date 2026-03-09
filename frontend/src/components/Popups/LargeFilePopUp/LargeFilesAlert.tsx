@@ -3,6 +3,7 @@ import { DocumentTextIconOutline } from '@neo4j-ndl/react/icons';
 import { LargefilesProps } from '../../../types';
 import { List, ListItem, ListItemAvatar, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { FC, useContext, useMemo } from 'react';
+import { useTranslate } from '../../../context/TranslationContext';
 import { chunkSize } from '../../../utils/Constants';
 import BellImage from '../../../assets/images/Stopwatch-blue.svg';
 import AlertIcon from '../../Layout/AlertIcon';
@@ -18,6 +19,7 @@ import { ThemeWrapperContext } from '../../../context/ThemeWrapper';
 
 const LargeFilesAlert: FC<LargefilesProps> = ({ Files = [], handleToggle = () => {}, checked = [] }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
+  const t = useTranslate();
 
   const imageIcon: Record<string, string> = useMemo(
     () => ({
@@ -38,10 +40,9 @@ const LargeFilesAlert: FC<LargefilesProps> = ({ Files = [], handleToggle = () =>
           alt='alert icon'
         />
         <div className='flex flex-col'>
-          <Typography variant='h3'>Large Document Notice</Typography>
+          <Typography variant='h3'>{t('Large Document Notice')}</Typography>
           <Typography variant='body-medium'>
-            One or more of your selected documents are large and may take extra time to process. Please review the
-            estimated times below
+            {t('One or more of your selected documents are large and may take extra time to process. Please review the estimated times below')}
           </Typography>
           <List className='max-h-80 overflow-y-auto'>
             {Files.map((f, i) => {
@@ -76,9 +77,9 @@ const LargeFilesAlert: FC<LargefilesProps> = ({ Files = [], handleToggle = () =>
                           <span className='word-break'>
                             {f.name} - {Math.floor((f?.size as number) / 1000)?.toFixed(2)}KB
                             {f.fileSource === 'local file' && minutes === 0 && typeof f.size === 'number'
-                              ? `- ${seconds} Sec `
+                              ? `- ${seconds} ${t('Sec')} `
                               : f.fileSource === 'local file'
-                                ? `- ${minutes} Min`
+                                ? `- ${minutes} ${t('Min')}`
                                 : ''}
                           </span>
                           {typeof f.size === 'number' && f.size > chunkSize ? (

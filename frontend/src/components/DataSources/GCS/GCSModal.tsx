@@ -10,6 +10,7 @@ import { useAlertContext } from '../../../context/Alert';
 import { buttonCaptions } from '../../../utils/Constants';
 import { showErrorToast, showNormalToast } from '../../../utils/Toasts';
 import { useCredentials } from '../../../context/UserCredentials';
+import { useTranslate } from '../../../context/TranslationContext';
 
 const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) => {
   const [bucketName, setBucketName] = useState<string>('');
@@ -18,6 +19,7 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
   const [status, setStatus] = useState<'unknown' | 'success' | 'info' | 'warning' | 'danger'>('unknown');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const { showAlert } = useAlertContext();
+  const t = useTranslate();
 
   const { setFilesData, model, filesData } = useFileContext();
   const { userCredentials } = useCredentials();
@@ -51,11 +53,11 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
     onSuccess: async (codeResponse) => {
       try {
         if (!userCredentials) {
-          showErrorToast('Please connect to database first');
+          showErrorToast(t('Please connect to database first'));
           return;
         }
         setStatus('info');
-        setStatusMessage('Loading...');
+        setStatusMessage(t('Loading...'));
         openGCSModal();
         const apiResponse = await urlScanAPI(
           {
@@ -82,14 +84,14 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
         const apiResCheck = apiResponse?.data?.success_count && apiResponse.data.failed_count;
         if (apiResCheck) {
           showNormalToast(
-            `Successfully Created Source Nodes for ${apiResponse.data.success_count} and Failed for ${apiResponse.data.failed_count} Files`
+            `${t('Successfully Created Source Nodes for')} ${apiResponse.data.success_count} ${t('and Failed for')} ${apiResponse.data.failed_count} ${t('Files')}`
           );
         } else if (apiResponse?.data?.success_count) {
-          showNormalToast(`Successfully Created Source Nodes for ${apiResponse.data.success_count} Files`);
+          showNormalToast(`${t('Successfully Created Source Nodes for')} ${apiResponse.data.success_count} ${t('Files')}`);
         } else if (apiResponse.data.failed_count) {
-          showErrorToast(`Failed to Created Source Node for ${apiResponse.data.failed_count} Files`);
+          showErrorToast(`${t('Failed to Created Source Node for')} ${apiResponse.data.failed_count} ${t('Files')}`);
         } else {
-          showErrorToast(`Invalid Folder Name`);
+          showErrorToast(t('Invalid Folder Name'));
         }
         const copiedFilesData = [...filesData];
         if (apiResponse?.data?.file_name?.length) {
@@ -130,7 +132,7 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
         reset();
       } catch (error) {
         if (showAlert != undefined) {
-          showNormalToast('Some Error Occurred or Please Check your Instance Connection');
+          showNormalToast(t('Some Error Occurred or Please Check your Instance Connection'));
         }
       }
       setTimeout(() => {
@@ -140,20 +142,20 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
     },
     onError: (errorResponse) => {
       showErrorToast(
-        errorResponse.error_description ?? 'Some Error Occurred or Please try signin with your google account'
+        errorResponse.error_description ?? t('Some Error Occurred or Please try signin with your google account')
       );
     },
     scope: 'https://www.googleapis.com/auth/devstorage.read_only',
     onNonOAuthError: (error) => {
       console.log(error);
-      showNormalToast(error.type ?? 'Unknown error');
+      showNormalToast(error.type ?? t('Unknown error'));
     },
   });
 
   const submitHandler = () => {
     if (bucketName.trim() === '' || projectId.trim() === '') {
       setStatus('danger');
-      setStatusMessage('Please Fill the Credentials');
+      setStatusMessage(t('Please Fill the Credentials'));
       setTimeout(() => {
         setStatus('unknown');
       }, 5000);
@@ -191,7 +193,7 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
       setStatus={setStatus}
       submitHandler={submitHandler}
       status={status}
-      submitLabel={buttonCaptions.submit}
+      submitLabel={t(buttonCaptions.submit)}
     >
       <div className='w-full inline-block'>
         <form>
@@ -205,7 +207,7 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
             }}
             value={projectId}
             isDisabled={false}
-            label='Project ID'
+            label={t('Project ID')}
             isFluid={true}
             isRequired={true}
             onChange={(e) => {
@@ -222,7 +224,7 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
             }}
             value={bucketName}
             isDisabled={false}
-            label='Bucket Name'
+            label={t('Bucket Name')}
             isFluid={true}
             isRequired={true}
             onChange={(e) => {
@@ -239,8 +241,8 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
             }}
             value={folderName}
             isDisabled={false}
-            label='Folder Name'
-            helpText='Optional'
+            label={t('Folder Name')}
+            helpText={t('Optional')}
             isFluid={true}
             onChange={(e) => {
               setFolderName(e.target.value);

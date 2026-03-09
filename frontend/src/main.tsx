@@ -9,22 +9,31 @@ async function bootstrap() {
   const { GoogleOAuthProvider } = await import('@react-oauth/google');
   const { BrowserRouter } = await import('react-router-dom');
   const { createRoot } = await import('react-dom/client');
-
+  const { PatientProvider } = await import('./context/PatientContext.tsx');
+  const { LanguageProvider } = await import('./context/LanguageContext.tsx');
+  const { default: TranslationProvider } = await import('./context/TranslationContext.tsx');
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+  const inner = SKIP_AUTH ? (
+    <PatientProvider><App /></PatientProvider>
+  ) : (
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <GoogleAuthProvider>
+        <PatientProvider><App /></PatientProvider>
+      </GoogleAuthProvider>
+    </GoogleOAuthProvider>
+  );
 
   createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
-      {SKIP_AUTH ? (
-        <App />
-      ) : (
-        <GoogleOAuthProvider clientId={googleClientId}>
-          <GoogleAuthProvider>
-            <App />
-          </GoogleAuthProvider>
-        </GoogleOAuthProvider>
-      )}
+      <LanguageProvider>
+        <TranslationProvider>
+          {inner}
+        </TranslationProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }
 
 bootstrap();
+

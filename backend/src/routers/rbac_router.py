@@ -73,6 +73,32 @@ async def assign_patient(
         
     return {"message": f"Assigned patient {patient.case_id} to {user.email}"}
 
+@router.get("/users", response_model=List[dict])
+async def get_all_users(
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin retrieves all registered users and their roles."""
+    users = db.query(User).all()
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "role": u.role.name if u.role else "None",
+            "created_at": u.created_at.isoformat() if u.created_at else None
+        }
+        for u in users
+    ]
+
+@router.get("/roles", response_model=List[str])
+async def get_all_roles(
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin retrieves all available role names."""
+    roles = db.query(Role).all()
+    return [r.name for r in roles]
+
 @router.get("/my_patients")
 async def get_my_patients(
     current_user: AuthenticatedUser = Depends(require_auth),
@@ -88,18 +114,18 @@ async def get_my_patients(
     if role == "ADMIN":
         # Admins see everything
         patients = db.query(Patient).all()
-        return [{"case_id": p.case_id, "age_group": p.age_group, "sex": p.sex} for p in patients]
+        return [{"case_id": p.case_id, "age_group": p.age_group, "sex": p.sex, "email": p.user.email if p.user else None} for p in patients]
         
     elif role == "PATIENT":
         # Patients only see their own linked record
         patient = db.query(Patient).filter(Patient.user_id == db_user.id).first()
         if not patient:
             return []
-        return [{"case_id": patient.case_id, "age_group": patient.age_group, "sex": patient.sex}]
+        return [{"case_id": patient.case_id, "age_group": patient.age_group, "sex": patient.sex, "email": db_user.email}]
         
     elif role in ["DOCTOR", "STAFF"]:
         # Doctors and Staff see assigned records
         patients = db_user.assigned_patients
-        return [{"case_id": p.case_id, "age_group": p.age_group, "sex": p.sex} for p in patients]
+        return [{"case_id": p.case_id, "age_group": p.age_group, "sex": p.sex, "email": p.user.email if p.user else None} for p in patients]
         
     raise HTTPException(status_code=403, detail="Unknown role")

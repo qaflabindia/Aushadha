@@ -1,5 +1,6 @@
 import { Banner, Box, Button, Flex, TextInput } from '@neo4j-ndl/react';
 import { CustomInput } from '../../types';
+import { useTranslate } from '../../context/TranslationContext';
 
 export default function CustomSourceInput({
   value,
@@ -18,6 +19,7 @@ export default function CustomSourceInput({
   isFocused,
   onPasteHandler,
 }: CustomInput) {
+  const t = useTranslate();
   return (
     <Flex gap='6'>
       {status !== 'unknown' && (
@@ -57,7 +59,7 @@ export default function CustomSourceInput({
             isFluid={true}
             isRequired={true}
             onChange={onChangeHandler}
-            errorText={!isValid && isFocused && 'Please Fill The Valid URL'}
+            errorText={!isValid && isFocused && t('Please Fill The Valid URL')}
           />
         </div>
       </Box>
@@ -71,10 +73,10 @@ export default function CustomSourceInput({
             size='medium'
             className='mr-4'
           >
-            Reset
+            {t('Reset')}
           </Button>
           <Button onClick={() => submitHandler(value)} size='medium' isDisabled={disabledCheck}>
-            Submit
+            {t('Submit')}
           </Button>
         </div>
       </Flex>

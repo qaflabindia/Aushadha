@@ -112,6 +112,7 @@ from src.routers.admin_router import router as admin_router
 from src.routers.metrics_router import router as metrics_router
 from src.routers.auth_router import router as auth_router
 from src.routers.rbac_router import router as rbac_router
+from src.routers.translation_router import router as translation_router
 
 app.include_router(graph_router)
 app.include_router(chat_router)
@@ -120,6 +121,31 @@ app.include_router(admin_router)
 app.include_router(metrics_router)
 app.include_router(auth_router)
 app.include_router(rbac_router)
+app.include_router(translation_router)
+
+
+# ---------------------------------------------------------------------------
+# Startup: ensure ui_translations table exists
+# ---------------------------------------------------------------------------
+from contextlib import asynccontextmanager
+from src.ui_translations import ensure_table as ensure_ui_table
+from src.database import SessionLocal
+
+@app.on_event("startup")
+async def on_startup():
+    ensure_ui_table()
+    # Seed English keys (english_key = en column) for all known UI strings
+    from src.ui_translations import upsert_ui_translation
+    from src.routers.translation_router import KNOWN_UI_STRINGS
+    db = SessionLocal()
+    try:
+        for text in KNOWN_UI_STRINGS:
+            upsert_ui_translation(db, text, "en", text)
+    except Exception as e:
+        import logging
+        logging.warning(f"UI translation seed warning: {e}")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":

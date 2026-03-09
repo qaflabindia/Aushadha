@@ -9,6 +9,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useGoogleAuth } from '../../context/GoogleAuthContext';
+import { useTranslate } from '../../context/TranslationContext';
+import LanguageSelector from '../UI/LanguageSelector';
 
 // ---------------------------------------------------------------------------
 // Authentication Guard — wraps protected routes
@@ -42,6 +44,7 @@ export const AuthenticationGuard: React.FC<{ component: React.ComponentType<obje
 export const LoginPage: React.FC = () => {
   const { loginWithGoogle, loginWithLocal, isAuthenticated } = useGoogleAuth();
   const navigate = useNavigate();
+  const t = useTranslate();
 
   const [showLocalLogin, setShowLocalLogin] = useState(false);
   const [email, setEmail] = useState('');
@@ -86,11 +89,14 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div style={styles.container}>
+      <div style={{ position: 'absolute', top: '16px', right: '24px' }}>
+        <LanguageSelector />
+      </div>
       <div style={styles.card}>
         {/* Logo / Branding */}
         <div style={styles.header}>
-          <h1 style={styles.title}>Aushadha</h1>
-          <p style={styles.subtitle}>Clinical Intelligence Platform</p>
+          <h1 style={styles.title}>AyushPragya</h1>
+          <p style={styles.subtitle}>{t('Clinical Intelligence Platform')}</p>
         </div>
 
         {error && <div style={styles.errorBanner}>{error}</div>}
@@ -115,13 +121,13 @@ export const LoginPage: React.FC = () => {
         {/* Local Login Toggle */}
         {!showLocalLogin ? (
           <button style={styles.localToggle} onClick={() => setShowLocalLogin(true)}>
-            Sign in with credentials
+            {t('Sign in with credentials')}
           </button>
         ) : (
           <form onSubmit={handleLocalLogin} style={styles.form}>
             <input
               type='email'
-              placeholder='Email'
+              placeholder={t('Email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
@@ -129,13 +135,13 @@ export const LoginPage: React.FC = () => {
             />
             <input
               type='password'
-              placeholder='Password'
+              placeholder={t('Password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={styles.input}
             />
             <button type='submit' style={styles.submitBtn} disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('Signing in...') : t('Sign In')}
             </button>
           </form>
         )}
@@ -148,11 +154,44 @@ export const LoginPage: React.FC = () => {
             navigate('/readonly', { replace: true });
           }}
         >
-          Continue in read-only mode →
+          {t('Continue in read-only mode')} →
         </button>
       </div>
     </div>
   );
+};
+
+// ---------------------------------------------------------------------------
+// Admin Guard — restricts to Admin role
+// ---------------------------------------------------------------------------
+export const AdminGuard: React.FC<{ component: React.ComponentType<any> }> = ({ component: Component }) => {
+  const { isAuthenticated, isLoading, user } = useGoogleAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to='/login' />;
+  }
+
+  if (user?.role?.toUpperCase() !== 'ADMIN') {
+    return <Navigate to='/' />;
+  }
+
+  return <Component />;
+};
+
+const Navigate: React.FC<{ to: string }> = ({ to }) => {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate(to, { replace: true });
+  }, [to, navigate]);
+  return null;
 };
 
 // ---------------------------------------------------------------------------

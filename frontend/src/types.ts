@@ -47,7 +47,8 @@ export type UserCredentials = {
   userName?: string;
   password?: string;
   database?: string;
-  email: string;
+  email?: string;
+  target_user_email?: string;
   connection?: string;
 } & { [key: string]: any };
 
@@ -109,7 +110,6 @@ export interface DataComponentProps {
   isLargeDesktop?: boolean;
   isDisabled?: boolean;
 }
-
 export interface S3ModalProps {
   hideModal: () => void;
   open: boolean;
@@ -117,6 +117,8 @@ export interface S3ModalProps {
 export interface GCSModalProps extends Omit<S3ModalProps, ''> {
   openGCSModal: () => void;
 }
+
+export type DrawerMode = 'upload' | 'research' | 'admin' | 'settings';
 
 export interface SideNavProps {
   toggleLeftDrawer: () => void;
@@ -132,6 +134,8 @@ export interface SideNavProps {
   toggleGCSModal?: () => void;
   toggleGenericModal?: () => void;
   setIsleftExpanded?: Dispatch<SetStateAction<boolean>>;
+  activeDrawerMode: DrawerMode;
+  setActiveDrawerMode: (mode: DrawerMode) => void;
 }
 
 export interface DrawerProps {
@@ -517,6 +521,7 @@ export interface HeaderProp {
   deleteOnClick?: () => void;
   setOpenConnection?: Dispatch<SetStateAction<connectionState>>;
   showBackButton?: boolean;
+  hidePatientDropdown?: boolean;
 }
 
 export interface entity {

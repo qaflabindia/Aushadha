@@ -501,7 +501,7 @@ async def processing_source(credentials, params, pages, merged_file_path=None, i
   uri_latency["total_chunks"] = total_chunks
 
   start_status_document_node = time.time()
-  result = graphDb_data_Access.get_current_status_document_node(params.file_name)
+  result = graphDb_data_Access.get_current_status_document_node(params.file_name, credentials.email)
   end_status_document_node = time.time()
   elapsed_status_document_node = end_status_document_node - start_status_document_node
   logging.info(f'Time taken to get the current status of document node: {elapsed_status_document_node:.2f} seconds')
@@ -548,7 +548,7 @@ async def processing_source(credentials, params, pages, merged_file_path=None, i
           select_chunks_upto = len(chunkId_chunkDoc_list)
         selected_chunks = chunkId_chunkDoc_list[i:select_chunks_upto]
         
-        result = graphDb_data_Access.get_current_status_document_node(params.file_name)
+        result = graphDb_data_Access.get_current_status_document_node(params.file_name, credentials.email)
         is_cancelled_status = result[0]['is_cancelled']
         logging.info(f"Value of is_cancelled : {result[0]['is_cancelled']}")
         if bool(is_cancelled_status) == True:
@@ -592,7 +592,7 @@ async def processing_source(credentials, params, pages, merged_file_path=None, i
       end_save_token = time.time()
       elapsed_save_token = end_save_token - start_save_token
       logging.info(f'Time taken to save token count: {elapsed_save_token:.2f} seconds')
-      result = graphDb_data_Access.get_current_status_document_node(params.file_name)
+      result = graphDb_data_Access.get_current_status_document_node(params.file_name, credentials.email)
       is_cancelled_status = result[0]['is_cancelled']
       if bool(is_cancelled_status) == True:
         logging.info(f'Is_cancelled True at the end extraction')
@@ -731,7 +731,7 @@ async def processing_chunks(chunkId_chunkDoc_list,graph,credentials,file_name,mo
       raise RuntimeError(str(e))
     
   start_update_embedding = time.time()
-  create_chunk_embeddings( graph, chunkId_chunkDoc_list, file_name)
+  create_chunk_embeddings( graph, chunkId_chunkDoc_list, file_name, credentials.email)
   end_update_embedding = time.time()
   elapsed_update_embedding = end_update_embedding - start_update_embedding
   logging.info(f'Time taken to update embedding in chunk node: {elapsed_update_embedding:.2f} seconds')
@@ -805,7 +805,7 @@ def get_chunkId_chunkDoc_list(graph, file_name, pages, token_chunk_size, chunk_o
       pages[i]=Document(page_content=str(text), metadata=pages[i].metadata)
     create_chunks_obj = CreateChunksofDocument(pages, graph)
     chunks = create_chunks_obj.split_file_into_chunks(token_chunk_size, chunk_overlap, email)
-    chunkId_chunkDoc_list = create_relation_between_chunks(graph,file_name,chunks)
+    chunkId_chunkDoc_list = create_relation_between_chunks(graph,file_name,chunks, email)
     return len(chunks), chunkId_chunkDoc_list
   
   else:  
@@ -845,7 +845,13 @@ def get_source_list_from_graph(credentials):
   if not graph._driver._closed:
       logging.info(f"closing connection for sources_list api")
       graph._driver.close()
-  return graph_DB_dataAccess.get_source_list()
+      
+  if credentials.user_role == "Admin" and not credentials.target_user_email:
+      owner_filter = None
+  else:
+      owner_filter = credentials.target_user_email or credentials.email
+      
+  return graph_DB_dataAccess.get_source_list(owner_filter)
 
 def update_graph(graph):
   """
@@ -897,7 +903,7 @@ def merge_chunks_local(file_name, total_chunks, chunk_dir, merged_dir):
   file_size = os.path.getsize(merged_file_path)
   return file_size
 
-def upload_file(graph, model, chunk, chunk_number: int, total_chunks: int, file_name, uri, chunk_dir, merged_dir):
+def upload_file(graph, model, chunk, chunk_number: int, total_chunks: int, file_name, uri, chunk_dir, merged_dir, owner_email: str = None):
     """
     Upload a file or its chunk to the specified destination (GCS or local).
 
@@ -949,6 +955,7 @@ def upload_file(graph, model, chunk, chunk_number: int, total_chunks: int, file_
         obj_source_node.entityEntityRelCount = 0
         obj_source_node.communityNodeCount = 0
         obj_source_node.communityRelCount = 0
+        obj_source_node.owner_email = owner_email
         graphDb_data_Access = graphDBdataAccess(graph)
         graphDb_data_Access.create_source_node(obj_source_node)
         return {'file_size': file_size, 'file_name': safe_file_name, 'file_extension': file_extension, 'message': f"Chunk {chunk_number}/{total_chunks} saved"}

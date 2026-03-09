@@ -1,84 +1,61 @@
-import { Tooltip, useMediaQuery, Select, SpotlightTarget } from '@neo4j-ndl/react';
-import { OptionType, ReusableDropdownProps } from '../types';
-import { memo, useMemo } from 'react';
+import { ReusableDropdownProps } from '../types';
+import { useMemo } from 'react';
 import { capitalize, capitalizeWithUnderscore } from '../utils/Utils';
 import { prodllms } from '../utils/Constants';
+import { PremiumDropdown } from './UI/PremiumDropdown';
+import { RiRobot3Line } from 'react-icons/ri';
 
 const DropdownComponent: React.FC<ReusableDropdownProps> = ({
   options,
   placeholder,
   defaultValue,
   onSelect,
-  children,
   view,
-  isDisabled,
   value,
 }) => {
   const isProdEnv = import.meta.env.VITE_ENV === 'PROD';
-  const isLargeDesktop = useMediaQuery(`(min-width:1440px )`);
-  const handleChange = (selectedOption: OptionType | null | void) => {
-    onSelect(selectedOption);
-    const existingModel = localStorage.getItem('selectedModel');
-    if (existingModel != selectedOption?.value) {
-      localStorage.setItem('selectedModel', selectedOption?.value ?? '');
+  // Use 'value' if provided, otherwise fallback to 'defaultValue'
+  const currentValue = typeof value === 'string' ? value : value?.value || (typeof defaultValue === 'string' ? defaultValue : defaultValue?.value) || null;
+
+  const handleChange = (newValue: string) => {
+    const selectedOpt = options.find(opt => (typeof opt === 'string' ? opt : opt.value) === newValue);
+    if (selectedOpt) {
+      onSelect(selectedOpt);
+      const existingModel = localStorage.getItem('selectedModel');
+      if (existingModel !== newValue) {
+        localStorage.setItem('selectedModel', newValue);
+      }
     }
   };
-  const allOptions = useMemo(() => options, [options]);
+
+  const premiumOptions = useMemo(() => {
+    return options.map((option) => {
+      const labelStr = typeof option === 'string' ? capitalizeWithUnderscore(option) : capitalize(option.label);
+      const valStr = typeof option === 'string' ? option : option.value;
+      const isModelSupported = !isProdEnv || prodllms?.includes(valStr);
+      
+      return {
+        label: labelStr,
+        value: valStr,
+        description: !isModelSupported ? 'Available in Development Version' : undefined,
+        // We can't actually disable individual options in our PremiumDropdown yet, 
+        // but we add the description to clarify.
+      };
+    });
+  }, [options, isProdEnv]);
+
   return (
-    <>
-      <div className={view === 'ContentView' ? 'w-[150px]' : ''}>
-        <SpotlightTarget id='llmdropdown'>
-          <Select
-            type='select'
-            label={
-              <div className='w-max! flex! gap-1 items-center'>
-                <span>LLM Model for Processing & Chat</span>
-              </div>
-            }
-            selectProps={{
-              onChange: handleChange as any,
-              options: allOptions?.map((option) => {
-                const label = typeof option === 'string' ? capitalizeWithUnderscore(option) : capitalize(option.label);
-                const value = typeof option === 'string' ? option : option.value;
-                const isModelSupported = !isProdEnv || prodllms?.includes(value);
-                return {
-                  label: !isModelSupported ? (
-                    <Tooltip type='simple' placement={isLargeDesktop ? 'left' : 'right'}>
-                      <Tooltip.Trigger>
-                        <span className='text-nowrap'>{label}</span>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content>Available In Development Version</Tooltip.Content>
-                    </Tooltip>
-                  ) : (
-                    <span className='text-nowrap'>{label}</span>
-                  ),
-                  value,
-                  isDisabled: !isModelSupported,
-                };
-              }) as any,
-              placeholder: placeholder || 'Select an option',
-              defaultValue: defaultValue
-                ? {
-                    label: capitalizeWithUnderscore(
-                      typeof defaultValue === 'string' ? defaultValue : defaultValue.value
-                    ),
-                    value: typeof defaultValue === 'string' ? defaultValue : defaultValue.value,
-                  }
-                : undefined,
-              menuPlacement: 'auto',
-              isDisabled: isDisabled,
-              value: value,
-            }}
-            size='medium'
-            isFluid
-            htmlAttributes={{
-              'aria-label': 'A selection dropdown',
-            }}
-          />
-        </SpotlightTarget>
-        {children}
-      </div>
-    </>
+    <div className={view === 'ContentView' ? 'w-[200px]' : 'w-full'} id="llmdropdown">
+      <PremiumDropdown
+         value={currentValue}
+         options={premiumOptions}
+         onChange={handleChange}
+         placeholder={placeholder || 'Select an option'}
+         icon={<RiRobot3Line />}
+         width="100%"
+      />
+    </div>
   );
 };
-export default memo(DropdownComponent);
+
+export default DropdownComponent;

@@ -5,6 +5,7 @@ import { memo, useEffect, useState } from 'react';
 import { useFileContext } from '../../../context/UsersFiles';
 import ExpiredFilesAlert from '../ExpirationModal/ExpiredFilesAlert';
 import { isExpired } from '../../../utils/Utils';
+import { useTranslate } from '../../../context/TranslationContext';
 
 function ConfirmationDialog({
   largeFiles,
@@ -24,6 +25,7 @@ function ConfirmationDialog({
   isLargeDocumentAlert?: boolean;
 }) {
   const { setSelectedRows, filesData, setRowSelection } = useFileContext();
+  const t = useTranslate();
   const [checked, setChecked] = useState<string[]>([...largeFiles.map((f) => f.id)]);
   const handleToggle = (isChecked: boolean, id: string) => {
     const newChecked = [...checked];
@@ -85,7 +87,9 @@ function ConfirmationDialog({
     >
       <Dialog.Content className='n-flex n-flex-col n-gap-token-4'>
         {largeFiles.length === 0 && loading ? (
-          <Typography variant='subheading-large'>Files are under processing</Typography>
+          <Typography variant='subheading-large'>
+            {t('Files are still processing, please select individual checkbox for deletion')}
+          </Typography>
         ) : isLargeDocumentAlert ? (
           <LargeFilesAlert handleToggle={handleToggle} Files={largeFiles} checked={checked}></LargeFilesAlert>
         ) : (
@@ -115,7 +119,7 @@ function ConfirmationDialog({
             (f) => f.createdAt != undefined && checked.includes(f.id) && isExpired(f?.createdAt as Date)
           )}
         >
-          Continue
+          {t('Continue')}
         </Button>
       </Dialog.Actions>
     </Dialog>

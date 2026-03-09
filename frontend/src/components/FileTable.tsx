@@ -67,6 +67,7 @@ import { ThemeWrapperContext } from '../context/ThemeWrapper';
 import BreakDownPopOver from './BreakDownPopOver';
 import { InformationCircleIconOutline } from '@neo4j-ndl/react/icons';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useTranslation } from '../context/LanguageContext';
 import React from 'react';
 
 let onlyfortheFirstRender = true;
@@ -91,6 +92,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
   const islargeDesktop = useMediaQuery(`(min-width:1440px )`);
   const tableRef = useRef(null);
   const { isAuthenticated } = useAuth0();
+  const t = useTranslation();
   const { updateStatusForLargeFiles } = useServerSideEvent(
     (inMinutes, time, fileName) => {
       showNormalToast(`${fileName} will take approx ${time} ${inMinutes ? 'Min' : 'Sec'}`);
@@ -125,8 +127,8 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               isDisabled={processingcheck}
               htmlAttributes={{
                 title: processingcheck
-                  ? `Files are still processing please select individual checkbox for deletion`
-                  : 'select all rows for deletion',
+                   ? t('filesProcessingSelectionWarning')
+                   : 'select all rows for deletion',
               }}
             />
           );
@@ -167,7 +169,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </div>
           );
         },
-        header: () => <span>Name</span>,
+        header: () => <span>{t('name')}</span>,
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor((row) => row.status, {
@@ -207,7 +209,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
                   <StatusIndicator type={statusCheck(info.getValue())} />
                 </div>
                 <div>
-                  <i>Processing</i>
+                  <i>Processing...</i>
                 </div>
                 <div className='mx-1'>
                   <IconButton
@@ -275,7 +277,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </div>
           );
         },
-        header: () => <span>Status</span>,
+        header: () => <span>{t('status')}</span>,
         footer: (info) => info.column.id,
         filterFn: 'statusFilter' as any,
         size: 250,
@@ -368,13 +370,13 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </div>
           );
         },
-        header: () => <span>Upload Status</span>,
+        header: () => <span>{t('uploadStatus')}</span>,
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor((row) => row.size, {
         id: 'fileSize',
         cell: (info: CellContext<CustomFile, string>) => <i>{(Number(info?.getValue()) / 1000)?.toFixed(2)}</i>,
-        header: () => <span>Size (KB)</span>,
+        header: () => <span>{t('sizeKB')}</span>,
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor((row) => row, {
@@ -407,7 +409,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </div>
           );
         },
-        header: () => <span>Source</span>,
+        header: () => <span>{t('source')}</span>,
         footer: (info) => info.column.id,
         filterFn: 'fileSourceFilter' as any,
         meta: {
@@ -452,7 +454,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </div>
           );
         },
-        header: () => <span>Type</span>,
+        header: () => <span>{t('type')}</span>,
         footer: (info) => info.column.id,
         filterFn: 'fileTypeFilter' as any,
         meta: {
@@ -492,7 +494,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
           const model = info.getValue();
           return <i>{capitalizeWithUnderscore(model)}</i>;
         },
-        header: () => <span>Model</span>,
+        header: () => <span>{t('model')}</span>,
         footer: (info) => info.column.id,
         filterFn: 'llmTypeFilter' as any,
         meta: {
@@ -547,7 +549,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </Flex>
           );
         },
-        header: () => <span>Nodes</span>,
+        header: () => <span>{t('nodes')}</span>,
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor((row) => row.relationshipsCount, {
@@ -569,7 +571,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             </Flex>
           );
         },
-        header: () => <span>Relations</span>,
+        header: () => <span>{t('relationships')}</span>,
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor((row) => row.status, {

@@ -219,9 +219,8 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     requestAnimationFrame(animate);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim()) {
+  const submitQuery = async (query: string) => {
+    if (!query.trim()) {
       return;
     }
 
@@ -238,7 +237,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       user: 'user',
       datetime,
       currentMode: chatModes[0],
-      modes: { [chatModes[0]]: { message: inputMessage } },
+      modes: { [chatModes[0]]: { message: query } },
     };
     setListMessages([...listMessages, userMsg]);
 
@@ -253,7 +252,6 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       currentMode: chatModes[0],
     };
     setListMessages((prev) => [...prev, chatbotMsg]);
-    setInputMessage('');
 
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
@@ -261,7 +259,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     try {
       const apiCalls = chatModes.map((mode: string) =>
         chatBotAPI(
-          inputMessage,
+          query,
           sessionId,
           model,
           mode,
@@ -325,6 +323,23 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       }
     }
   };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitQuery(inputMessage);
+    setInputMessage('');
+  };
+
+  useEffect(() => {
+    const handleExternalQuery = (event: any) => {
+      const { query } = event.detail;
+      if (query) {
+        submitQuery(query);
+      }
+    };
+    window.addEventListener('external-chat-query', handleExternalQuery);
+    return () => window.removeEventListener('external-chat-query', handleExternalQuery);
+  }, [listMessages, chatModes, model, userCredentials, language.code]);
 
   const handleCancel = () => {
     if (abortControllerRef.current) {

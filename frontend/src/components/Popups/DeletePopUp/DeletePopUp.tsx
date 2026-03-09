@@ -1,5 +1,6 @@
 import { Button, Checkbox, Dialog } from '@neo4j-ndl/react';
 import { memo, useState } from 'react';
+import { useTranslate } from '../../../context/TranslationContext';
 function DeletePopUp({
   open,
   no_of_files,
@@ -16,14 +17,15 @@ function DeletePopUp({
   view?: 'contentView' | 'settingsView';
 }) {
   const [deleteEntities, setDeleteEntities] = useState<boolean>(true);
+  const t = useTranslate();
   const message =
     view === 'contentView'
-      ? `Are you sure you want to permanently delete ${no_of_files} ${no_of_files > 1 ? 'Files' : 'File'} ${
-          deleteEntities ? 'and associated entities' : ''
-        } from the graph database?`
-      : `Are you sure you want to permanently delete ${no_of_files} ${
-          no_of_files > 1 ? 'Nodes' : 'Node'
-        } from the graph database? `;
+      ? `${t('Are you sure you want to permanently delete')} ${no_of_files} ${no_of_files > 1 ? t('Files') : t('File')} ${
+          deleteEntities ? t('and associated entities') : ''
+        } ${t('from the graph database?')} `
+      : `${t('Are you sure you want to permanently delete')} ${no_of_files} ${
+          no_of_files > 1 ? t('Nodes') : t('Node')
+        } ${t('from the graph database?')} `;
   return (
     <Dialog isOpen={open} onClose={deleteCloseHandler}>
       <Dialog.Content>
@@ -31,7 +33,7 @@ function DeletePopUp({
         {view === 'contentView' && (
           <div className='mt-5'>
             <Checkbox
-              label='Delete Entities'
+              label={t('Delete Entities')}
               isChecked={deleteEntities}
               onChange={(e) => {
                 if (e.target.checked) {
@@ -46,10 +48,10 @@ function DeletePopUp({
       </Dialog.Content>
       <Dialog.Actions className='mt-3'>
         <Button onClick={deleteCloseHandler} isDisabled={loading}>
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button onClick={() => deleteHandler(deleteEntities)} isLoading={loading}>
-          Continue
+          {t('Continue')}
         </Button>
       </Dialog.Actions>
     </Dialog>

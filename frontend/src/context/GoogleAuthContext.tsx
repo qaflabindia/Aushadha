@@ -6,6 +6,7 @@
 // =============================================================================
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import axios from 'axios';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +61,17 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
 
   const apiBase = backendUrl || import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
 
+  // Helpers
+  const isTokenExpired = (jwtToken: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(jwtToken.split('.')[1]));
+      // exp is in seconds, Date.now() is in ms
+      return payload.exp ? payload.exp * 1000 < Date.now() : false;
+    } catch {
+      return true; // treat malformed token as expired
+    }
+  };
+
   // Restore session from localStorage on mount
   useEffect(() => {
     const savedToken = localStorage.getItem('aushadha_auth_token');
@@ -67,9 +79,15 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
 
     if (savedToken && savedUser) {
       try {
-        const parsedUser = JSON.parse(savedUser) as AuthUser;
-        setToken(savedToken);
-        setUser(parsedUser);
+        if (isTokenExpired(savedToken)) {
+          // Token expired — clear stale session so user sees login
+          localStorage.removeItem('aushadha_auth_token');
+          localStorage.removeItem('aushadha_auth_user');
+        } else {
+          const parsedUser = JSON.parse(savedUser) as AuthUser;
+          setToken(savedToken);
+          setUser(parsedUser);
+        }
       } catch {
         // Corrupted storage — clear it
         localStorage.removeItem('aushadha_auth_token');
@@ -78,6 +96,28 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
     }
     setIsLoading(false);
   }, []);
+
+  // Global axios 401 interceptor — auto-logout on expired/invalid token
+  useEffect(() => {
+    const interceptorId = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error?.response?.status === 401) {
+          // Clear stale session and redirect to login
+          localStorage.removeItem('aushadha_auth_token');
+          localStorage.removeItem('aushadha_auth_user');
+          setUser(null);
+          setToken(null);
+          if (!window.location.pathname.startsWith('/login')) {
+            window.location.href = '/login';
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptorId);
+  }, []);
+
 
   // Save session to localStorage whenever it changes
   useEffect(() => {

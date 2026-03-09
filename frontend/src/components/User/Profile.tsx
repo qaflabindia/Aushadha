@@ -5,6 +5,7 @@ import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { getTokenLimits, TokenLimitsResponse } from '../../services/TokenLimits';
 import { useCredentials } from '../../context/UserCredentials';
 import { isNeo4jUser } from '../../utils/Utils';
+import { useTranslate } from '../../context/TranslationContext';
 
 export default function Profile() {
   const [showMenu, setShowOpen] = useState<boolean>(false);
@@ -14,6 +15,7 @@ export default function Profile() {
   const iconbtnRef = useRef<HTMLButtonElement | null>(null);
   const { user, isAuthenticated, isLoading, logout } = useGoogleAuth();
   const { userCredentials, connectionStatus } = useCredentials();
+  const t = useTranslate();
 
   const fetchTokenLimits = useCallback(async () => {
     if (!userCredentials?.uri && !userCredentials?.email) {
@@ -28,16 +30,15 @@ export default function Profile() {
         setTokenLimits(limits);
         setTokenError(null);
       } else {
-        setTokenError('Failed to fetch token limits');
         setTokenLimits(null);
       }
     } catch (error) {
-      setTokenError('Error loading token limits');
+      setTokenError(t('Error loading token limits'));
       setTokenLimits(null);
     } finally {
       setIsLoadingTokens(false);
     }
-  }, [userCredentials]);
+  }, [userCredentials, t]);
 
   useEffect(() => {
     if (isAuthenticated && connectionStatus) {
@@ -50,38 +51,38 @@ export default function Profile() {
 
     const getDailyTokensTitle = () => {
       if (isLoadingTokens) {
-        return 'Daily Tokens Used: Loading...';
+        return t('Daily Tokens Used: Loading...');
       }
       if (!connectionStatus) {
-        return 'Daily Tokens Used: No DB connection';
+        return t('Daily Tokens Used: No DB connection');
       }
       if (tokenError) {
-        return 'Daily Tokens Used: N/A';
+        return t('Daily Tokens Used: N/A');
       }
-      const used = tokenLimits?.daily_used.toLocaleString() ?? 'N/A';
+      const used = tokenLimits?.daily_used.toLocaleString() ?? t('N/A');
       if (isNeo4j) {
-        return `Daily Tokens Used: ${used}`;
+        return `${t('Daily Tokens Used:')} ${used}`;
       }
-      const limit = tokenLimits?.daily_limit.toLocaleString() ?? 'N/A';
-      return `Daily Tokens Used: ${used} / ${limit}`;
+      const limit = tokenLimits?.daily_limit.toLocaleString() ?? t('N/A');
+      return `${t('Daily Tokens Used:')} ${used} / ${limit}`;
     };
 
     const getMonthlyTokensTitle = () => {
       if (isLoadingTokens) {
-        return 'Monthly Tokens: Loading...';
+        return t('Monthly Tokens: Loading...');
       }
       if (!connectionStatus) {
-        return 'Monthly Tokens Used: No DB connection';
+        return t('Monthly Tokens Used: No DB connection');
       }
       if (tokenError) {
-        return 'Monthly Tokens Used: N/A';
+        return t('Monthly Tokens Used: N/A');
       }
-      const used = tokenLimits?.monthly_used.toLocaleString() ?? 'N/A';
+      const used = tokenLimits?.monthly_used.toLocaleString() ?? t('N/A');
       if (isNeo4j) {
-        return `Monthly Tokens Used: ${used}`;
+        return `${t('Monthly Tokens Used:')} ${used}`;
       }
-      const limit = tokenLimits?.monthly_limit.toLocaleString() ?? 'N/A';
-      return `Monthly Tokens Used: ${used} / ${limit}`;
+      const limit = tokenLimits?.monthly_limit.toLocaleString() ?? t('N/A');
+      return `${t('Monthly Tokens Used:')} ${used} / ${limit}`;
     };
 
     const tokenItems = [
@@ -96,7 +97,7 @@ export default function Profile() {
         disabled: true,
       },
       {
-        title: 'Get Latest Usage',
+        title: t('Get Latest Usage'),
         onClick: () => {
           fetchTokenLimits();
         },
@@ -107,14 +108,14 @@ export default function Profile() {
     return [
       ...tokenItems,
       {
-        title: 'Logout',
+        title: t('Logout'),
         onClick: () => {
           logout();
           window.location.href = '/login';
         },
       },
     ];
-  }, [tokenLimits, isLoadingTokens, tokenError, fetchTokenLimits, logout, user?.email]);
+  }, [tokenLimits, isLoadingTokens, tokenError, fetchTokenLimits, logout, user?.email, connectionStatus, t]);
 
   const handleClick = () => {
     setShowOpen(true);

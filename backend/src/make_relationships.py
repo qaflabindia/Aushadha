@@ -35,7 +35,7 @@ def merge_relationship_between_chunk_and_entites(graph: Neo4jGraph, graph_docume
         execute_graph_query(graph,unwind_query, params={"batch_data": batch_data})
 
     
-def create_chunk_embeddings(graph, chunkId_chunkDoc_list, file_name):
+def create_chunk_embeddings(graph, chunkId_chunkDoc_list, file_name, owner_email: str = None):
     isEmbedding= get_value_from_env("IS_EMBEDDING", "True" ,"bool")
     
     embeddings, dimension = load_embedding_model(EMBEDDING_MODEL)
@@ -55,12 +55,12 @@ def create_chunk_embeddings(graph, chunkId_chunkDoc_list, file_name):
         UNWIND $data AS row
         MATCH (d:Document {fileName: $fileName})
         MERGE (c:Chunk {id: row.chunkId})
-        SET c.embedding = row.embeddings
+        SET c.embedding = row.embeddings, c.owner_email = $owner_email
         MERGE (c)-[:PART_OF]->(d)
     """       
-    execute_graph_query(graph,query_to_create_embedding, params={"fileName":file_name, "data":data_for_query})
+    execute_graph_query(graph,query_to_create_embedding, params={"fileName":file_name, "data":data_for_query, "owner_email": owner_email})
     
-def create_relation_between_chunks(graph, file_name, chunks: List[Document])->list:
+def create_relation_between_chunks(graph, file_name, chunks: List[Document], owner_email: str = None)->list:
     logging.info("creating FIRST_CHUNK and NEXT_CHUNK relationships between chunks")
     current_chunk_id = ""
     lst_chunks_including_hash = []
@@ -117,7 +117,7 @@ def create_relation_between_chunks(graph, file_name, chunks: List[Document])->li
     query_to_create_chunk_and_PART_OF_relation = """
         UNWIND $batch_data AS data
         MERGE (c:Chunk {id: data.id})
-        SET c.text = data.pg_content, c.position = data.position, c.length = data.length, c.fileName=data.f_name, c.content_offset=data.content_offset
+        SET c.text = data.pg_content, c.position = data.position, c.length = data.length, c.fileName=data.f_name, c.content_offset=data.content_offset, c.owner_email=$owner_email
         WITH data, c
         SET c.page_number = CASE WHEN data.page_number IS NOT NULL THEN data.page_number END,
             c.start_time = CASE WHEN data.start_time IS NOT NULL THEN data.start_time END,
@@ -126,7 +126,7 @@ def create_relation_between_chunks(graph, file_name, chunks: List[Document])->li
         MATCH (d:Document {fileName: data.f_name})
         MERGE (c)-[:PART_OF]->(d)
     """
-    execute_graph_query(graph,query_to_create_chunk_and_PART_OF_relation, params={"batch_data": batch_data})
+    execute_graph_query(graph,query_to_create_chunk_and_PART_OF_relation, params={"batch_data": batch_data, "owner_email": owner_email})
     
     query_to_create_FIRST_relation = """ 
         UNWIND $relationships AS relationship

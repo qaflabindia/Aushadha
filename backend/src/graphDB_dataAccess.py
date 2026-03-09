@@ -50,6 +50,7 @@ class graphDBdataAccess:
                             d.gcsBucketFolder= $gcs_bucket_folder, d.language= $language,d.gcsProjectId= $gcs_project_id,
                             d.is_cancelled=False, d.total_chunks=0, d.processed_chunk=0,
                             d.access_token=$access_token,
+                            d.owner_email=$owner_email,
                             d.chunkNodeCount=$chunkNodeCount,d.chunkRelCount=$chunkRelCount,
                             d.entityNodeCount=$entityNodeCount,d.entityEntityRelCount=$entityEntityRelCount,
                             d.communityNodeCount=$communityNodeCount,d.communityRelCount=$communityRelCount""",
@@ -60,6 +61,7 @@ class graphDBdataAccess:
                             "gcs_bucket": obj_source_node.gcsBucket, "gcs_bucket_folder": obj_source_node.gcsBucketFolder, 
                             "language":obj_source_node.language, "gcs_project_id":obj_source_node.gcsProjectId,
                             "access_token":obj_source_node.access_token,
+                            "owner_email":obj_source_node.owner_email,
                             "chunkNodeCount":obj_source_node.chunkNodeCount,
                             "chunkRelCount":obj_source_node.chunkRelCount,
                             "entityNodeCount":obj_source_node.entityNodeCount,
@@ -126,22 +128,19 @@ class graphDBdataAccess:
             self.update_exception_db(obj_source_node.file_name,error_message)
             raise Exception(error_message)
     
-    def get_source_list(self):
+    def get_source_list(self, owner_email: str = None):
         """
-        Args:
-            uri: URI of the graph to extract
-            db_name: db_name is database name to connect to graph db
-            userName: Username to use for graph creation ( if None will use username from config file )
-            password: Password to use for graph creation ( if None will use password from config file )
-            file: File object containing the PDF file to be used
-            model: Type of model to use ('Diffbot'or'OpenAI GPT')
-        Returns:
-        Returns a list of sources that are in the database by querying the graph and
-        sorting the list by the last updated date. 
+        ...
         """
         logging.info("Get existing files list from graph")
-        query = "MATCH(d:Document) WHERE d.fileName IS NOT NULL RETURN d ORDER BY d.updatedAt DESC"
-        result = self.graph.query(query,session_params={"database":self.graph._database})
+        if owner_email:
+            query = "MATCH(d:Document) WHERE d.fileName IS NOT NULL AND d.owner_email = $owner_email RETURN d ORDER BY d.updatedAt DESC"
+            params = {"owner_email": owner_email}
+        else:
+            query = "MATCH(d:Document) WHERE d.fileName IS NOT NULL RETURN d ORDER BY d.updatedAt DESC"
+            params = {}
+            
+        result = self.graph.query(query, params=params, session_params={"database":self.graph._database})
         list_of_json_objects = [entry['d'] for entry in result]
         return list_of_json_objects
         
@@ -268,9 +267,9 @@ class graphDBdataAccess:
         logging.error("Failed to execute query after maximum retries due to persistent deadlocks.")
         raise RuntimeError("Query execution failed after multiple retries due to deadlock.")
 
-    def get_current_status_document_node(self, file_name):
-        query = """
-                MATCH(d:Document {fileName : $file_name}) RETURN d.status AS Status , d.processingTime AS processingTime, 
+    def get_current_status_document_node(self, file_name, owner_email: str = None):
+        base_query = """
+                RETURN d.status AS Status , d.processingTime AS processingTime, 
                 d.nodeCount AS nodeCount, d.model as model, d.relationshipCount as relationshipCount,
                 d.total_chunks AS total_chunks , d.fileSize as fileSize, 
                 d.is_cancelled as is_cancelled, d.processed_chunk as processed_chunk, d.fileSource as fileSource,
@@ -283,10 +282,16 @@ class graphDBdataAccess:
                 d.createdAt AS created_time,
                 coalesce(d.token_usage, 0) AS token_usage
                 """
-        param = {"file_name" : file_name}
+        if owner_email:
+            query = "MATCH(d:Document {fileName : $file_name, owner_email: $owner_email}) " + base_query
+            param = {"file_name" : file_name, "owner_email": owner_email}
+        else:
+            query = "MATCH(d:Document {fileName : $file_name}) " + base_query
+            param = {"file_name" : file_name}
+            
         return self.execute_query(query, param)
     
-    def delete_file_from_graph(self, filenames, source_types, deleteEntities:str, merged_dir:str, uri):
+    def delete_file_from_graph(self, filenames, source_types, deleteEntities:str, merged_dir:str, uri, owner_email: str = None):
         
         filename_list= list(map(str.strip, json.loads(filenames)))
         source_types_list= list(map(str.strip, json.loads(source_types)))
@@ -302,9 +307,14 @@ class graphDBdataAccess:
                 logging.info(f'Deleted File Path: {merged_file_path} and Deleted File Name : {file_name}')
                 delete_uploaded_local_file(merged_file_path,file_name)
                 
-        query_to_delete_document="""
-            MATCH (d:Document)
-            WHERE d.fileName IN $filename_list AND coalesce(d.fileSource, "None") IN $source_types_list
+        if owner_email:
+            match_clause = "MATCH (d:Document) WHERE d.fileName IN $filename_list AND coalesce(d.fileSource, 'None') IN $source_types_list AND d.owner_email = $owner_email\n"
+            param = {"filename_list" : filename_list, "source_types_list": source_types_list, "owner_email": owner_email}
+        else:
+            match_clause = "MATCH (d:Document) WHERE d.fileName IN $filename_list AND coalesce(d.fileSource, 'None') IN $source_types_list\n"
+            param = {"filename_list" : filename_list, "source_types_list": source_types_list}
+
+        query_to_delete_document = match_clause + """
             WITH COLLECT(d) AS documents
             CALL (documents) {
             UNWIND documents AS d
@@ -312,9 +322,7 @@ class graphDBdataAccess:
             detach delete c, d
             } IN TRANSACTIONS OF 1 ROWS
             """
-        query_to_delete_document_and_entities = """
-            MATCH (d:Document)
-            WHERE d.fileName IN $filename_list AND coalesce(d.fileSource, "None") IN $source_types_list
+        query_to_delete_document_and_entities = match_clause + """
             WITH COLLECT(d) AS documents
             CALL (documents) {
             UNWIND documents AS d
@@ -343,7 +351,6 @@ class graphDBdataAccess:
                 DETACH DELETE c
                 }
         """   
-        param = {"filename_list" : filename_list, "source_types_list": source_types_list}
         community_param = {"max_level":MAX_COMMUNITY_LEVELS}
         if deleteEntities == "true":
             result = self.execute_query(query_to_delete_document_and_entities, param)
