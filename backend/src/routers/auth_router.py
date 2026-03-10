@@ -8,16 +8,21 @@ from src.database import get_db
 from sqlalchemy.orm import Session
 from src.models import User
 from src.shared.google_auth import require_auth, create_local_token, AuthenticatedUser
+from passlib.context import CryptContext
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 
 @router.post("/local_login")
 async def local_login(request: Request, db: Session = Depends(get_db)):
     """
     Issue a local RS256-signed JWT.
     Accepts JSON body: {"email": "...", "password": "..."}
-    For now, validates against LOCAL_AUTH_PASSWORD env var (simple shared secret).
+    Validates hashed password from the database.
     """
     try:
         data = await request.json()
@@ -28,13 +33,15 @@ async def local_login(request: Request, db: Session = Depends(get_db)):
         if not email or not password:
             return create_api_response("Failed", message="Email and password are required")
 
-        expected_password = os.getenv("LOCAL_AUTH_PASSWORD")
-        if not expected_password:
-            return create_api_response("Failed", message="Local authentication is not configured.")
-        if password != expected_password:
+        db_user = db.query(User).filter(User.email == email).first()
+        
+        if not db_user or not db_user.hashed_password:
+            return create_api_response("Failed", message="Invalid credentials or user not configured for local login")
+        
+        if not verify_password(password, db_user.hashed_password):
             return create_api_response("Failed", message="Invalid credentials")
 
-        db_user = db.query(User).filter(User.email == email).first()
+        role = db_user.role.name if db_user.role else ""
         role = db_user.role.name if db_user and db_user.role else ""
 
         token = create_local_token(email=email, name=name)

@@ -13,6 +13,7 @@ router = APIRouter(tags=["RBAC"], prefix="/rbac")
 class RoleAssignRequest(BaseModel):
     email: str
     role_name: str
+    case_id: Optional[str] = None  # Only used when role is 'Patient'
 
 class PatientAssignRequest(BaseModel):
     doctor_email: str
@@ -45,6 +46,38 @@ async def assign_role(
 
     db.commit()
     db.refresh(user)
+    
+    # 3. Ensure Patient record if role is Patient
+    if role.name.upper() == "PATIENT":
+        patient_record = db.query(Patient).filter(Patient.user_id == user.id).first()
+        if patient_record:
+            # Case ID is immutable — reject any attempt to change it
+            if request.case_id and request.case_id != patient_record.case_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Case ID '{patient_record.case_id}' is already assigned to this user and cannot be changed."
+                )
+        else:
+            import uuid
+            # Use admin-provided Case ID, or auto-generate one
+            case_id = (request.case_id.strip() if request.case_id and request.case_id.strip()
+                       else f"PAT-{str(uuid.uuid4())[:8].upper()}")
+            # Ensure uniqueness
+            existing = db.query(Patient).filter(Patient.case_id == case_id).first()
+            if existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Case ID '{case_id}' is already in use. Please choose a different one."
+                )
+            new_patient = Patient(
+                case_id=case_id,
+                user_id=user.id,
+                age_group="Unknown",
+                sex="Unknown"
+            )
+            db.add(new_patient)
+            db.commit()
+
     return {"message": f"Assigned role {role.name} to {user.email}"}
 
 
@@ -80,15 +113,20 @@ async def get_all_users(
 ):
     """Admin retrieves all registered users and their roles."""
     users = db.query(User).all()
-    return [
-        {
+    result = []
+    for u in users:
+        case_id = None
+        if u.role and u.role.name.upper() == "PATIENT":
+            patient = db.query(Patient).filter(Patient.user_id == u.id).first()
+            case_id = patient.case_id if patient else None
+        result.append({
             "id": u.id,
             "email": u.email,
             "role": u.role.name if u.role else "None",
+            "case_id": case_id,
             "created_at": u.created_at.isoformat() if u.created_at else None
-        }
-        for u in users
-    ]
+        })
+    return result
 
 @router.get("/roles", response_model=List[str])
 async def get_all_roles(
@@ -97,7 +135,10 @@ async def get_all_roles(
 ):
     """Admin retrieves all available role names."""
     roles = db.query(Role).all()
-    return [r.name for r in roles]
+    db_roles = [r.name for r in roles]
+    default_roles = ["Admin", "Doctor", "Staff", "Patient"]
+    # Return unique roles by converting to a set then back to a list
+    return list(set(db_roles + default_roles))
 
 @router.get("/my_patients")
 async def get_my_patients(
@@ -129,3 +170,26 @@ async def get_my_patients(
         return [{"case_id": p.case_id, "age_group": p.age_group, "sex": p.sex, "email": p.user.email if p.user else None} for p in patients]
         
     raise HTTPException(status_code=403, detail="Unknown role")
+
+
+@router.delete("/user/{user_id}")
+async def delete_user(
+    user_id: int,
+    admin: AuthenticatedUser = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Admin deletes a user and their associated patient record."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Prevent self-deletion
+    if user.email == admin.email:
+        raise HTTPException(status_code=400, detail="Administrators cannot delete themselves.")
+
+    # Associated patient records will be handled by CASCADE/SET NULL in models,
+    # but we can explicitly clean up if needed or just let the DB handle it.
+    db.delete(user)
+    db.commit()
+    
+    return {"message": f"Successfully deleted user {user.email}"}

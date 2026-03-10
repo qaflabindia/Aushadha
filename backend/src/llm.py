@@ -28,14 +28,6 @@ def get_llm(model: str):
     env_key = f"LLM_MODEL_CONFIG_{model}"
     env_value = get_value_from_env(env_key)
     
-    # DEBUG LOGGING
-    logging.info(f"DEBUG: get_llm called with model='{model}'")
-    logging.info(f"DEBUG: env_key='{env_key}', initial env_value found: {bool(env_value)}")
-    if "DIFFBOT" in model:
-        diffbot_key = get_value_from_env("DIFFBOT_API_KEY")
-        logging.info(f"DEBUG: DIFFBOT_API_KEY retrieval result: {diffbot_key[:5] if diffbot_key else 'None'}...")
-    # END DEBUG LOGGING
-
     if not env_value:
         # Generic fallback: Construct config from specific API keys if main config is missing
         if "OPENAI" in model:
@@ -195,10 +187,8 @@ def get_llm(model: str):
             model_name, base_url = env_value.split(",")
             llm = ChatOllama(base_url=base_url, model=model_name,callbacks=callback_manager)
 
-        elif "LOCAL" in model:
-            logging.info(f"DEBUG: LOCAL model detected. env_value='{env_value}'")
+        elif "LOCAL" in model or "SARVAM" in model:
             model_name, base_url, api_key = env_value.split(",")
-            logging.info(f"DEBUG: model_name='{model_name}', base_url='{base_url}'")
             llm = ChatOpenAI(
                 api_key=api_key,
                 base_url=base_url,
@@ -302,51 +292,39 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
                 translated_parts.append((i, None))  # placeholder
                 uncached_segments.append((i, sentence))
 
-        # --- Step 3: Batch uncached segments to Sarvam AI Cloud API ---
+        # --- Step 3: Batch uncached segments to Sarvam AI (Clinical Intelligence Engine) ---
         if uncached_segments:
-            api_key = os.getenv("SARVAM_API_KEY", "")
-            if not api_key:
-                logging.error("SARVAM_API_KEY not set. Returning original text.")
-                return text
+            try:
+                # Use a chat model with clinical system prompt
+                from langchain_core.messages import SystemMessage, HumanMessage
+                
+                # Enforce medical persona to prevent "Intelligence" -> "Spy" errors
+                system_prompt = (
+                    "You are a medical translation expert. Translate the text accurately into the target language. "
+                    "Maintain strict clinical context. Example: 'Intelligence' means clinical ability, NOT espionage. "
+                    "Translate for a medical professional audience."
+                )
 
-            src_code = SARVAM_LANG_MAP.get(source_lang, "en-IN")
-            tgt_code = SARVAM_LANG_MAP.get(target_lang, "hi-IN")
+                clinical_llm = get_llm("SARVAM_SARVAM_2B" if os.getenv("APP_ENV") != "production" else "SARVAM_SARVAM_M")
 
-            logging.info(f"[API CALL] Sending {len(uncached_segments)} uncached segments to Sarvam AI")
-
-            async with httpx.AsyncClient() as client:
                 for idx, segment in uncached_segments:
                     try:
-                        response = await client.post(
-                            "https://api.sarvam.ai/translate",
-                            headers={
-                                "api-subscription-key": api_key,
-                                "Content-Type": "application/json",
-                            },
-                            json={
-                                "input": segment[:2000],  # sarvam-translate:v1 limit
-                                "source_language_code": src_code,
-                                "target_language_code": tgt_code,
-                                "model": "mayura:v1",
-                                "mode": "formal",
-                            },
-                            timeout=30.0,
-                        )
-
-                        if response.status_code == 200:
-                            data = response.json()
-                            translated = data.get("translated_text", segment)
-                            # Cache the new translation
-                            save_to_cache(db, segment, source_lang, target_lang, translated)
-                            # Update the placeholder
-                            translated_parts[idx] = (idx, translated)
-                        else:
-                            logging.error(f"Sarvam API error {response.status_code}: {response.text}")
-                            translated_parts[idx] = (idx, segment)  # fallback to original
-
-                    except Exception as api_err:
-                        logging.error(f"Sarvam API call failed for segment: {api_err}")
+                        messages = [
+                            SystemMessage(content=system_prompt),
+                            HumanMessage(content=f"Translate to {target_lang} from {source_lang}: {segment}")
+                        ]
+                        response = await clinical_llm.ainvoke(messages)
+                        translated = response.content.strip()
+                        
+                        save_to_cache(db, segment, source_lang, target_lang, translated)
+                        translated_parts[idx] = (idx, translated)
+                    except Exception as segment_err:
+                        logging.warning(f"Clinical translation failed for segment, falling back to original: {segment_err}")
                         translated_parts[idx] = (idx, segment)
+            except Exception as e:
+                logging.error(f"Failed to initialize clinical translation: {e}")
+                for idx, segment in uncached_segments:
+                    translated_parts[idx] = (idx, segment)
 
         # --- Step 4: Reassemble ---
         result = " ".join(part for _, part in sorted(translated_parts, key=lambda x: x[0]))

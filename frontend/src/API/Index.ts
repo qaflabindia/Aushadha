@@ -56,17 +56,20 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
         }
         if (globalCredentials.target_user_email && !config.data.has('target_user_email')) {
           config.data.append('target_user_email', globalCredentials.target_user_email);
+          config.data.append('patient_email', globalCredentials.target_user_email);
         }
-        
+
         // Grab user_role from local storage to explicitly pass role
         const savedUserResponse = localStorage.getItem('aushadha_auth_user');
         if (savedUserResponse) {
           try {
-             const usr = JSON.parse(savedUserResponse);
-             if (usr.role && !config.data.has('user_role')) {
-                config.data.append('user_role', usr.role);
-             }
-          } catch(e) {}
+            const usr = JSON.parse(savedUserResponse);
+            if (usr.role && !config.data.has('user_role')) {
+              config.data.append('user_role', usr.role);
+            }
+          } catch (e) {
+            console.error(e);
+          }
         }
       } else if (globalCredentials && !(config.data instanceof FormData)) {
         // Convert plain object to FormData and add credentials
@@ -93,16 +96,19 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
         }
         if (globalCredentials.target_user_email) {
           formData.append('target_user_email', globalCredentials.target_user_email);
+          formData.append('patient_email', globalCredentials.target_user_email);
         }
 
         const savedUserResponseJ = localStorage.getItem('aushadha_auth_user');
         if (savedUserResponseJ) {
           try {
-             const usr = JSON.parse(savedUserResponseJ);
-             if (usr.role) {
-                formData.append('user_role', usr.role);
-             }
-          } catch(e) {}
+            const usr = JSON.parse(savedUserResponseJ);
+            if (usr.role) {
+              formData.append('user_role', usr.role);
+            }
+          } catch (e) {
+            console.error(e);
+          }
         }
 
         // Add other data fields

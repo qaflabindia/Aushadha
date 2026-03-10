@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, Suspense, useReducer, useCallback, useContext } from 'react';
+import { useGoogleAuth } from '../context/GoogleAuthContext';
 import FileTable from './FileTable';
 import {
   Button,
@@ -19,7 +20,7 @@ import { postProcessing } from '../services/PostProcessing';
 import { triggerStatusUpdateAPI } from '../services/ServerSideStatusUpdateAPI';
 import useServerSideEvent from '../hooks/useSse';
 import {
-   batchSize,
+  batchSize,
   chatModeLables,
   largeFileSize,
   llms,
@@ -137,6 +138,8 @@ const Content: React.FC<ContentProps> = ({
   const [deleteLoading, setIsDeleteLoading] = useState<boolean>(false);
 
   const hasSelections = useHasSelections(selectedNodes, selectedRels);
+  const { user: authUser } = useGoogleAuth();
+  const isPatient = authUser?.role?.toUpperCase() === 'PATIENT';
 
   const { updateStatusForLargeFiles } = useServerSideEvent(
     (inMinutes, time, fileName) => {
@@ -1034,17 +1037,6 @@ const Content: React.FC<ContentProps> = ({
             </Typography>
           </div>
           <div className='enhancement-btn__wrapper'>
-            <ButtonWithToolTip
-              placement='top'
-              text='Enhance graph quality'
-              label='Graph Enhancement Settings'
-              className='mr-2!'
-              onClick={toggleEnhancementDialog}
-              disabled={!connectionStatus || isReadOnlyUser}
-              size={isTablet ? 'small' : 'medium'}
-            >
-              {t('graphSettings')}
-            </ButtonWithToolTip>
             {!connectionStatus ? (
               <SpotlightTarget
                 id='connectbutton'
@@ -1061,9 +1053,9 @@ const Content: React.FC<ContentProps> = ({
                 </Button>
               </SpotlightTarget>
             ) : (
-                <Button size={isTablet ? 'small' : 'medium'} className='mr-2.5' onClick={disconnect}>
-                  {t('disconnect')}
-                </Button>
+              <Button size={isTablet ? 'small' : 'medium'} className='mr-2.5' onClick={disconnect}>
+                {t('disconnect')}
+              </Button>
             )}
           </div>
         </Flex>
@@ -1143,31 +1135,37 @@ const Content: React.FC<ContentProps> = ({
             />
           </div>
           <Flex flexDirection='row' gap='4' className='self-end mb-2.5' flexWrap='wrap'>
-            <SpotlightTarget id='generategraphbtn'>
+            {/* Generate Graph — hidden for Patients */}
+            {!isPatient && (
+              <SpotlightTarget id='generategraphbtn'>
+                <ButtonWithToolTip
+                  text={t('generateGraph')}
+                  placement='top'
+                  label='generate graph'
+                  onClick={onClickHandler}
+                  disabled={disableCheck || isReadOnlyUser}
+                  className='mr-0.5'
+                  size={isTablet ? 'small' : 'medium'}
+                >
+                  {t('generateGraph')} {selectedfileslength && !disableCheck && newFilecheck ? `(${newFilecheck})` : ''}
+                </ButtonWithToolTip>
+              </SpotlightTarget>
+            )}
+            {/* Delete Files — hidden for Patients */}
+            {!isPatient && (
               <ButtonWithToolTip
-                text={t('generateGraph')}
+                text={!selectedfileslength ? t('deleteFile') : `${selectedfileslength} ${t('deleteSelectedFiles')}`}
                 placement='top'
-                label='generate graph'
-                onClick={onClickHandler}
-                disabled={disableCheck || isReadOnlyUser}
-                className='mr-0.5'
+                onClick={() => setShowDeletePopUp(true)}
+                disabled={!selectedfileslength || isReadOnlyUser}
+                className='ml-0.5'
+                label='Delete Files'
                 size={isTablet ? 'small' : 'medium'}
               >
-                {t('generateGraph')} {selectedfileslength && !disableCheck && newFilecheck ? `(${newFilecheck})` : ''}
+                {t('deleteFiles')}
+                {selectedfileslength != undefined && selectedfileslength > 0 && `(${selectedfileslength})`}
               </ButtonWithToolTip>
-            </SpotlightTarget>
-            <ButtonWithToolTip
-                text={!selectedfileslength ? t('deleteFile') : `${selectedfileslength} ${t('deleteSelectedFiles')}`}
-              placement='top'
-              onClick={() => setShowDeletePopUp(true)}
-              disabled={!selectedfileslength || isReadOnlyUser}
-              className='ml-0.5'
-              label='Delete Files'
-              size={isTablet ? 'small' : 'medium'}
-            >
-              {t('deleteFiles')}
-              {selectedfileslength != undefined && selectedfileslength > 0 && `(${selectedfileslength})`}
-            </ButtonWithToolTip>
+            )}
             <SpotlightTarget id='visualizegraphbtn'>
               <Flex flexDirection='row' gap='0'>
                 <Button

@@ -223,13 +223,14 @@ async def upload_large_file_into_chunks(
     totalChunks=Form(None),
     originalname=Form(None),
     model=Form(None),
+    patient_email=Form(None),
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials)
 ):
     """Upload a large file in chunks and create a source node."""
     try:
         start = time.time()
         graph = create_graph_database_connection(credentials)
-        result = await asyncio.to_thread(upload_file, graph, model, file, chunkNumber, totalChunks, originalname, credentials.uri, CHUNK_DIR, MERGED_DIR, credentials.email)
+        result = await asyncio.to_thread(upload_file, graph, model, file, chunkNumber, totalChunks, originalname, credentials.uri, CHUNK_DIR, MERGED_DIR, credentials.email, patient_email)
         end = time.time()
         elapsed_time = end - start
         if int(chunkNumber) == int(totalChunks):

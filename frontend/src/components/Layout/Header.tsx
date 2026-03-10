@@ -12,7 +12,7 @@ import { Avatar } from '@neo4j-ndl/react';
 import TooltipWrapper from '../UI/TipWrapper';
 import { useTranslate } from '../../context/TranslationContext';
 
-const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick}) => {
+const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
 
   const { messages: _messages } = useMessageContext();
@@ -52,7 +52,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick}) => {
 
       {/* ── Right Controls ── */}
       <section className='flex items-center gap-5'>
-        {/* Intelligence Search / Chat Mode Trigger */}
+        {/* Intelligence Search / Chat Mode Trigger — non-Patients only */}
         {(user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
           <div
             ref={chatAnchor}
@@ -83,14 +83,15 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick}) => {
           </div>
         )}
 
-        {/* Active User Avatar (compact display — full profile in Settings) */}
+        {/* Active User Avatar */}
+
+        {/* Active User Avatar */}
         {user && (
-          <TooltipWrapper tooltip={`${user.name ?? user.email} · ${user.role ?? 'User'} — Open Settings for full profile`} placement="bottom">
-            <Avatar
-              name={user.name ?? user.email}
-              source={user.picture ?? undefined}
-              size="small"
-            />
+          <TooltipWrapper
+            tooltip={`${user.name ?? user.email} · ${user.role ?? 'User'} — Open Settings for full profile`}
+            placement='bottom'
+          >
+            <Avatar name={user.name ?? user.email} source={user.picture ?? undefined} size='small' />
           </TooltipWrapper>
         )}
       </section>

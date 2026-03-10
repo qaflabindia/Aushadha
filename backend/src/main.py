@@ -53,11 +53,10 @@ from src.shared.schema_extraction import schema_extraction_from_text
 
 # PostgreSQL Integration
 from src.database import engine, SessionLocal
-from src.models import Base, Patient, Visit, Vital, Symptom
-from src.llm import extract_structured_ehr_data
+from src.services.ingestion_service import IngestionService
 
-# Create tables if they don't exist
-Base.metadata.create_all(bind=engine)
+# Database initialization moved to Alembic migrations
+# Base.metadata.create_all(bind=engine)
 
 warnings.filterwarnings("ignore")
 load_dotenv()
@@ -353,428 +352,41 @@ def create_source_node_graph_url_wikipedia(graph, params):
     return lst_file_name,success_count,failed_count
     
 async def extract_graph_from_file_local_file(credentials, params, merged_file_path):
-
-  logging.info(f'Process file name :{params.file_name} from local file system')
-  if params.retry_condition in ["", None] or params.retry_condition not in [DELETE_ENTITIES_AND_START_FROM_BEGINNING, START_FROM_LAST_PROCESSED_POSITION]:
+    logging.info(f'Process file name :{params.file_name} from local file system')
     if GCS_FILE_CACHE:
-      folder_name = create_gcs_bucket_folder_name_hashed(credentials.uri, params.file_name)
-      file_name, pages = get_documents_from_gcs( PROJECT_ID, BUCKET_UPLOAD_FILE, folder_name, params.file_name)
+        folder_name = create_gcs_bucket_folder_name_hashed(credentials.uri, params.file_name)
+        file_name, pages = get_documents_from_gcs(PROJECT_ID, BUCKET_UPLOAD_FILE, folder_name, params.file_name)
     else:
-      file_name, pages, file_extension = get_documents_from_file_by_path(merged_file_path, params.file_name)
-    if pages==None or len(pages)==0:
-      raise LLMGraphBuilderException(f'File content is not available for file : {file_name}')
-    return await processing_source(credentials, params, pages, merged_file_path, True)
-  else:
-    return await processing_source(credentials, params, [], merged_file_path, True)
+        file_name, pages, file_extension = get_documents_from_file_by_path(merged_file_path, params.file_name)
+    
+    return await IngestionService.process_document(credentials, params, pages, merged_file_path, is_uploaded_from_local=True)
   
 async def extract_graph_from_file_s3(credentials, params):
-  """
-  Extract graph data from a file in S3.
-
-  Args:
-      credentials: Database credentials.
-      params: SourceScanExtractParams object.
-
-  Returns:
-      dict: Processing latency and response details.
-  """
-  if params.retry_condition in ["", None] or params.retry_condition not in [DELETE_ENTITIES_AND_START_FROM_BEGINNING, START_FROM_LAST_PROCESSED_POSITION]:
     if params.aws_access_key_id is None or params.aws_secret_access_key is None:
-      raise LLMGraphBuilderException('Please provide AWS access and secret keys')
-    else:
-      logging.info("Insert in S3 Block")
-      file_name, pages = get_documents_from_s3(params.source_url, params.aws_access_key_id, params.aws_secret_access_key)
-    if pages==None or len(pages)==0:
-      raise LLMGraphBuilderException(f'File content is not available for file : {file_name}')
-    return await processing_source(credentials, params, pages)
-  else:
-    return await processing_source(credentials, params, [])
+        raise LLMGraphBuilderException('Please provide AWS access and secret keys')
+    
+    logging.info("Processing S3 Source")
+    file_name, pages = get_documents_from_s3(params.source_url, params.aws_access_key_id, params.aws_secret_access_key)
+    return await IngestionService.process_document(credentials, params, pages)
   
 async def extract_graph_from_web_page(credentials, params):
-  """
-  Extract graph data from a web page.
-
-  Args:
-      credentials: Database credentials.
-      params: SourceScanExtractParams object.
-
-  Returns:
-      dict: Processing latency and response details.
-  """
-  if params.retry_condition in ["", None] or params.retry_condition not in [DELETE_ENTITIES_AND_START_FROM_BEGINNING, START_FROM_LAST_PROCESSED_POSITION]:
     pages = get_documents_from_web_page(params.source_url)
-    if pages==None or len(pages)==0:
-      raise LLMGraphBuilderException(f'Content is not available for given URL : {params.source_url}')
-    return await processing_source(credentials, params, pages)
-  else:
-    return await processing_source(credentials, params, [])
+    return await IngestionService.process_document(credentials, params, pages)
   
 async def extract_graph_from_file_youtube(credentials, params):
-  """
-  Extract graph data from a YouTube video.
-
-  Args:
-      credentials: Database credentials.
-      params: SourceScanExtractParams object.
-
-  Returns:
-      dict: Processing latency and response details.
-  """
-  if params.retry_condition in ["", None] or params.retry_condition not in [DELETE_ENTITIES_AND_START_FROM_BEGINNING, START_FROM_LAST_PROCESSED_POSITION]:
     file_name, pages = get_documents_from_youtube(params.source_url)
-
-    if pages==None or len(pages)==0:
-      raise LLMGraphBuilderException(f'Youtube transcript is not available for file : {file_name}')
-    return await processing_source(credentials, params, pages)
-  else:
-     return await processing_source(credentials, params, [])
+    return await IngestionService.process_document(credentials, params, pages)
     
 async def extract_graph_from_file_Wikipedia(credentials, params):
-  """
-  Extract graph data from a Wikipedia page.
-
-  Args:
-      credentials: Database credentials.
-      params: SourceScanExtractParams object.
-
-  Returns:
-      dict: Processing latency and response details.
-  """
-  if params.retry_condition in ["", None] or params.retry_condition not in [DELETE_ENTITIES_AND_START_FROM_BEGINNING, START_FROM_LAST_PROCESSED_POSITION]:
     file_name, pages = get_documents_from_wikipedia(params.wiki_query, params.language)
-    if pages==None or len(pages)==0:
-      raise LLMGraphBuilderException(f'Wikipedia page is not available for file : {file_name}')
-    return await processing_source(credentials, params, pages)
-  else:
-    return await processing_source(credentials, params,[])
+    return await IngestionService.process_document(credentials, params, pages)
 
 async def extract_graph_from_file_gcs(credentials, params):
-  """
-  Extract graph data from a file in GCS.
-
-  Args:
-      credentials: Database credentials.
-      params: SourceScanExtractParams object.
-
-  Returns:
-      dict: Processing latency and response details.
-  """
-  if params.retry_condition in ["", None] or params.retry_condition not in [DELETE_ENTITIES_AND_START_FROM_BEGINNING, START_FROM_LAST_PROCESSED_POSITION]:
+    from src.services.ingestion_service import IngestionService
     file_name, pages = get_documents_from_gcs(params.gcs_project_id, params.gcs_bucket_name, params.gcs_bucket_folder, params.gcs_blob_filename, params.access_token)
-    if pages==None or len(pages)==0:
-      raise LLMGraphBuilderException(f'File content is not available for file : {file_name}')
-    return await processing_source(credentials, params, pages)
-  else:
-    return await processing_source(credentials, params, [])
+    return await IngestionService.process_document(credentials, params, pages)
   
-async def processing_source(credentials, params, pages, merged_file_path=None, is_uploaded_from_local=None):
-  """
-   Extracts a Neo4jGraph from a PDF file based on the model.
-   
-   Args:
-   	 credentials: Database credentials object containing uri, userName, password, database
-   	 file: File object containing the PDF file to be used
-   	 model: Type of model to use ('Diffbot'or'OpenAI GPT')
-   
-   Returns: 
-   	 Json response to API with fileName, nodeCount, relationshipCount, processingTime, 
-     status and model as attributes.
-  """
-  uri_latency = {}
-  response = {}  
-  start_time = datetime.now()
-  processing_source_start_time = time.time()
-  start_create_connection = time.time()
-  graph = create_graph_database_connection(credentials)
-  end_create_connection = time.time()
-  elapsed_create_connection = end_create_connection - start_create_connection
-  logging.info(f'Time taken database connection: {elapsed_create_connection:.2f} seconds')
-  uri_latency["create_connection"] = f'{elapsed_create_connection:.2f}'
-  graphDb_data_Access = graphDBdataAccess(graph)
-  create_chunk_vector_index(graph)
-  start_get_chunkId_chunkDoc_list = time.time()
-  total_chunks, chunkId_chunkDoc_list = get_chunkId_chunkDoc_list(graph, params.file_name, pages, params.token_chunk_size, params.chunk_overlap, params.retry_condition, credentials.email)
-  end_get_chunkId_chunkDoc_list = time.time()
-  elapsed_get_chunkId_chunkDoc_list = end_get_chunkId_chunkDoc_list - start_get_chunkId_chunkDoc_list
-  logging.info(f'Time taken to create list chunkids with chunk document: {elapsed_get_chunkId_chunkDoc_list:.2f} seconds')
-  uri_latency["create_list_chunk_and_document"] = f'{elapsed_get_chunkId_chunkDoc_list:.2f}'
-  uri_latency["total_chunks"] = total_chunks
-
-  start_status_document_node = time.time()
-  result = graphDb_data_Access.get_current_status_document_node(params.file_name, credentials.email)
-  end_status_document_node = time.time()
-  elapsed_status_document_node = end_status_document_node - start_status_document_node
-  logging.info(f'Time taken to get the current status of document node: {elapsed_status_document_node:.2f} seconds')
-  uri_latency["get_status_document_node"] = f'{elapsed_status_document_node:.2f}'
-
-  select_chunks_with_retry=0
-  node_count = 0
-  rel_count = 0
-      
-  if len(result) > 0:
-    if result[0]['Status'] != 'Processing':      
-      obj_source_node = sourceNode()
-      status = "Processing"
-      obj_source_node.file_name = params.file_name.strip() if isinstance(params.file_name, str) else params.file_name
-      obj_source_node.status = status
-      obj_source_node.total_chunks = total_chunks
-      obj_source_node.model = params.model
-      if params.retry_condition == START_FROM_LAST_PROCESSED_POSITION:
-          node_count = result[0]['nodeCount']
-          rel_count = result[0]['relationshipCount']
-          select_chunks_with_retry = result[0]['processed_chunk']
-      obj_source_node.processed_chunk = 0+select_chunks_with_retry
-      logging.info(params.file_name)
-      logging.info(obj_source_node)
-      
-      start_update_source_node = time.time()
-      graphDb_data_Access.update_source_node(obj_source_node)
-      graphDb_data_Access.update_node_relationship_count(params.file_name)
-      end_update_source_node = time.time()
-      elapsed_update_source_node = end_update_source_node - start_update_source_node
-      logging.info(f'Time taken to update the document source node: {elapsed_update_source_node:.2f} seconds')
-      uri_latency["update_source_node"] = f'{elapsed_update_source_node:.2f}'
-
-      logging.info('Update the status as Processing')
-      update_graph_chunk_processed = get_value_from_env("UPDATE_GRAPH_CHUNKS_PROCESSED",20,"int")
-      # selected_chunks = []
-      is_cancelled_status = False
-      job_status = "Completed"
-      tokens_per_file = 0
-      for i in range(0, len(chunkId_chunkDoc_list), update_graph_chunk_processed):
-        select_chunks_upto = i+update_graph_chunk_processed
-        logging.info(f'Selected Chunks upto: {select_chunks_upto}')
-        if len(chunkId_chunkDoc_list) <= select_chunks_upto:
-          select_chunks_upto = len(chunkId_chunkDoc_list)
-        selected_chunks = chunkId_chunkDoc_list[i:select_chunks_upto]
-        
-        result = graphDb_data_Access.get_current_status_document_node(params.file_name, credentials.email)
-        is_cancelled_status = result[0]['is_cancelled']
-        logging.info(f"Value of is_cancelled : {result[0]['is_cancelled']}")
-        if bool(is_cancelled_status) == True:
-          job_status = "Cancelled"
-          logging.info('Exit from running loop of processing file')
-          break
-        else:
-          processing_chunks_start_time = time.time()
-          node_count,rel_count,latency_processed_chunk,token_usage = await processing_chunks(selected_chunks,graph,credentials,params.file_name,params.model,params.allowedNodes,params.allowedRelationship,params.chunks_to_combine,node_count, rel_count, params.additional_instructions)
-          logging.info("Token used in processing chunks: %s", token_usage)
-          tokens_per_file += token_usage
-          logging.info("Total token used per file: %s", tokens_per_file)
-          processing_chunks_end_time = time.time()
-          processing_chunks_elapsed_end_time = processing_chunks_end_time - processing_chunks_start_time
-          logging.info(f"Time taken {update_graph_chunk_processed} chunks processed upto {select_chunks_upto} completed in {processing_chunks_elapsed_end_time:.2f} seconds for file name {params.file_name}")
-          uri_latency[f'processed_combine_chunk_{i}-{select_chunks_upto}'] = f'{processing_chunks_elapsed_end_time:.2f}'
-          uri_latency[f'processed_chunk_detail_{i}-{select_chunks_upto}'] = latency_processed_chunk
-          end_time = datetime.now()
-          processed_time = end_time - start_time
-          
-          obj_source_node = sourceNode()
-          obj_source_node.file_name = params.file_name
-          obj_source_node.updated_at = end_time
-          obj_source_node.processing_time = processed_time
-          obj_source_node.processed_chunk = select_chunks_upto+select_chunks_with_retry
-          obj_source_node.token_usage = tokens_per_file
-          if params.retry_condition == START_FROM_BEGINNING:
-            result = execute_graph_query(graph,QUERY_TO_GET_NODES_AND_RELATIONS_OF_A_DOCUMENT, params={"filename":params.file_name})
-            obj_source_node.node_count = result[0]['nodes']
-            obj_source_node.relationship_count = result[0]['rels']
-          else:  
-            obj_source_node.node_count = node_count
-            obj_source_node.relationship_count = rel_count
-          graphDb_data_Access.update_source_node(obj_source_node)
-          graphDb_data_Access.update_node_relationship_count(params.file_name)
-      
-      start_save_token = time.time()
-      if get_value_from_env("TRACK_TOKEN_USAGE", "false", "bool"):
-        track_token_usage(credentials.email,credentials.uri,tokens_per_file, params.model)
-        logging.info("Token usage for extraction: %s for user: %s", tokens_per_file, credentials.email)
-      end_save_token = time.time()
-      elapsed_save_token = end_save_token - start_save_token
-      logging.info(f'Time taken to save token count: {elapsed_save_token:.2f} seconds')
-      result = graphDb_data_Access.get_current_status_document_node(params.file_name, credentials.email)
-      is_cancelled_status = result[0]['is_cancelled']
-      if bool(is_cancelled_status) == True:
-        logging.info(f'Is_cancelled True at the end extraction')
-        job_status = 'Cancelled'
-      logging.info(f'Job Status at the end : {job_status}')
-      end_time = datetime.now()
-      processed_time = end_time - start_time
-      obj_source_node = sourceNode()
-      obj_source_node.file_name = params.file_name.strip() if isinstance(params.file_name, str) else params.file_name
-      obj_source_node.status = job_status
-      obj_source_node.processing_time = processed_time
-      obj_source_node.token_usage = tokens_per_file
-
-      graphDb_data_Access.update_source_node(obj_source_node)
-      graphDb_data_Access.update_node_relationship_count(params.file_name)
-      logging.info('Updated the nodeCount and relCount properties in Document node')
-      logging.info(f'file:{params.file_name} extraction has been completed')
-
-
-      # merged_file_path have value only when file uploaded from local
-      
-      # Integrated Structured EHR Extraction
-      try:
-          logging.info(f"Starting structured EHR extraction for {params.file_name}")
-          full_text = " ".join([page.page_content for page in pages])
-          # Limit text to avoid token limits if necessary, or process in chunks. 
-          # For extraction of summary EHR, usually first few pages are enough or a truncated version.
-          truncated_text = full_text[:15000] # Simple truncation for now
-          ehr_data = await extract_structured_ehr_data(params.model, truncated_text)
-          
-          if ehr_data:
-              logging.info(f"Successfully extracted EHR data for {params.file_name}")
-              db = SessionLocal()
-              try:
-                  # Check if patient exists
-                  patient = db.query(Patient).filter(Patient.case_id == ehr_data.case_id).first()
-                  if not patient:
-                      patient = Patient(
-                          case_id=ehr_data.case_id,
-                          age_group=ehr_data.age_group,
-                          sex=ehr_data.sex
-                      )
-                      db.add(patient)
-                      db.commit()
-                      db.refresh(patient)
-                  
-                  # Create visit
-                  visit = Visit(
-                      patient_id=patient.id,
-                      visit_date=datetime.strptime(ehr_data.visit_date, "%Y-%m-%d").date() if ehr_data.visit_date != "Unknown" else datetime.now().date(),
-                      condition_name=ehr_data.condition_name,
-                      chief_complaint=ehr_data.chief_complaint,
-                      red_flag_any=ehr_data.red_flag_any,
-                      red_flag_details=ehr_data.red_flag_details
-                  )
-                  db.add(visit)
-                  db.commit()
-                  db.refresh(visit)
-                  
-                  # Add vitals
-                  for v in ehr_data.vitals:
-                      vital = Vital(
-                          visit_id=visit.id,
-                          name=v.name,
-                          value=v.value,
-                          unit=v.unit,
-                          status=v.status
-                      )
-                      db.add(vital)
-                  
-                  # Add symptoms
-                  for s in ehr_data.symptoms:
-                      symptom = Symptom(
-                          visit_id=visit.id,
-                          name=s.name,
-                          status=s.status
-                      )
-                      db.add(symptom)
-                  
-                  db.commit()
-                  logging.info(f"Structured EHR data persisted to PostgreSQL for {params.file_name}")
-              except Exception as persist_err:
-                  logging.error(f"Error persisting EHR data: {persist_err}")
-                  db.rollback()
-              finally:
-                  db.close()
-      except Exception as ehr_err:
-          logging.error(f"Structured EHR extraction failed: {ehr_err}")
-
-      if is_uploaded_from_local and bool(is_cancelled_status) == False:
-        if GCS_FILE_CACHE:
-          folder_name = create_gcs_bucket_folder_name_hashed(credentials.uri, params.file_name)
-          delete_file_from_gcs(BUCKET_UPLOAD_FILE,folder_name,params.file_name)
-        else:
-          delete_uploaded_local_file(merged_file_path, params.file_name)  
-      processing_source_func = time.time() - processing_source_start_time
-      logging.info(f"Time taken to processing source function completed in {processing_source_func:.2f} seconds for file name {params.file_name}")  
-      uri_latency["Processed_source"] = f'{processing_source_func:.2f}'
-      if node_count == 0:
-        uri_latency["Per_entity_latency"] = 'N/A'
-      else:  
-        uri_latency["Per_entity_latency"] = f'{int(processing_source_func)/node_count}/s'
-      
-      response["fileName"] = params.file_name
-      response["nodeCount"] = node_count
-      response["relationshipCount"] = rel_count
-      response["total_processing_time"] = round(processed_time.total_seconds(),2)
-      response["status"] = job_status
-      response["model"] = params.model
-      response["success_count"] = 1
-      
-      return uri_latency, response
-    else:      
-      logging.info("File does not process because its already in Processing status")
-      return uri_latency,response
-  else:
-    error_message = "Unable to get the status of document node."
-    logging.error(error_message)
-    raise LLMGraphBuilderException(error_message)
-
-async def processing_chunks(chunkId_chunkDoc_list,graph,credentials,file_name,model,allowedNodes,allowedRelationship, chunks_to_combine, node_count, rel_count, additional_instructions):
-  #create vector index and update chunk node with embedding
-  latency_processing_chunk = {}
-  if graph is not None:
-    if graph._driver._closed:
-      graph = create_graph_database_connection(credentials)
-  else:
-    graph = create_graph_database_connection(credentials)
-  
-  #pre checking if user is allowed to process the file
-  if get_value_from_env("TRACK_TOKEN_USAGE", "false", "bool"):
-    try:
-      track_token_usage(credentials.email, credentials.uri, 0, model)
-    except LLMGraphBuilderException as e:
-      logging.error(str(e))
-      raise RuntimeError(str(e))
-    
-  start_update_embedding = time.time()
-  create_chunk_embeddings( graph, chunkId_chunkDoc_list, file_name, credentials.email)
-  end_update_embedding = time.time()
-  elapsed_update_embedding = end_update_embedding - start_update_embedding
-  logging.info(f'Time taken to update embedding in chunk node: {elapsed_update_embedding:.2f} seconds')
-  latency_processing_chunk["update_embedding"] = f'{elapsed_update_embedding:.2f}'
-  logging.info("Get graph document list from models")
-  
-  start_entity_extraction = time.time()
-  graph_documents, token_usage =  await get_graph_from_llm(model, chunkId_chunkDoc_list, allowedNodes, allowedRelationship, chunks_to_combine, additional_instructions)
-  end_entity_extraction = time.time()
-  elapsed_entity_extraction = end_entity_extraction - start_entity_extraction
-  logging.info(f'Time taken to extract enitities from LLM Graph Builder: {elapsed_entity_extraction:.2f} seconds')
-  latency_processing_chunk["entity_extraction"] = f'{elapsed_entity_extraction:.2f}'
-  
-  start_save_token = time.time()
-  if get_value_from_env("TRACK_TOKEN_USAGE", "false", "bool"):
-    track_token_usage(credentials.email, credentials.uri, token_usage, model)
-    logging.info("Token usage for extraction: %s for user: %s", token_usage, credentials.email)
-  end_save_token = time.time()
-  elapsed_save_token = end_save_token - start_save_token
-  logging.info(f'Time taken to save token count: {elapsed_save_token:.2f} seconds')
-  cleaned_graph_documents = handle_backticks_nodes_relationship_id_type(graph_documents)
-  
-  start_save_graphDocuments = time.time()
-  save_graphDocuments_in_neo4j(graph, cleaned_graph_documents)
-  end_save_graphDocuments = time.time()
-  elapsed_save_graphDocuments = end_save_graphDocuments - start_save_graphDocuments
-  logging.info(f'Time taken to save graph document in neo4j: {elapsed_save_graphDocuments:.2f} seconds')
-  latency_processing_chunk["save_graphDocuments"] = f'{elapsed_save_graphDocuments:.2f}'
-
-  chunks_and_graphDocuments_list = get_chunk_and_graphDocument(cleaned_graph_documents, chunkId_chunkDoc_list)
-
-  start_relationship = time.time()
-  merge_relationship_between_chunk_and_entites(graph, chunks_and_graphDocuments_list)
-  end_relationship = time.time()
-  elapsed_relationship = end_relationship - start_relationship
-  logging.info(f'Time taken to create relationship between chunk and entities: {elapsed_relationship:.2f} seconds')
-  latency_processing_chunk["relationship_between_chunk_entity"] = f'{elapsed_relationship:.2f}'
-  
-  graphDb_data_Access = graphDBdataAccess(graph)
-  count_response = graphDb_data_Access.update_node_relationship_count(file_name)
-  node_count = count_response[file_name].get('nodeCount',"0")
-  rel_count = count_response[file_name].get('relationshipCount',"0")
-  return node_count,rel_count,latency_processing_chunk,token_usage
+# processing_source and processing_chunks have been moved to IngestionService and ExtractionService
 
 def get_chunkId_chunkDoc_list(graph, file_name, pages, token_chunk_size, chunk_overlap, retry_condition, email):
   """
@@ -956,6 +568,7 @@ def upload_file(graph, model, chunk, chunk_number: int, total_chunks: int, file_
         obj_source_node.communityNodeCount = 0
         obj_source_node.communityRelCount = 0
         obj_source_node.owner_email = owner_email
+        obj_source_node.patient_email = patient_email
         graphDb_data_Access = graphDBdataAccess(graph)
         graphDb_data_Access.create_source_node(obj_source_node)
         return {'file_size': file_size, 'file_name': safe_file_name, 'file_extension': file_extension, 'message': f"Chunk {chunk_number}/{total_chunks} saved"}

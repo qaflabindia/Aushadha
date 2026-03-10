@@ -35,14 +35,20 @@ GOOGLE_CLIENT_ID = os.getenv(
     "256164019269-o0174fcoksuls9hf9b9nkto42fc1c649.apps.googleusercontent.com",
 )
 AUTH_MODE = os.getenv("AUTH_MODE", "all")  # "google", "local", "all", "none"
-SKIP_AUTH = os.getenv("VITE_SKIP_AUTH", "false").strip().lower() == "true"
+# Renamed to clarify intent and added production safeguards
+APP_ENV = os.getenv("APP_ENV", "development").lower()
+STAGING_SKIP_AUTH = os.getenv("BACKEND_STAGING_SKIP_AUTH", "false").strip().lower() == "true"
+SKIP_AUTH = STAGING_SKIP_AUTH and APP_ENV != "production"
+
+if STAGING_SKIP_AUTH and APP_ENV == "production":
+    logger.error("CRITICAL: BACKEND_STAGING_SKIP_AUTH is enabled in a production environment. Bypassing this flag for safety.")
 
 # Local RSA-256 key paths (auto-generated if missing)
 LOCAL_RSA_PRIVATE_KEY_PATH = Path(os.getenv("RSA_PRIVATE_KEY_PATH", "/code/.auth_rsa_private.pem"))
 LOCAL_RSA_PUBLIC_KEY_PATH = Path(os.getenv("RSA_PUBLIC_KEY_PATH", "/code/.auth_rsa_public.pem"))
 
 # Local token settings
-LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "720"))  # default: 30 days
+LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "8"))  # default: 8 hours
 LOCAL_TOKEN_ISSUER = "aushadha-local"
 
 logger = logging.getLogger(__name__)

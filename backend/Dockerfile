@@ -38,5 +38,10 @@ RUN python -m nltk.downloader -d /usr/local/nltk_data averaged_perceptron_tagger
 
 # Copy application code
 COPY . /code
+
+# Create a non-privileged user and set permissions
+RUN useradd -r appuser && chown -R appuser /code
+USER appuser
+
 # Set command
 CMD ["gunicorn", "score:app", "--workers", "8","--threads", "8", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300"]

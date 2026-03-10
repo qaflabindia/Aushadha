@@ -24,6 +24,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
+    hashed_password = Column(String, nullable=True)  # Nullable for Google-only users
     role_id = Column(Integer, ForeignKey("roles.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

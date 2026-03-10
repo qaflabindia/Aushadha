@@ -104,8 +104,12 @@ async def extract_clinical_intelligence(
 
 
 @router.get("/ehr_data/all")
-async def get_all_ehr_data(user: AuthenticatedUser = Depends(require_auth)):
-    """Retrieve ALL structured EHR data from PostgreSQL."""
+async def get_all_ehr_data(
+    limit: int = 50,
+    offset: int = 0,
+    user: AuthenticatedUser = Depends(require_auth)
+):
+    """Retrieve structured EHR data from PostgreSQL with pagination."""
     try:
         db = SessionLocal()
         try:
@@ -127,7 +131,9 @@ async def get_all_ehr_data(user: AuthenticatedUser = Depends(require_auth)):
                 from fastapi import HTTPException
                 raise HTTPException(status_code=403, detail="Unknown role")
                 
-            visits = base_query.order_by(Visit.visit_date.desc()).all()
+            # Apply pagination and sorting
+            total_count = base_query.count()
+            visits = base_query.order_by(Visit.visit_date.desc()).offset(offset).limit(limit).all()
 
             data = []
             for v in visits:
@@ -146,7 +152,7 @@ async def get_all_ehr_data(user: AuthenticatedUser = Depends(require_auth)):
                 }
                 data.append(record)
 
-            return create_api_response("Success", data=data)
+            return create_api_response("Success", data={"records": data, "total": total_count, "limit": limit, "offset": offset})
         finally:
             db.close()
     except Exception as e:

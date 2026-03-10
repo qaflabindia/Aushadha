@@ -97,7 +97,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", os.urandom(24).hex()))
+
+# SESSION_SECRET is now mandatory to avoid session invalidation on restart
+session_secret = os.getenv("SESSION_SECRET")
+if not session_secret:
+    if os.getenv("APP_ENV", "development").lower() == "production":
+        raise RuntimeError("CRITICAL: SESSION_SECRET must be set in production environments.")
+    else:
+        import logging
+        logging.warning("SESSION_SECRET not set, using temporary random key. Sessions will be lost on restart.")
+        session_secret = os.urandom(24).hex()
+
+app.add_middleware(SessionMiddleware, secret_key=session_secret)
 app.add_api_route("/health", health([healthy_condition, healthy]))
 
 

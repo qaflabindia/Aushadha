@@ -26,8 +26,8 @@ async def require_admin(
     user: AuthenticatedUser = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    if user.auth_method == "skip":
-        return user
+    # Admin actions must ALWAYS be mapped to a real admin user in the database.
+    # We no longer allow skipping admin checks even if general auth is bypassed.
     
     # Query the user from the database
     db_user = db.query(User).filter(User.email == user.email).first()

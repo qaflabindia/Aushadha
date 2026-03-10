@@ -668,7 +668,14 @@ const PageLayout: React.FC = () => {
           {leftDrawerMode === 'admin' ? (
             <AdminPage />
           ) : leftDrawerMode === 'settings' ? (
-            <SettingsPage />
+            <SettingsPage
+              combinedPatterns={combinedPatternsVal}
+              setCombinedPatterns={setCombinedPatternsVal}
+              combinedNodes={combinedNodesVal}
+              setCombinedNodes={setCombinedNodesVal}
+              combinedRels={combinedRelsVal}
+              setCombinedRels={setCombinedRelsVal}
+            />
           ) : (
             <Content
               openChatBot={openChatBot}

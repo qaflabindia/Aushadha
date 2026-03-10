@@ -85,7 +85,6 @@ steps:
           --timeout 300 \
           --min-instances 0 \
           --max-instances 5 \
-          --allow-unauthenticated \
           --set-env-vars "NEO4J_URI=${_NEO4J_URI},NEO4J_USERNAME=${_NEO4J_USERNAME},NEO4J_DATABASE=${_NEO4J_DATABASE},TRACK_TOKEN_USAGE=${_TRACK_TOKEN_USAGE}" \
           --set-secrets="NEO4J_PASSWORD=NEO4J_PASSWORD:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,DIFFBOT_API_KEY=DIFFBOT_API_KEY:latest"
     waitFor: ["push-backend"]
