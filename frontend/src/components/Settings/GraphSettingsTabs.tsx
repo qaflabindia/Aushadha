@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tabs, Flex, Typography, useMediaQuery } from '@neo4j-ndl/react';
+import { Tabs, Flex, useMediaQuery } from '@neo4j-ndl/react';
 import { tokens } from '@neo4j-ndl/base';
 import { useTranslation } from '../../context/LanguageContext';
 import { useFileContext } from '../../context/UsersFiles';

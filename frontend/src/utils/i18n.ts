@@ -101,7 +101,11 @@ export type TranslationKey =
   | 'helpInstructions'
   | 'importDropzoneSpan'
   | 'filesProcessingSelectionWarning'
-  | 'cancelProcessingJob';
+  | 'cancelProcessingJob'
+  | 'entityExtractionSettings'
+  | 'disconnectedNodes'
+  | 'duplicationNodes'
+  | 'postProcessingJobs';
 
 type Translations = Record<string, Record<TranslationKey, string>>;
 
@@ -149,7 +153,8 @@ const translations: Translations = {
     show: 'Show',
     page: 'Page',
     largFilesWarning: 'Large files may be partially processed up to 10K characters due to resource limit.',
-    welcomeMessage: 'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
+    welcomeMessage:
+      'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
     neuralNetwork: 'AyushPragya Medical Neural Network',
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
@@ -204,6 +209,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   hi: {
     fileManagement: 'फ़ाइल प्रबंधन',
@@ -248,9 +257,10 @@ const translations: Translations = {
     show: 'दिखाएं',
     page: 'पृष्ठ',
     largFilesWarning: 'संसाधन सीमा के कारण बड़ी फ़ाइलें 10K वर्णों तक आंशिक रूप से संसाधित हो सकती हैं।',
-    welcomeMessage: 'कॉन्सीयर्ज इंटेलिजेंस में आपका स्वागत है। आप पूरी तरह से प्रोसेस किए गए दस्तावेज़ों से संबंधित प्रश्न पूछ सकते हैं।',
+    welcomeMessage:
+      'कॉन्सीयर्ज इंटेलिजेंस में आपका स्वागत है। आप पूरी तरह से प्रोसेस किए गए दस्तावेज़ों से संबंधित प्रश्न पूछ सकते हैं।',
     neuralNetwork: 'औषध मेडिकल न्यूरल नेटवर्क',
-  
+
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
     bloomGraph: 'Visualize the graph in Bloom',
@@ -304,6 +314,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   ta: {
     fileManagement: 'கோப்பு மேலாண்மை',
@@ -348,9 +362,10 @@ const translations: Translations = {
     show: 'காட்டு',
     page: 'பக்கம்',
     largFilesWarning: 'வள வரம்பு காரணமாக பெரிய கோப்புகள் 10K எழுத்துக்கள் வரை பகுதியாக செயலாக்கப்படலாம்.',
-    welcomeMessage: 'வழிகாட்டி நுண்ணறிவுக்கு வரவேற்கிறோம். முழுமையாக செயலாக்கப்பட்ட ஆவணங்கள் தொடர்பான கேள்விகளை நீங்கள் கேட்கலாம்.',
+    welcomeMessage:
+      'வழிகாட்டி நுண்ணறிவுக்கு வரவேற்கிறோம். முழுமையாக செயலாக்கப்பட்ட ஆவணங்கள் தொடர்பான கேள்விகளை நீங்கள் கேட்கலாம்.',
     neuralNetwork: 'ஔஷதா மருத்துவ நரம்பு வலையமைப்பு',
-  
+
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
     bloomGraph: 'Visualize the graph in Bloom',
@@ -404,6 +419,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   te: {
     fileManagement: 'ఫైల్ నిర్వహణ',
@@ -448,9 +467,10 @@ const translations: Translations = {
     show: 'చూపించు',
     page: 'పేజీ',
     largFilesWarning: 'వనరుల పరిమితి కారణంగా పెద్ద ఫైల్‌లు 10K అక్షరాల వరకు పాక్షికంగా ప్రాసెస్ చేయబడవచ్చు.',
-    welcomeMessage: 'కాన్సీర్జ్ ఇంటెలిజెన్స్‌కు స్వాగతం. పూర్తిగా ప్రాసెస్ చేయబడిన డాక్యుమెంట్‌లకు సంబంధించిన ప్రశ్నలు అడగవచ్చు.',
+    welcomeMessage:
+      'కాన్సీర్జ్ ఇంటెలిజెన్స్‌కు స్వాగతం. పూర్తిగా ప్రాసెస్ చేయబడిన డాక్యుమెంట్‌లకు సంబంధించిన ప్రశ్నలు అడగవచ్చు.',
     neuralNetwork: 'ఔషధ మెడికల్ న్యూరల్ నెట్‌వర్క్',
-  
+
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
     bloomGraph: 'Visualize the graph in Bloom',
@@ -504,6 +524,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   bn: {
     fileManagement: 'ফাইল ব্যবস্থাপনা',
@@ -548,9 +572,10 @@ const translations: Translations = {
     show: 'দেখান',
     page: 'পৃষ্ঠা',
     largFilesWarning: 'সম্পদ সীমার কারণে বড় ফাইল ১০K অক্ষর পর্যন্ত আংশিকভাবে প্রক্রিয়া করা হতে পারে।',
-    welcomeMessage: 'কনসিয়ার্জ বুদ্ধিমত্তায় স্বাগতম। সম্পূর্ণ প্রক্রিয়াজাত নথি সম্পর্কিত প্রশ্ন জিজ্ঞাসা করতে পারেন।',
+    welcomeMessage:
+      'কনসিয়ার্জ বুদ্ধিমত্তায় স্বাগতম। সম্পূর্ণ প্রক্রিয়াজাত নথি সম্পর্কিত প্রশ্ন জিজ্ঞাসা করতে পারেন।',
     neuralNetwork: 'ঔষধ মেডিকেল নিউরাল নেটওয়ার্ক',
-  
+
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
     bloomGraph: 'Visualize the graph in Bloom',
@@ -604,6 +629,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   mr: {
     fileManagement: 'फाइल व्यवस्थापन',
@@ -648,9 +677,10 @@ const translations: Translations = {
     show: 'दाखवा',
     page: 'पान',
     largFilesWarning: 'संसाधन मर्यादेमुळे मोठ्या फाइल्स 10K वर्णांपर्यंत अंशतः प्रक्रिया केल्या जाऊ शकतात.',
-    welcomeMessage: 'कॉन्सीयर्ज इंटेलिजन्समध्ये आपले स्वागत आहे. पूर्णपणे प्रक्रिया केलेल्या दस्तऐवजांबद्दल प्रश्न विचारू शकता.',
+    welcomeMessage:
+      'कॉन्सीयर्ज इंटेलिजन्समध्ये आपले स्वागत आहे. पूर्णपणे प्रक्रिया केलेल्या दस्तऐवजांबद्दल प्रश्न विचारू शकता.',
     neuralNetwork: 'औषध मेडिकल न्यूरल नेटवर्क',
-  
+
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
     bloomGraph: 'Visualize the graph in Bloom',
@@ -704,6 +734,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   kn: {
     fileManagement: 'ಫೈಲ್ ನಿರ್ವಹಣೆ',
@@ -748,9 +782,10 @@ const translations: Translations = {
     show: 'ತೋರಿಸಿ',
     page: 'ಪುಟ',
     largFilesWarning: 'ಸಂಪನ್ಮೂಲ ಮಿತಿಯಿಂದಾಗಿ ದೊಡ್ಡ ಫೈಲ್‌ಗಳು 10K ಅಕ್ಷರಗಳವರೆಗೆ ಭಾಗಶಃ ಪ್ರಕ್ರಿಯೆಗೊಳ್ಳಬಹುದು.',
-    welcomeMessage: 'ಕಾನ್ಸೀರ್ಜ್ ಬುದ್ಧಿಮತ್ತೆಗೆ ಸ್ವಾಗತ. ಸಂಪೂರ್ಣ ಪ್ರಕ್ರಿಯೆಗೊಂಡ ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳಿಗೆ ಸಂಬಂಧಿಸಿದ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಬಹುದು.',
+    welcomeMessage:
+      'ಕಾನ್ಸೀರ್ಜ್ ಬುದ್ಧಿಮತ್ತೆಗೆ ಸ್ವಾಗತ. ಸಂಪೂರ್ಣ ಪ್ರಕ್ರಿಯೆಗೊಂಡ ಡಾಕ್ಯುಮೆಂಟ್‌ಗಳಿಗೆ ಸಂಬಂಧಿಸಿದ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಬಹುದು.',
     neuralNetwork: 'ಔಷಧ ಮೆಡಿಕಲ್ ನ್ಯೂರಲ್ ನೆಟ್‌ವರ್ಕ್',
-  
+
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
     bloomGraph: 'Visualize the graph in Bloom',
@@ -804,6 +839,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   ml: {
     fileManagement: 'File Management',
@@ -848,7 +887,8 @@ const translations: Translations = {
     show: 'Show',
     page: 'Page',
     largFilesWarning: 'Large files may be partially processed up to 10K characters due to resource limit.',
-    welcomeMessage: 'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
+    welcomeMessage:
+      'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
     neuralNetwork: 'AyushPragya Medical Neural Network',
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
@@ -903,6 +943,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   gu: {
     fileManagement: 'File Management',
@@ -947,7 +991,8 @@ const translations: Translations = {
     show: 'Show',
     page: 'Page',
     largFilesWarning: 'Large files may be partially processed up to 10K characters due to resource limit.',
-    welcomeMessage: 'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
+    welcomeMessage:
+      'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
     neuralNetwork: 'AyushPragya Medical Neural Network',
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
@@ -1002,6 +1047,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   pa: {
     fileManagement: 'File Management',
@@ -1046,7 +1095,8 @@ const translations: Translations = {
     show: 'Show',
     page: 'Page',
     largFilesWarning: 'Large files may be partially processed up to 10K characters due to resource limit.',
-    welcomeMessage: 'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
+    welcomeMessage:
+      'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
     neuralNetwork: 'AyushPragya Medical Neural Network',
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
@@ -1101,6 +1151,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
   or: {
     fileManagement: 'File Management',
@@ -1145,7 +1199,8 @@ const translations: Translations = {
     show: 'Show',
     page: 'Page',
     largFilesWarning: 'Large files may be partially processed up to 10K characters due to resource limit.',
-    welcomeMessage: 'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
+    welcomeMessage:
+      'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
     neuralNetwork: 'AyushPragya Medical Neural Network',
     deleteFile: 'Select one or more files to delete',
     showGraph: 'Preview generated graph.',
@@ -1200,6 +1255,10 @@ const translations: Translations = {
     importDropzoneSpan: 'JSON Documents',
     filesProcessingSelectionWarning: 'Files are still processing, please select individual checkbox for deletion',
     cancelProcessingJob: 'Cancel the processing job',
+    entityExtractionSettings: 'Entity Extraction Settings',
+    disconnectedNodes: 'Disconnected Nodes',
+    duplicationNodes: 'Duplication Nodes',
+    postProcessingJobs: 'Post Processing Jobs',
   },
 };
 
@@ -1208,7 +1267,7 @@ const translations: Translations = {
  * Falls back to English if the language or key is not found.
  */
 export function getTranslation(langCode: string, key: TranslationKey): string {
-  return translations[langCode]?.[key] ?? translations['en']?.[key] ?? key;
+  return translations[langCode]?.[key] ?? translations.en?.[key] ?? key;
 }
 
 export default translations;
