@@ -7,63 +7,131 @@
  * - Falls back to English if backend is unreachable
  * - Integrates with existing LanguageContext (no change to LanguageSelector)
  */
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  FC,
-} from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, FC } from 'react';
 import { useLanguage } from './LanguageContext';
 
 // All known UI strings used in the app. Matches KNOWN_UI_STRINGS in translation_router.py
 export const KNOWN_UI_STRINGS: string[] = [
-  'File Management', 'Clinical Intelligence', 'DB Connection',
-  'No Graph Schema configured', 'Name', 'Status', 'Upload Status',
-  'Size (KB)', 'Source', 'Type', 'Model', 'Nodes', 'Completed',
-  'Uploaded', 'Local File', 'Generate Graph', 'Delete Files',
-  'Preview Graph', 'Graph Settings', 'LLM Model for Processing & Chat',
-  'Intelligence Search', 'Medical Intelligence', 'Select Language',
-  'Data Insights', 'Knowledge Graph', 'Secret Vault', 'Generated Graph',
-  'We are visualizing 50 chunks at a time', 'Document & Chunk',
-  'Entities', 'Result Overview', 'Total Nodes', 'Relationships',
-  'Search On Node Properties', 'Inquire Vault Intelligence',
-  'Authorized Terminal', 'Concierge Intelligence', 'Details', 'Show', 'Page',
+  'File Management',
+  'Clinical Intelligence',
+  'DB Connection',
+  'No Graph Schema configured',
+  'Name',
+  'Status',
+  'Upload Status',
+  'Size (KB)',
+  'Source',
+  'Type',
+  'Model',
+  'Nodes',
+  'Completed',
+  'Uploaded',
+  'Local File',
+  'Generate Graph',
+  'Delete Files',
+  'Preview Graph',
+  'Graph Settings',
+  'LLM Model for Processing & Chat',
+  'Intelligence Search',
+  'Medical Intelligence',
+  'Select Language',
+  'Data Insights',
+  'Knowledge Graph',
+  'Secret Vault',
+  'Generated Graph',
+  'We are visualizing 50 chunks at a time',
+  'Document & Chunk',
+  'Entities',
+  'Result Overview',
+  'Total Nodes',
+  'Relationships',
+  'Search On Node Properties',
+  'Inquire Vault Intelligence',
+  'Authorized Terminal',
+  'Concierge Intelligence',
+  'Details',
+  'Show',
+  'Page',
   'Large files may be partially processed up to 10K characters due to resource limit.',
   'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
-  'AyushPragya Medical Neural Network', 'Select one or more files to delete',
-  'Preview generated graph.', 'Visualize the graph in Bloom',
-  'File/Files to be deleted', 'Documentation', 'GitHub Issues',
-  'Light / Dark mode', 'Entity Graph Extraction Settings', 'Start a chat',
-  'Upload files', 'Delete', 'Maximise', 'Copy to Clipboard', 'Copied',
-  'Stop Speaking', 'Text to Speech', 'Define schema from text',
-  'Fetch schema from database', 'Clear Chat History', 'Continue',
-  'Clear configured Graph Schema', 'Apply Graph Schema', 'Chat',
-  'Download Conversation', 'Visualize Graph Schema',
-  'Analyze instructions for schema', 'Predefined Schema',
-  'Data Importer JSON', 'Explore Graph', 'Preview Graph',
-  'Documents, Images, Unstructured text', 'Youtube', 'GCS', 'Amazon S3',
+  'AyushPragya Medical Neural Network',
+  'Select one or more files to delete',
+  'Preview generated graph.',
+  'Visualize the graph in Bloom',
+  'File/Files to be deleted',
+  'Documentation',
+  'GitHub Issues',
+  'Light / Dark mode',
+  'Entity Graph Extraction Settings',
+  'Start a chat',
+  'Upload files',
+  'Delete',
+  'Maximise',
+  'Copy to Clipboard',
+  'Copied',
+  'Stop Speaking',
+  'Text to Speech',
+  'Define schema from text',
+  'Fetch schema from database',
+  'Clear Chat History',
+  'Continue',
+  'Clear configured Graph Schema',
+  'Apply Graph Schema',
+  'Chat',
+  'Download Conversation',
+  'Visualize Graph Schema',
+  'Analyze instructions for schema',
+  'Predefined Schema',
+  'Data Importer JSON',
+  'Explore Graph',
+  'Preview Graph',
+  'Documents, Images, Unstructured text',
+  'Youtube',
+  'GCS',
+  'Amazon S3',
   'No Labels Found in the Database',
   'Drop your neo4j credentials file here',
-  'Analyze text to extract graph schema', 'Connect', 'Disconnect',
-  'Submit', 'Connect to DB', 'Cancel', 'Apply',
+  'Analyze text to extract graph schema',
+  'Connect',
+  'Disconnect',
+  'Submit',
+  'Connect to DB',
+  'Cancel',
+  'Apply',
   'Provide Additional Instructions for Entity Extractions',
   'Analyze Instructions',
   'Provide specific instructions for entity extraction, such as focusing on the key topics.',
   'JSON Documents',
   'Files are still processing, please select individual checkbox for deletion',
   'Cancel the processing job',
-  'Clinical Intelligence Platform', 'Sign in with credentials',
-  'Continue in read-only mode', 'Email', 'Password', 'Signing in...', 'Sign In',
-  'Patient Insights', 'Global Research', 'Administration', 'AI Assistant',
+  'Entity Extraction Settings',
+  'Disconnected Nodes',
+  'Duplication Nodes',
+  'Post Processing Jobs',
+  'Clinical Intelligence Platform',
+  'Sign in with credentials',
+  'Continue in read-only mode',
+  'Email',
+  'Password',
+  'Signing in...',
+  'Sign In',
+  'Patient Insights',
+  'Global Research',
+  'Administration',
+  'AI Assistant',
   'Are you sure you want to delete the selected files?',
-  'This action cannot be undone.', 'Confirm', 'Close',
-  'Large file detected', 'File exceeds recommended size',
-  'Retry', 'Processing failed. Would you like to retry?',
-  'No labels found', 'Connection settings', 'Vector index mismatch',
-  'Processing & Chat', 'processing & chat',
+  'This action cannot be undone.',
+  'Confirm',
+  'Close',
+  'Large file detected',
+  'File exceeds recommended size',
+  'Retry',
+  'Processing failed. Would you like to retry?',
+  'No labels found',
+  'Connection settings',
+  'Vector index mismatch',
+  'Processing & Chat',
+  'processing & chat',
 ];
 
 // ─── Context types ────────────────────────────────────────────────────────────
@@ -82,20 +150,20 @@ const TranslationContext = createContext<TranslationContextType>({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const BACKEND = import.meta.env.VITE_BACKEND_API_URL ?? '';
 
-async function batchFetch(
-  texts: string[],
-  lang: string
-): Promise<Record<string, string>> {
+async function batchFetch(texts: string[], lang: string): Promise<Record<string, string>> {
   try {
     const res = await fetch(`${BACKEND}/translate/ui/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texts, lang }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
     const data = await res.json();
     return data.translations as Record<string, string>;
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.warn('[TranslationContext] batch fetch failed, using English fallback', e);
     return {};
   }
@@ -123,39 +191,47 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setIsLoading(true);
+    const startTime = performance.now();
     batchFetch(KNOWN_UI_STRINGS, lang).then((translations) => {
+      const duration = performance.now() - startTime;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[TranslationContext] Loaded ${Object.keys(translations).length} strings for '${lang}' in ${duration.toFixed(2)}ms`
+      );
       cacheRef.current[lang] = translations;
       setIsLoading(false);
-      setTick((n) => n + 1); // trigger re-render so components pick up translations
+      setTick((n) => {
+        return n + 1;
+      }); // trigger re-render so components pick up translations
     });
   }, [language.code]);
 
   const t = useCallback(
     (english: string): string => {
       const lang = language.code;
-      if (lang === 'en') return english;
+      if (lang === 'en') {
+        return english;
+      }
       const translated = cacheRef.current[lang]?.[english];
       return translated || english; // English fallback
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [language.code, isLoading]
   );
 
-  return (
-    <TranslationContext.Provider value={{ t, isLoading }}>
-      {children}
-    </TranslationContext.Provider>
-  );
+  return <TranslationContext.Provider value={{ t, isLoading }}>{children}</TranslationContext.Provider>;
 };
 
 /** Hook: returns t() function for the current language. */
-export const useTranslate = (): ((english: string) => string) => {
-  return useContext(TranslationContext).t;
-};
+export function useTranslate(): (english: string) => string {
+  const context = useContext(TranslationContext);
+  const { t } = context;
+  return t;
+}
 
 /** Hook: returns full context including loading state */
-export const useTranslation2 = (): TranslationContextType => {
-  return useContext(TranslationContext);
-};
+export function useTranslation2(): TranslationContextType {
+  const context = useContext(TranslationContext);
+  return context;
+}
 
 export default TranslationProvider;

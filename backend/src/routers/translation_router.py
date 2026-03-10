@@ -56,6 +56,7 @@ KNOWN_UI_STRINGS = [
     "JSON Documents",
     "Files are still processing, please select individual checkbox for deletion",
     "Cancel the processing job",
+    "Entity Extraction Settings", "Disconnected Nodes", "Duplication Nodes", "Post Processing Jobs",
     # Login page
     "Clinical Intelligence Platform", "Sign in with credentials",
     "Continue in read-only mode", "Email", "Password",
