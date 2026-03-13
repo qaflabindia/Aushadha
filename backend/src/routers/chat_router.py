@@ -48,7 +48,11 @@ async def chat_bot(
         if language and language != "en":
             lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam", "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"}
             lang_name = lang_map.get(language, language)
-            lang_instruction = f" IMPORTANT: You MUST respond entirely in {lang_name}. All text, explanations, and labels must be in {lang_name}."
+            lang_instruction = (
+                f" IMPORTANT: You MUST respond entirely in {lang_name}. "
+                f"Do not mix English keywords, technical terms, or phrases. "
+                f"All clinical terms must be translated to their {lang_name} equivalents."
+            )
             question = f"{question}{lang_instruction}"
         result = await QA_RAG(graph=graph, model=model, question=question, document_names=document_names, session_id=session_id, mode=mode, write_access=write_access, email=credentials.email, uri=credentials.uri, language=language)
 

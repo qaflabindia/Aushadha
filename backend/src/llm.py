@@ -265,6 +265,12 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
         "gu": "gu-IN", "pa": "pa-IN", "or": "od-IN",
     }
 
+    FULL_LANG_NAMES = {
+        "en": "English", "hi": "Hindi", "ta": "Tamil", "te": "Telugu",
+        "bn": "Bengali", "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam",
+        "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"
+    }
+
     ensure_table()
     db = SessionLocal()
 
@@ -301,20 +307,32 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
                 # Enforce medical persona to prevent "Intelligence" -> "Spy" errors
                 system_prompt = (
                     "You are a medical translation expert. Translate the text accurately into the target language. "
-                    "Maintain strict clinical context. Example: 'Intelligence' means clinical ability, NOT espionage. "
+                    "Maintain strict clinical context. Do not mix English words or technical terms; translate them into their native target language equivalents. "
+                    "Example: 'Intelligence' means clinical ability, NOT espionage. "
                     "Translate for a medical professional audience."
                 )
 
-                clinical_llm = get_llm("SARVAM_SARVAM_2B" if os.getenv("APP_ENV") != "production" else "SARVAM_SARVAM_M")
+                llm_res = get_llm("SARVAM")
+                clinical_llm = llm_res[0]
 
                 for idx, segment in uncached_segments:
                     try:
+                        target_name = FULL_LANG_NAMES.get(target_lang, target_lang)
+                        source_name = FULL_LANG_NAMES.get(source_lang, source_lang)
                         messages = [
                             SystemMessage(content=system_prompt),
-                            HumanMessage(content=f"Translate to {target_lang} from {source_lang}: {segment}")
+                            HumanMessage(content=f"Translate to {target_name} from {source_name}: {segment}")
                         ]
                         response = await clinical_llm.ainvoke(messages)
                         translated = response.content.strip()
+                        
+                        # Robust cleanup of reasoning/thought blocks
+                        if "<think>" in translated:
+                            if "</think>" in translated:
+                                translated = translated.split("</think>")[-1].strip()
+                            else:
+                                translated = translated.split("<think>")[-1].split("\n\n")[-1].strip()
+                        translated = re.sub(r'<(think|reasoning)>.*?</\1>', '', translated, flags=re.DOTALL).strip()
                         
                         save_to_cache(db, segment, source_lang, target_lang, translated)
                         translated_parts[idx] = (idx, translated)

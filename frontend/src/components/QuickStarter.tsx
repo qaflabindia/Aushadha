@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import React from 'react';
 import PageLayout from './Layout/PageLayout';
 import { FileContextProvider } from '../context/UsersFiles';

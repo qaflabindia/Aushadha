@@ -1,0 +1,231 @@
+yarn run v1.22.22
+$ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warnings 0
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/API/Index.ts
+   71:13  warning  Unexpected console statement  no-console
+  110:13  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Admin/AdminPage.tsx
+   54:7  warning  Unexpected console statement  no-console
+   92:7  warning  Unexpected console statement  no-console
+  116:9  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/ChatInfoModal.tsx
+  179:11  warning  Unexpected console statement  no-console
+  240:11  warning  Unexpected console statement  no-console
+  292:9   warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/ChatOnlyComponent.tsx
+  95:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/Chatbot.tsx
+  330:9   warning  Unexpected console statement  no-console
+  421:13  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/Chatbot_old.tsx
+  273:11  warning  Unexpected console statement  no-console
+  293:7   warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/chatInfo.ts
+  36:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Content.tsx
+  405:13  warning  Unexpected console statement  no-console
+  410:13  warning  Unexpected console statement  no-console
+  412:13  warning  Unexpected console statement  no-console
+  416:9   warning  Unexpected console statement  no-console
+  782:9   warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/DataSources/GCS/GCSModal.tsx
+  150:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/FileTable.tsx
+  806:9  warning  Unexpected console statement  no-console
+  880:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Graph/GraphViewModal.tsx
+  151:7   warning  Unexpected console statement                    no-console
+  215:7   warning  Unexpected console statement                    no-console
+  259:9   warning  Unexpected console statement                    no-console
+  267:5   warning  Unexpected console statement                    no-console
+  403:77  warning  Async arrow function has no 'await' expression  require-await
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Layout/PageLayout.tsx
+  153:3   warning  Unexpected console statement  no-console
+  300:11  warning  Unexpected console statement  no-console
+  366:7   warning  Unexpected console statement  no-console
+  554:13  warning  Unexpected console statement  no-console
+  569:13  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Layout/ResearchDrawer.tsx
+  18:30  error  Expected { after 'if' condition  curly
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/ConnectionModal/ConnectionModal.tsx
+  123:9   warning  Unexpected console statement  no-console
+  170:13  warning  Unexpected console statement  no-console
+  272:9   warning  Unexpected console statement  no-console
+  301:9   warning  Unexpected console statement  no-console
+  326:13  warning  Unexpected console statement  no-console
+  393:7   warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/AdditionalInstructions/index.tsx
+  35:60  warning  Async arrow function has no 'await' expression  require-await
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/Deduplication/index.tsx
+  60:7  warning  Unexpected console statement  no-console
+  94:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/DeleteTabForOrphanNodes/index.tsx
+  63:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/EnitityExtraction/LoadExistingSchema.tsx
+  80:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/EnitityExtraction/NewEntityExtractionSetting.tsx
+   94:13  warning  Use array destructuring                         prefer-destructuring
+  306:96  warning  Async arrow function has no 'await' expression  require-await
+  316:96  warning  Async arrow function has no 'await' expression  require-await
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/EnitityExtraction/SchemaFromTextDialog.tsx
+  83:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/EnitityExtraction/UploadJsonData.tsx
+  20:67  warning  Async arrow function has no 'await' expression  require-await
+  21:11  warning  Use array destructuring                         prefer-destructuring
+  50:11  warning  Unexpected console statement                    no-console
+  58:7   warning  Unexpected console statement                    no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/GraphEnhancementDialog/index.tsx
+  69:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/SecretVaultModal.tsx
+  30:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/QuickStarter.tsx
+  1:1  error  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Settings/GraphSettingsTabs.tsx
+  45:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/UI/ErrroBoundary.tsx
+  13:5  warning  Unexpected console statement  no-console
+  14:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/User/PatientDropdown.tsx
+  32:9  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/context/GoogleAuthContext.tsx
+   38:3  warning  Async method 'loginWithGoogle' has no 'await' expression  require-await
+   39:3  warning  Async method 'loginWithLocal' has no 'await' expression   require-await
+  155:9  warning  Unexpected console statement                              no-console
+  187:9  warning  Unexpected console statement                              no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/context/UsersFiles.tsx
+  149:7  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/hooks/useSpeechRecognition.tsx
+   30:68  error    use `Boolean(navigator.mediaDevices)` instead     no-implicit-coercion
+   30:96  error    use `Boolean(window.MediaRecorder)` instead       no-implicit-coercion
+   34:29  error    Expected { after 'if' condition                   curly
+   38:13  error    This line has 2 statements. Maximum allowed is 1  max-statements-per-line
+   38:56  error    Empty block statement                             no-empty
+   65:7   warning  Unexpected console statement                      no-console
+   75:15  error    This line has 2 statements. Maximum allowed is 1  max-statements-per-line
+   75:58  error    Empty block statement                             no-empty
+   81:38  error    Expected { after 'if' condition                   curly
+   95:32  error    Expected { after 'if' condition                   curly
+  113:13  warning  Unexpected console statement                      no-console
+  124:9   warning  Unexpected console statement                      no-console
+  130:39  error    Expected { after 'if' condition                   curly
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/AdditionalMetrics.ts
+  27:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/CancelAPI.ts
+  12:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/ChunkEntitiesInfo.ts
+  24:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/CommonAPI.ts
+  23:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/ConnectAPI.ts
+  14:5  warning  Unexpected console statement  no-console
+  25:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/DeleteFiles.ts
+  15:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/DeleteOrphanNodes.ts
+  10:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/GetDuplicateNodes.ts
+  10:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/GetFiles.ts
+  9:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/GetNodeLabelsRelTypes.ts
+  10:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/GetOrphanNodes.ts
+  10:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/GetRagasMetric.ts
+  21:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/GraphQuery.ts
+  30:5  warning  Unexpected console statement  no-console
+  47:5  warning  Unexpected console statement  no-console
+  62:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/HealthStatus.ts
+  8:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/MergeDuplicateEntities.ts
+  11:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/PostProcessing.ts
+  14:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/QnaAPI.ts
+  33:5  warning  Unexpected console statement  no-console
+  49:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/Retry.ts
+  12:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/SchemaFromTextAPI.ts
+  20:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/SecretAPI.ts
+   3:36  warning  Async arrow function has no 'await' expression  require-await
+   7:63  warning  Async arrow function has no 'await' expression  require-await
+  11:52  warning  Async arrow function has no 'await' expression  require-await
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/URLScan.ts
+  51:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/VectorIndexCreation.ts
+  11:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/getChunkText.ts
+  12:5  warning  Unexpected console statement  no-console
+
+/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/utils/Utils.ts
+  520:5   warning  Unexpected console statement                    no-console
+  646:9   warning  Unexpected console statement                    no-console
+  651:9   warning  Unexpected console statement                    no-console
+  690:7   warning  Unexpected console statement                    no-console
+  776:15  warning  Use array destructuring                         prefer-destructuring
+  777:15  warning  Use array destructuring                         prefer-destructuring
+  831:7   warning  Unexpected console statement                    no-console
+  842:7   warning  Unexpected console statement                    no-console
+  902:25  warning  Async arrow function has no 'await' expression  require-await
+
+✖ 115 problems (12 errors, 103 warnings)
+  8 errors and 0 warnings potentially fixable with the `--fix` option.
+
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

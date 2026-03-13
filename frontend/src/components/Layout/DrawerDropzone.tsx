@@ -13,6 +13,7 @@ import GenericModal from '../WebSources/GenericSourceModal';
 import { DrawerProps } from '../../types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useFileContext } from '../../context/UsersFiles';
+import { useTranslate } from '../../context/TranslationContext';
 const S3Modal = lazy(() => import('../DataSources/AWS/S3Modal'));
 const GCSModal = lazy(() => import('../DataSources/GCS/GCSModal'));
 const DrawerDropzone: React.FC<DrawerProps> = ({
@@ -29,6 +30,7 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
   const { loginWithRedirect } = useAuth0();
   const isLargeDesktop = useMediaQuery('(min-width:1440px)');
   const { filesData } = useFileContext();
+  const t = useTranslate();
   const isAuthEnabled = import.meta.env.VITE_SKIP_AUTH !== 'true';
   const isYoutubeOnly = useMemo(
     () => APP_SOURCES.includes('youtube') && !APP_SOURCES.includes('wiki') && !APP_SOURCES.includes('web'),
@@ -70,7 +72,7 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
                   <div className='mx-6 flex! items-center justify-between pb-6'>
                     <Typography variant='body-medium' className='flex items-center gap-1'>
                       <StatusIndicator type={isBackendConnected ? 'success' : 'danger'} />
-                      <span>Backend connection status</span>
+                      <span>{t('Backend connection status')}</span>
                     </Typography>
                   </div>
                 )}
@@ -78,7 +80,7 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
                   <div className='mx-6 flex items-center justify-between pb-6'>
                     <Typography variant='body-medium' className='flex items-center gap-1'>
                       <StatusIndicator type={connectionStatus ? 'success' : 'danger'} />
-                      <span>Connect to Neo4j to upload documents</span>
+                      <span>{t('Connect to Neo4j to upload documents')}</span>
                     </Typography>
                   </div>
                 )}
@@ -138,8 +140,8 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
               <StatusIndicator type={'danger'} />
               <span className='text-center mx-1'>
                 {filesData.length === 0
-                  ? `It seems like you haven't ingested any data yet. Please log in to the main application.`
-                  : 'You must be logged in to process this data. Please log in to the main application'}
+                  ? t("It seems like you haven't ingested any data yet. Please log in to the main application.")
+                  : t('You must be logged in to process this data. Please log in to the main application')}
               </span>
             </Typography>
             <div className={`h-full cursor-pointer`} onClick={() => loginWithRedirect()}>

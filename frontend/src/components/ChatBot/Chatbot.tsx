@@ -47,6 +47,7 @@ if (typeof window !== 'undefined') {
   }
 }
 const sessionId = sessionStorage.getItem('session_id') ?? '';
+const BACKEND = import.meta.env.VITE_BACKEND_API_URL ?? '';
 
 const Chatbot: FC<ChatbotProps> = (props) => {
   const { colorMode } = useContext(ThemeWrapperContext);
@@ -85,7 +86,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const chatAnchor = useRef<HTMLButtonElement>(null);
 
   const { language } = useLanguage();
-  const { transcript, isListening, startListening, stopListening, isSupported } = useSpeechRecognition({
+  const { transcript, isListening, startListening, stopListening, isSupported, isTranscribing } = useSpeechRecognition({
     language: language.speechCode,
   });
   const [preRecordMessage, setPreRecordMessage] = useState('');
@@ -382,13 +383,40 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   }, []);
 
   const speechHandler = useCallback(
-    (chat: Messages) => {
+    async (chat: Messages) => {
       if (chat.speaking) {
         cancel();
         setListMessages((msgs) => msgs.map((msg) => (msg.id === chat.id ? { ...msg, speaking: false } : msg)));
       } else {
+        let textToSpeak = chat.modes[chat.currentMode]?.message || '';
+        const targetLang = language.code;
+
+        // Check if the text is already in a non-English script (heuristic)
+        // If it contains non-ASCII characters, it's likely already in the target language
+        const isPrimarilyEnglish = /^[ \t\r\n!-~]*$/.test(textToSpeak);
+
+        if (targetLang !== 'en' && isPrimarilyEnglish) {
+          try {
+            const response = await fetch(`${BACKEND}/audio/translate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: textToSpeak,
+                target_lang: targetLang,
+                source_lang: 'en',
+              }),
+            });
+            if (response.ok) {
+              const data = await response.json();
+              textToSpeak = data.translatedText;
+            }
+          } catch (error) {
+            console.error('Translation failed', error);
+          }
+        }
+
         speak(
-          { text: chat.modes[chat.currentMode]?.message },
+          { text: textToSpeak, lang: language.speechCode },
           typeof window !== 'undefined' && window.speechSynthesis != undefined
         );
         setListMessages((msgs) => {
@@ -397,7 +425,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
         });
       }
     },
-    [speak, cancel]
+    [speak, cancel, language]
   );
 
   const handleSwitchMode = (messageId: number, newMode: string) => {
@@ -625,16 +653,24 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               <button
                 type='button'
                 onClick={handleMicClick}
+                disabled={isTranscribing}
                 className={clsx(
                   'absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300',
                   {
                     'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
                     'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
                     'text-gray-400 hover:text-gray-600': !isListening && colorMode === 'light',
+                    'opacity-50 cursor-not-allowed': isTranscribing,
                   }
                 )}
               >
-                {isListening ? <RiMicFill size={20} className='animate-pulse' /> : <RiMicLine size={20} />}
+                {isListening ? (
+                  <RiMicFill size={20} className='animate-pulse' />
+                ) : isTranscribing ? (
+                  <div className='w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin' />
+                ) : (
+                  <RiMicLine size={20} />
+                )}
               </button>
             )}
           </div>

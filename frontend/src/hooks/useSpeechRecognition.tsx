@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 interface SpeechRecognitionHook {
   transcript: string;
   isListening: boolean;
+  isTranscribing?: boolean;
   startListening: () => void;
   stopListening: () => void;
   resetTranscript: () => void;
@@ -13,20 +14,36 @@ interface SpeechRecognitionOptions {
   language?: string; // BCP 47 language tag (e.g., 'hi-IN', 'ta-IN')
 }
 
+const BACKEND = import.meta.env.VITE_BACKEND_API_URL ?? '';
+
 const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecognitionHook => {
   const language = options?.language || 'en-US';
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
-  const isSupported = typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const isNativeSupported =
+    typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  const isMediaDevicesSupported =
+    typeof window !== 'undefined' && Boolean(navigator.mediaDevices) && Boolean(window.MediaRecorder);
+  const isSupported = isNativeSupported || isMediaDevicesSupported;
 
   useEffect(() => {
-    if (!isSupported) return;
+    if (!isNativeSupported) {
+      return;
+    }
 
     // Stop any previous instance before recreating
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (_) {}
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {
+        // Ignore errors during cleanup
+      }
     }
 
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
@@ -46,7 +63,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
           interimTranscript += event.results[i][0].transcript;
         }
       }
-      
+
       if (finalTranscript || interimTranscript) {
         setTranscript(finalTranscript || interimTranscript);
       }
@@ -63,23 +80,80 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
 
     return () => {
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (_) {}
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {
+          // Ignore errors during cleanup
+        }
       }
     };
-  }, [isSupported, language]);
+  }, [isNativeSupported, language]);
 
-  const startListening = useCallback(() => {
-    if (!isSupported || isListening) return;
+  const startListening = useCallback(async () => {
+    if (!isSupported || isListening) {
+      return;
+    }
     setTranscript('');
-    recognitionRef.current?.start();
-    setIsListening(true);
-  }, [isSupported, isListening]);
+
+    if (isNativeSupported) {
+      recognitionRef.current?.start();
+      setIsListening(true);
+    } else if (isMediaDevicesSupported) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        chunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunksRef.current.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          setIsTranscribing(true);
+          try {
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'recording.webm');
+            const response = await fetch(`${BACKEND}/audio/transcribe`, {
+              method: 'POST',
+              body: formData,
+            });
+            if (response.ok) {
+              const data = await response.json();
+              setTranscript(data.text);
+            }
+          } catch (error) {
+            console.error('Transcription fallback failed', error);
+          } finally {
+            setIsTranscribing(false);
+          }
+          // Stop all tracks to release microphone
+          stream.getTracks().forEach((track) => track.stop());
+        };
+
+        mediaRecorder.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error('Microphone access denied or failed', err);
+      }
+    }
+  }, [isSupported, isListening, isNativeSupported, isMediaDevicesSupported]);
 
   const stopListening = useCallback(() => {
-    if (!isSupported || !isListening) return;
-    recognitionRef.current?.stop();
+    if (!isSupported || !isListening) {
+      return;
+    }
+
+    if (isNativeSupported) {
+      recognitionRef.current?.stop();
+    } else if (isMediaDevicesSupported && mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
     setIsListening(false);
-  }, [isSupported, isListening]);
+  }, [isSupported, isListening, isNativeSupported, isMediaDevicesSupported]);
 
   const resetTranscript = useCallback(() => {
     setTranscript('');
@@ -88,6 +162,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
   return {
     transcript,
     isListening,
+    isTranscribing,
     startListening,
     stopListening,
     resetTranscript,
