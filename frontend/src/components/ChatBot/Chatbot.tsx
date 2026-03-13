@@ -35,6 +35,7 @@ import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { useContext } from 'react';
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
 import { useLanguage, useTranslation } from '../../context/LanguageContext';
+import { useAlertContext } from '../../context/Alert';
 import { RiRobotLine, RiUserLine, RiMicLine, RiMicFill, RiChatSettingsLine } from 'react-icons/ri';
 import ChatModeToggle from './ChatModeToggle';
 
@@ -86,6 +87,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const chatAnchor = useRef<HTMLButtonElement>(null);
 
   const { language } = useLanguage();
+  const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
   const { transcript, isListening, startListening, stopListening, isSupported, isTranscribing } = useSpeechRecognition({
     language: language.speechCode,
   });
@@ -96,6 +98,8 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       setInputMessage(preRecordMessage ? `${preRecordMessage} ${transcript}` : transcript);
     }
   }, [transcript, isListening, preRecordMessage]);
+
+  const { showAlert } = useAlertContext();
 
   const handleMicClick = () => {
     if (isListening) {
@@ -387,45 +391,70 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       if (chat.speaking) {
         cancel();
         setListMessages((msgs) => msgs.map((msg) => (msg.id === chat.id ? { ...msg, speaking: false } : msg)));
-      } else {
-        let textToSpeak = chat.modes[chat.currentMode]?.message || '';
-        const targetLang = language.code;
-
-        // Check if the text is already in a non-English script (heuristic)
-        // If it contains non-ASCII characters, it's likely already in the target language
-        const isPrimarilyEnglish = /^[ \t\r\n!-~]*$/.test(textToSpeak);
-
-        if (targetLang !== 'en' && isPrimarilyEnglish) {
-          try {
-            const response = await fetch(`${BACKEND}/audio/translate`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                text: textToSpeak,
-                target_lang: targetLang,
-                source_lang: 'en',
-              }),
-            });
-            if (response.ok) {
-              const data = await response.json();
-              textToSpeak = data.translatedText;
-            }
-          } catch (error) {
-            console.error('Translation failed', error);
-          }
-        }
-
-        speak(
-          { text: textToSpeak, lang: language.speechCode },
-          typeof window !== 'undefined' && window.speechSynthesis != undefined
-        );
-        setListMessages((msgs) => {
-          const messageWithSpeaking = msgs.find((msg) => msg.speaking);
-          return msgs.map((msg) => (msg.id === chat.id && !messageWithSpeaking ? { ...msg, speaking: true } : msg));
-        });
+        return;
       }
+
+      const originalText = chat.modes[chat.currentMode]?.message || '';
+      const targetLang = language.code;
+      let textToSpeak = originalText;
+
+      // 1. Resolve Text (Check Cache or Translate)
+      const cacheKey = `${targetLang}:${originalText}`;
+      if (translationCache[cacheKey]) {
+        textToSpeak = translationCache[cacheKey];
+      } else if (targetLang !== 'en' && /^[ \t\r\n!-~]*$/.test(originalText)) {
+        try {
+          const response = await fetch(`${BACKEND}/audio/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: originalText,
+              target_lang: targetLang,
+              source_lang: 'en',
+            }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            textToSpeak = data.translatedText;
+            setTranslationCache((prev) => ({ ...prev, [cacheKey]: textToSpeak }));
+          }
+        } catch (error) {
+          showAlert('error', 'Translation failed. Please try again.');
+        }
+      }
+
+      // 2. Play Audio (Browser or Backend Fallback)
+      const isBrowserTtsSupported = typeof window !== 'undefined' && window.speechSynthesis !== undefined;
+      if (isBrowserTtsSupported) {
+        speak({ text: textToSpeak, lang: language.speechCode }, true);
+      } else {
+        try {
+          const response = await fetch(`${BACKEND}/audio/speak`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: textToSpeak, lang: language.speechCode }),
+          });
+          if (response.ok) {
+            const audioBlob = await response.blob();
+            const url = URL.createObjectURL(audioBlob);
+            const audio = new Audio(url);
+            audio.onended = () => {
+              setListMessages((msgs) => msgs.map((msg) => (msg.id === chat.id ? { ...msg, speaking: false } : msg)));
+              URL.revokeObjectURL(url);
+            };
+            audio.play();
+          }
+        } catch (error) {
+          showAlert('error', 'Speech synthesis failed. Please try again.');
+        }
+      }
+
+      setListMessages((msgs) => {
+        const messageWithSpeaking = msgs.find((msg) => msg.speaking);
+        return msgs.map((msg) => (msg.id === chat.id && !messageWithSpeaking ? { ...msg, speaking: true } : msg));
+      });
     },
-    [speak, cancel, language]
+    [speak, cancel, language, translationCache]
   );
 
   const handleSwitchMode = (messageId: number, newMode: string) => {

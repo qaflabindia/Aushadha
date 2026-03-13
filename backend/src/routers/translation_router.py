@@ -178,6 +178,12 @@ async def _llm_translate(text: str, lang_code: str, model: Optional[str] = None)
         return None   # signal failure so we don't save to DB
 
 
+@router.get("/ui/strings")
+def get_known_ui_strings():
+    """Returns the master list of UI strings used for translation."""
+    return {"strings": KNOWN_UI_STRINGS}
+
+
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 @router.post("/ui")
 async def translate_ui_string(req: TranslateSingleRequest, db: Session = Depends(get_db)):

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useAlertContext } from '../context/Alert';
 
 interface SpeechRecognitionHook {
   transcript: string;
@@ -21,6 +22,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const { showAlert } = useAlertContext();
 
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -70,7 +72,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
     };
 
     recognitionRef.current.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
+      showAlert('error', `Speech recognition error: ${event.error}`);
       setIsListening(false);
     };
 
@@ -101,7 +103,13 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
     } else if (isMediaDevicesSupported) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
+        const mimeTypes = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+        const supportedMimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+
+        const mediaRecorder = new MediaRecorder(
+          stream,
+          supportedMimeType ? { mimeType: supportedMimeType } : undefined
+        );
         mediaRecorderRef.current = mediaRecorder;
         chunksRef.current = [];
 
@@ -112,7 +120,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
         };
 
         mediaRecorder.onstop = async () => {
-          const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          const audioBlob = new Blob(chunksRef.current, { type: supportedMimeType || 'audio/webm' });
           setIsTranscribing(true);
           try {
             const formData = new FormData();
@@ -126,7 +134,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
               setTranscript(data.text);
             }
           } catch (error) {
-            console.error('Transcription fallback failed', error);
+            showAlert('error', 'Transcription fallback failed. Please try again.');
           } finally {
             setIsTranscribing(false);
           }
@@ -137,7 +145,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
         mediaRecorder.start();
         setIsListening(true);
       } catch (err) {
-        console.error('Microphone access denied or failed', err);
+        showAlert('error', 'Microphone access denied or failed.');
       }
     }
   }, [isSupported, isListening, isNativeSupported, isMediaDevicesSupported]);

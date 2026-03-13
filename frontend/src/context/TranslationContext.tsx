@@ -10,197 +10,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, FC } from 'react';
 import { useLanguage } from './LanguageContext';
 
-// All known UI strings used in the app. Matches KNOWN_UI_STRINGS in translation_router.py
-export const KNOWN_UI_STRINGS: string[] = [
-  'File Management',
-  'Clinical Intelligence',
-  'DB Connection',
-  'No Graph Schema configured',
-  'Name',
-  'Status',
-  'Upload Status',
-  'Size (KB)',
-  'Source',
-  'Type',
-  'Model',
-  'Nodes',
-  'Completed',
-  'Uploaded',
-  'Local File',
-  'Generate Graph',
-  'Delete Files',
-  'Preview Graph',
-  'Graph Settings',
-  'LLM Model for Processing & Chat',
-  'Intelligence Search',
-  'Medical Intelligence',
-  'Select Language',
-  'Data Insights',
-  'Knowledge Graph',
-  'Secret Vault',
-  'Generated Graph',
-  'We are visualizing 50 chunks at a time',
-  'Document & Chunk',
-  'Entities',
-  'Result Overview',
-  'Total Nodes',
-  'Relationships',
-  'Search On Node Properties',
-  'Inquire Vault Intelligence',
-  'Authorized Terminal',
-  'Concierge Intelligence',
-  'Details',
-  'Show',
-  'Page',
-  'Large files may be partially processed up to 10K characters due to resource limit.',
-  'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.',
-  'AyushPragya Medical Neural Network',
-  'Select one or more files to delete',
-  'Preview generated graph.',
-  'Visualize the graph in Bloom',
-  'File/Files to be deleted',
-  'Documentation',
-  'GitHub Issues',
-  'Light / Dark mode',
-  'Entity Graph Extraction Settings',
-  'Start a chat',
-  'Upload files',
-  'Delete',
-  'Maximise',
-  'Copy to Clipboard',
-  'Copied',
-  'Stop Speaking',
-  'Text to Speech',
-  'Define schema from text',
-  'Fetch schema from database',
-  'Clear Chat History',
-  'Continue',
-  'Clear configured Graph Schema',
-  'Apply Graph Schema',
-  'Chat',
-  'Download Conversation',
-  'Visualize Graph Schema',
-  'Analyze instructions for schema',
-  'Predefined Schema',
-  'Data Importer JSON',
-  'Explore Graph',
-  'Preview Graph',
-  'Documents, Images, Unstructured text',
-  'Youtube',
-  'GCS',
-  'Amazon S3',
-  'No Labels Found in the Database',
-  'Drop your neo4j credentials file here',
-  'Analyze text to extract graph schema',
-  'Connect',
-  'Disconnect',
-  'Submit',
-  'Connect to DB',
-  'Cancel',
-  'Details',
-  'Clear Schema',
-  'Ask',
-  'Apply',
-  'Provide Additional Instructions for Entity Extractions',
-  'Analyze Instructions',
-  'Provide specific instructions for entity extraction, such as focusing on the key topics.',
-  'JSON Documents',
-  // App Labels
-  'Or Define your own Schema',
-  'Select a Pre-defined Schema',
-  'Select a Chunking Configuration',
-  'Graph Pattern',
-  'Selected Patterns',
-  'Schema from Data Importer',
-  // Graph Labels
-  'Inspect Generated Graph from',
-  'Document',
-  'Chunk',
-  'DocumentChunk',
-  'Result Overview',
-  'Total Nodes',
-  'No Entities Found',
-  'Select atleast one checkbox for graph view',
-  'Total Relationships',
-  'Communities',
-  'No Nodes and No relationships',
-  // DrawerDropzone & Layout
-  'Backend connection status',
-  'Connect to Neo4j to upload documents',
-  "It seems like you haven't ingested any data yet. Please log in to the main application.",
-  'You must be logged in to process this data. Please log in to the main application',
-  ' Welcome to the DB Knowledge Graph Chat. You can ask questions related to documents which have been completely processed.',
-  // Settings Page
-  'General',
-  'Account & Context',
-  'AI Engine & Sources',
-  'Graph Settings',
-  'Secure Vault',
-  'Administration',
-  'Settings',
-  'Workspace Control Center',
-  'General Workstation',
-  'Display, language and workspace appearance preferences.',
-  'Interface Language',
-  'Select your preferred language for the UI.',
-  'Theme',
-  'Toggle between Dark (Luxury) and Light mode.',
-  'Switch to Light',
-  'Switch to Dark',
-  'Your profile, active patient context, and session management.',
-  'Active Patient Context',
-  'Select the patient to personalise the clinical AI context.',
-  'Session',
-  'Log out of the application.',
-  'Logout',
-  'Configure the LLM model and chatbot retrieval settings.',
-  'LLM Model',
-  'Select the language model for knowledge extraction and chat.',
-  'Select Model',
-  'Chat Retrieval Mode',
-  'Configure which knowledge sources the AI assistant uses during chat.',
-  'Configure Sources',
-  'Knowledge graph construction and schema settings.',
-  'Store API keys and secrets securely. Used as backend environment overrides.',
-  'Secret Name',
-  'Secret Value',
-  'Save Secret',
-  'Configured Secrets',
-  'Load',
-  'No secrets configured yet. Click Load to check.',
-  'Manage users, roles, and organisation settings.',
-  'Administrator access required.',
-  'Files are still processing, please select individual checkbox for deletion',
-  'Cancel the processing job',
-  'Entity Extraction Settings',
-  'Disconnected Nodes',
-  'Duplication Nodes',
-  'Post Processing Jobs',
-  'Clinical Intelligence Platform',
-  'Sign in with credentials',
-  'Continue in read-only mode',
-  'Email',
-  'Password',
-  'Signing in...',
-  'Sign In',
-  'Patient Insights',
-  'Global Research',
-  'Administration',
-  'AI Assistant',
-  'Are you sure you want to delete the selected files?',
-  'This action cannot be undone.',
-  'Confirm',
-  'Close',
-  'Large file detected',
-  'File exceeds recommended size',
-  'Retry',
-  'Processing failed. Would you like to retry?',
-  'No labels found',
-  'Connection settings',
-  'Vector index mismatch',
-  'Processing & Chat',
-  'processing & chat',
-];
+// ─── Context types ────────────────────────────────────────────────────────────
 
 // ─── Context types ────────────────────────────────────────────────────────────
 interface TranslationContextType {
@@ -242,12 +52,27 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
   const { language } = useLanguage();
   // cache: { [lang]: { [english]: translated } }
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
+  const [knownStrings, setKnownStrings] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [, setTick] = useState(0); // force re-render after cache fill
 
+  // 1. Fetch the master list of UI strings once on mount
+  useEffect(() => {
+    fetch(`${BACKEND}/translate/ui/strings`)
+      .then((res) => res.json())
+      .then((data) => {
+        setKnownStrings(data.strings || []);
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('[TranslationContext] Failed to fetch known strings', err);
+      });
+  }, []);
+
+  // 2. Fetch translations when language changes or knownStrings is loaded
   useEffect(() => {
     const lang = language.code;
-    if (lang === 'en') {
+    if (lang === 'en' || knownStrings.length === 0) {
       setTick((n) => n + 1);
       return;
     }
@@ -260,7 +85,7 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
 
     setIsLoading(true);
     const startTime = performance.now();
-    batchFetch(KNOWN_UI_STRINGS, lang).then((translations) => {
+    batchFetch(knownStrings, lang).then((translations) => {
       const duration = performance.now() - startTime;
       // eslint-disable-next-line no-console
       console.log(
@@ -268,11 +93,9 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
       );
       cacheRef.current[lang] = translations;
       setIsLoading(false);
-      setTick((n) => {
-        return n + 1;
-      }); // trigger re-render so components pick up translations
+      setTick((n) => n + 1); // trigger re-render so components pick up translations
     });
-  }, [language.code]);
+  }, [language.code, knownStrings]);
 
   const t = useCallback(
     (english: string): string => {
