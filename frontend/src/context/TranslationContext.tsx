@@ -106,7 +106,7 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
       const translated = cacheRef.current[lang]?.[english];
       return translated || english; // English fallback
     },
-    [language.code, isLoading]
+    [language.code]
   );
 
   return <TranslationContext.Provider value={{ t, isLoading }}>{children}</TranslationContext.Provider>;

@@ -125,6 +125,11 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
           try {
             const formData = new FormData();
             formData.append('file', audioBlob, 'recording.webm');
+            if (language) {
+              // Extract the base language code (e.g., 'hi' from 'hi-IN')
+              const langCode = language.split('-')[0];
+              formData.append('language', langCode);
+            }
             const response = await fetch(`${BACKEND}/audio/transcribe`, {
               method: 'POST',
               body: formData,
@@ -137,6 +142,7 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
             showAlert('error', 'Transcription fallback failed. Please try again.');
           } finally {
             setIsTranscribing(false);
+            setIsListening(false);
           }
           // Stop all tracks to release microphone
           stream.getTracks().forEach((track) => track.stop());
@@ -157,10 +163,11 @@ const useSpeechRecognition = (options?: SpeechRecognitionOptions): SpeechRecogni
 
     if (isNativeSupported) {
       recognitionRef.current?.stop();
+      setIsListening(false);
     } else if (isMediaDevicesSupported && mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
+      // Note: setIsListening(false) will be called after transcription finishes in onstop
     }
-    setIsListening(false);
   }, [isSupported, isListening, isNativeSupported, isMediaDevicesSupported]);
 
   const resetTranscript = useCallback(() => {

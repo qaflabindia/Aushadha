@@ -55,7 +55,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const t = useTranslation();
   const { messages: listMessages, setMessages: setListMessages, isLoading, isFullScreen, isDeleteChatLoading } = props;
   const [inputMessage, setInputMessage] = useState('');
-  const { model, chatModes, selectedRows, filesData } = useFileContext();
+  const { model, chatModes, selectedRows, filesData, selectedVoice } = useFileContext();
   const { userCredentials } = useCredentials();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -426,13 +426,13 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       // 2. Play Audio (Browser or Backend Fallback)
       const isBrowserTtsSupported = typeof window !== 'undefined' && window.speechSynthesis !== undefined;
       if (isBrowserTtsSupported) {
-        speak({ text: textToSpeak, lang: language.speechCode }, true);
+        speak({ text: textToSpeak, lang: language.speechCode, voiceURI: selectedVoice }, true);
       } else {
         try {
           const response = await fetch(`${BACKEND}/audio/speak`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: textToSpeak, lang: language.speechCode }),
+            body: JSON.stringify({ text: textToSpeak, lang: language.speechCode, voice: selectedVoice }),
           });
           if (response.ok) {
             const audioBlob = await response.blob();

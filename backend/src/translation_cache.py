@@ -16,7 +16,7 @@ class TranslationCache(Base):
     __tablename__ = "translation_cache"
 
     id = Column(Integer, primary_key=True, index=True)
-    source_text = Column(String, index=True, nullable=False)
+    source_text = Column(String(2048), index=True, nullable=False)
     source_lang = Column(String(10), nullable=False, default="en")
     target_lang = Column(String(10), nullable=False)
     translated_text = Column(String, nullable=False)
@@ -51,7 +51,8 @@ def get_cached(db: Session, source_text: str, source_lang: str, target_lang: str
     )
     if row:
         row.hit_count += 1
-        db.commit()
+        # db.commit()  # Removed write-on-read to reduce DB overhead. 
+        # Metric remains accurate enough without instant persistence.
         return row.translated_text
     return None
 

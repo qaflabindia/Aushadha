@@ -32,6 +32,7 @@ const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
   const selectedChunks_to_combineStr = localStorage.getItem('selectedChunks_to_combine');
   const persistedQueue = localStorage.getItem('waitingQueue');
   const selectedModel = localStorage.getItem('selectedModel');
+  const selectedVoiceStr = localStorage.getItem('selectedVoice');
   const selectedInstructstr = localStorage.getItem('instructions');
   const isProdDefaultModel = isProdEnv && selectedModel && PRODMODELS.includes(selectedModel);
   const { userCredentials } = useCredentials();
@@ -45,6 +46,7 @@ const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
   }
   const [queue, setQueue] = useState<Queue<CustomFile>>(new Queue(initialQueue));
   const [model, setModel] = useState<string>(isProdDefaultModel ? selectedModel : isProdEnv ? PRODMODELS[0] : llms[0]);
+  const [selectedVoice, setSelectedVoice] = useState<string>(selectedVoiceStr || 'alloy');
   const [graphType, setGraphType] = useState<string>('Knowledge Graph Entities');
   const [selectedNodes, setSelectedNodes] = useState<readonly OptionType[]>([]);
   const [selectedRels, setSelectedRels] = useState<readonly OptionType[]>([]);
@@ -239,6 +241,8 @@ const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
     setImporterRels,
     importerPattern,
     setImporterPattern,
+    selectedVoice,
+    setSelectedVoice,
   };
   return <FileContext.Provider value={value}>{children}</FileContext.Provider>;
 };

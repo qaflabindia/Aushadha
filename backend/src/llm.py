@@ -262,13 +262,17 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
     SARVAM_LANG_MAP = {
         "en": "en-IN", "hi": "hi-IN", "ta": "ta-IN", "te": "te-IN",
         "bn": "bn-IN", "mr": "mr-IN", "kn": "kn-IN", "ml": "ml-IN",
-        "gu": "gu-IN", "pa": "pa-IN", "or": "od-IN",
+        "gu": "gu-IN", "pa": "pa-IN", "or": "od-IN", "as": "as-IN",
+        "ur": "ur-IN",
     }
 
     FULL_LANG_NAMES = {
         "en": "English", "hi": "Hindi", "ta": "Tamil", "te": "Telugu",
         "bn": "Bengali", "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam",
-        "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"
+        "gu": "Gujarati", "pa": "Punjabi", "or": "Odia", "as": "Assamese",
+        "ur": "Urdu", "fr": "French", "de": "German", "es": "Spanish",
+        "zh": "Chinese", "ja": "Japanese", "ko": "Korean",
+        "ar": "Arabic", "ru": "Russian", "pt": "Portuguese",
     }
 
     ensure_table()
@@ -312,13 +316,17 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
                     "Translate for a medical professional audience."
                 )
 
-                llm_res = get_llm("SARVAM")
-                clinical_llm = llm_res[0]
-
                 for idx, segment in uncached_segments:
                     try:
                         target_name = FULL_LANG_NAMES.get(target_lang, target_lang)
                         source_name = FULL_LANG_NAMES.get(source_lang, source_lang)
+                        
+                        # Use GPT-4o-mini as a high-quality global fallback for non-Indian languages
+                        # unless explicitly requested otherwise.
+                        current_model = "OPENAI_GPT_4O_MINI" if target_lang not in SARVAM_LANG_MAP else "SARVAM"
+                        llm_res = get_llm(current_model)
+                        clinical_llm = llm_res[0]
+
                         messages = [
                             SystemMessage(content=system_prompt),
                             HumanMessage(content=f"Translate to {target_name} from {source_name}: {segment}")

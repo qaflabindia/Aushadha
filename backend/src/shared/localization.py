@@ -1,13 +1,16 @@
 import logging
 import json
+import re
 from langchain_core.messages import SystemMessage, HumanMessage
+from src.translation_cache import get_cached, save_to_cache
+from src.database import SessionLocal
 
-# Translation cache to avoid repeated LLM calls for the same terms
-_translation_cache = {}
+# Local fallback cache for within-request efficiency
+_request_cache = {}
 
 def clear_translation_cache():
-    global _translation_cache
-    _translation_cache = {}
+    global _request_cache
+    _request_cache = {}
 
 async def translate_graph_labels(nodes, relationships, language, model):
     """
@@ -39,23 +42,42 @@ async def translate_graph_labels(nodes, relationships, language, model):
         if rel and "type" in rel:
             terms_to_translate.add(rel["type"])
 
-    # Check cache first
+    # Check cache (request cache first, then DB)
     cache_key_prefix = f"{language}:"
-    uncached_terms = [t for t in terms_to_translate if f"{cache_key_prefix}{t}" not in _translation_cache]
+    db = SessionLocal()
+    try:
+        uncached_terms = []
+        for t in terms_to_translate:
+            cache_key = f"{cache_key_prefix}{t}"
+            if cache_key in _request_cache:
+                continue
+                
+            # DB lookup
+            cached = get_cached(db, t, "en", language)
+            if cached:
+                _request_cache[cache_key] = cached
+            else:
+                # Check for file extensions - skip if it looks like a file
+                if re.search(r'\.(pdf|docx|txt|json|png|jpg|jpeg)$', t, re.IGNORECASE):
+                    _request_cache[cache_key] = t
+                    continue
+                uncached_terms.append(t)
 
-    # Batch translate uncached terms
-    if uncached_terms:
-        try:
-            translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
-            for original, translated in translations.items():
-                _translation_cache[f"{cache_key_prefix}{original}"] = translated
-        except Exception as e:
-            logging.warning(f"Translation failed: {e}")
-            # Don't cache anything, we'll try again next time
+        # Batch translate uncached terms
+        if uncached_terms:
+            try:
+                translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
+                for original, translated in translations.items():
+                    _request_cache[f"{cache_key_prefix}{original}"] = translated
+                    save_to_cache(db, original, "en", language, translated)
+            except Exception as e:
+                logging.warning(f"Translation failed for {len(uncached_terms)} terms: {e}")
+    finally:
+        db.close()
 
     # Apply translations
     def get_translated(term):
-        return _translation_cache.get(f"{cache_key_prefix}{term}", term)
+        return _request_cache.get(f"{cache_key_prefix}{term}", term)
 
     for node in nodes:
         if node and "labels" in node:
@@ -122,19 +144,38 @@ async def translate_metadata(metadata, language, model):
 
     # Translation process
     cache_key_prefix = f"{language}:"
-    uncached_terms = [t for t in terms_to_translate if f"{cache_key_prefix}{t}" not in _translation_cache]
+    db = SessionLocal()
+    try:
+        uncached_terms = []
+        for t in terms_to_translate:
+            cache_key = f"{cache_key_prefix}{t}"
+            if cache_key in _request_cache:
+                continue
+            
+            cached = get_cached(db, t, "en", language)
+            if cached:
+                _request_cache[cache_key] = cached
+            else:
+                # Skip file-like names
+                if re.search(r'\.(pdf|docx|txt|json|png|jpg|jpeg)$', t, re.IGNORECASE):
+                    _request_cache[cache_key] = t
+                    continue
+                uncached_terms.append(t)
 
-    if uncached_terms:
-        try:
-            translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
-            for original, translated in translations.items():
-                _translation_cache[f"{cache_key_prefix}{original}"] = translated
-        except Exception as e:
-            logging.warning(f"Metadata translation failed: {e}")
+        if uncached_terms:
+            try:
+                translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
+                for original, translated in translations.items():
+                    _request_cache[f"{cache_key_prefix}{original}"] = translated
+                    save_to_cache(db, original, "en", language, translated)
+            except Exception as e:
+                logging.warning(f"Metadata translation failed for {len(uncached_terms)} terms: {e}")
+    finally:
+        db.close()
 
     # Apply translations back to metadata
     def get_translated(term):
-        return _translation_cache.get(f"{cache_key_prefix}{term}", term)
+        return _request_cache.get(f"{cache_key_prefix}{term}", term)
 
     # Apply to entities
     if "entities" in metadata:

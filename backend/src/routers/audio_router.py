@@ -20,9 +20,10 @@ class SpeakRequest(BaseModel):
     voice: str = "alloy"
 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(file: UploadFile = File(...), language: str = None):
     """
     Transcribe audio file using OpenAI Whisper.
+    Optional language hint (e.g. 'hi', 'ta') can be provided.
     """
     try:
         api_key = get_value_from_env("OPENAI_API_KEY")
@@ -42,7 +43,8 @@ async def transcribe_audio(file: UploadFile = File(...)):
             with open(temp_audio.name, "rb") as audio_file:
                 transcript = client.audio.transcriptions.create(
                     model="whisper-1", 
-                    file=audio_file
+                    file=audio_file,
+                    language=language if language and language != "en" else None
                 )
             return {"text": transcript.text}
 

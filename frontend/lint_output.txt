@@ -1,5 +1,7 @@
-yarn run v1.22.22
-$ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warnings 0
+
+> neo4j-llm-graph-builder@1.0.0 lint
+> eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warnings 0
+
 
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/API/Index.ts
    71:13  warning  Unexpected console statement  no-console
@@ -19,8 +21,7 @@ $ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warning
   95:7  warning  Unexpected console statement  no-console
 
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/Chatbot.tsx
-  330:9   warning  Unexpected console statement  no-console
-  421:13  warning  Unexpected console statement  no-console
+  327:9  warning  Unexpected console statement  no-console
 
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/ChatBot/Chatbot_old.tsx
   273:11  warning  Unexpected console statement  no-console
@@ -56,9 +57,6 @@ $ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warning
   366:7   warning  Unexpected console statement  no-console
   554:13  warning  Unexpected console statement  no-console
   569:13  warning  Unexpected console statement  no-console
-
-/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Layout/ResearchDrawer.tsx
-  18:30  error  Expected { after 'if' condition  curly
 
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/ConnectionModal/ConnectionModal.tsx
   123:9   warning  Unexpected console statement  no-console
@@ -101,9 +99,6 @@ $ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warning
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Popups/SecretVaultModal.tsx
   30:7  warning  Unexpected console statement  no-console
 
-/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/QuickStarter.tsx
-  1:1  error  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unused-vars')
-
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/components/Settings/GraphSettingsTabs.tsx
   45:7  warning  Unexpected console statement  no-console
 
@@ -122,21 +117,6 @@ $ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warning
 
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/context/UsersFiles.tsx
   149:7  warning  Unexpected console statement  no-console
-
-/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/hooks/useSpeechRecognition.tsx
-   30:68  error    use `Boolean(navigator.mediaDevices)` instead     no-implicit-coercion
-   30:96  error    use `Boolean(window.MediaRecorder)` instead       no-implicit-coercion
-   34:29  error    Expected { after 'if' condition                   curly
-   38:13  error    This line has 2 statements. Maximum allowed is 1  max-statements-per-line
-   38:56  error    Empty block statement                             no-empty
-   65:7   warning  Unexpected console statement                      no-console
-   75:15  error    This line has 2 statements. Maximum allowed is 1  max-statements-per-line
-   75:58  error    Empty block statement                             no-empty
-   81:38  error    Expected { after 'if' condition                   curly
-   95:32  error    Expected { after 'if' condition                   curly
-  113:13  warning  Unexpected console statement                      no-console
-  124:9   warning  Unexpected console statement                      no-console
-  130:39  error    Expected { after 'if' condition                   curly
 
 /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/services/AdditionalMetrics.ts
   27:5  warning  Unexpected console statement  no-console
@@ -224,8 +204,6 @@ $ eslint --ext .ts --ext .tsx . --report-unused-disable-directives --max-warning
   842:7   warning  Unexpected console statement                    no-console
   902:25  warning  Async arrow function has no 'await' expression  require-await
 
-✖ 115 problems (12 errors, 103 warnings)
-  8 errors and 0 warnings potentially fixable with the `--fix` option.
+✖ 99 problems (0 errors, 99 warnings)
 
-error Command failed with exit code 1.
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+ESLint found too many warnings (maximum: 0).

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, FC, useCallback } from 'react';
+import { Dialog, Button, Typography } from '@neo4j-ndl/react';
 import { useTranslate } from './TranslationContext';
 import localTranslations, { TranslationKey } from '../utils/i18n';
 
@@ -38,24 +39,53 @@ export const LanguageProvider: FC<LanguageProviderProps> = ({ children }) => {
   const stored = localStorage.getItem('appLanguage');
   const initial = SUPPORTED_LANGUAGES.find((l) => l.code === stored) || SUPPORTED_LANGUAGES[0];
   const [language] = useState<AppLanguage>(initial);
+  const [pendingLanguage, setPendingLanguage] = useState<AppLanguage | null>(null);
+  const t = useTranslate();
 
   const setLanguageByCode = useCallback(
     (code: string) => {
       const found = SUPPORTED_LANGUAGES.find((l) => l.code === code);
       if (found && found.code !== language.code) {
-        const confirmed = window.confirm(
-          `Changing the language to ${found.name} requires refreshing the application. Any unsaved work may be lost. Proceed?`
-        );
-        if (confirmed) {
-          localStorage.setItem('appLanguage', code);
-          window.location.reload();
-        }
+        setPendingLanguage(found);
       }
     },
     [language.code]
   );
 
-  return <LanguageContext.Provider value={{ language, setLanguageByCode }}>{children}</LanguageContext.Provider>;
+  const confirmLanguageSwitch = () => {
+    if (pendingLanguage) {
+      localStorage.setItem('appLanguage', pendingLanguage.code);
+      window.location.reload();
+    }
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguageByCode }}>
+      {children}
+      <Dialog
+        size='small'
+        isOpen={Boolean(pendingLanguage)}
+        onClose={() => setPendingLanguage(null)}
+        htmlAttributes={{
+          'aria-labelledby': 'language-switch-title',
+        }}
+      >
+        <Dialog.Header>{t('Select Language')}</Dialog.Header>
+        <Dialog.Content className='n-flex n-flex-col n-gap-token-4'>
+          <Typography variant='body-medium'>
+            {t('Changing the language to')} <strong>{pendingLanguage?.name}</strong>{' '}
+            {t('requires refreshing the application. Any unsaved work may be lost. Proceed?')}
+          </Typography>
+        </Dialog.Content>
+        <Dialog.Actions>
+          <Button onClick={confirmLanguageSwitch}>{t('Continue')}</Button>
+          <Button fill='outlined' color='neutral' onClick={() => setPendingLanguage(null)}>
+            {t('Cancel')}
+          </Button>
+        </Dialog.Actions>
+      </Dialog>
+    </LanguageContext.Provider>
+  );
 };
 
 export const useLanguage = (): LanguageContextType => {

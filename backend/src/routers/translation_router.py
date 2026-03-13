@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/translate", tags=["translation"])
 
 # ─── Known UI strings — seeded into DB at startup ────────────────────────────
-KNOWN_UI_STRINGS = [
+KNOWN_UI_STRINGS = sorted(list(set([
     "File Management", "Clinical Intelligence", "DB Connection",
     "No Graph Schema configured", "Name", "Status", "Upload Status",
     "Size (KB)", "Source", "Type", "Model", "Nodes", "Completed",
@@ -44,9 +44,8 @@ KNOWN_UI_STRINGS = [
     "Clear configured Graph Schema", "Apply Graph Schema", "Chat",
     "Download Conversation", "Visualize Graph Schema",
     "Analyze instructions for schema", "Predefined Schema",
-    "Data Importer JSON", "Explore Graph", "Preview Graph",
-    "Documents, Images, Unstructured text", "Youtube", "GCS", "Amazon S3",
-    "No Labels Found in the Database",
+    "Data Importer JSON", "Explore Graph", "Documents, Images, Unstructured text",
+    "Youtube", "GCS", "Amazon S3", "No Labels Found in the Database",
     "Drop your neo4j credentials file here",
     "Analyze text to extract graph schema", "Connect", "Disconnect",
     "Submit", "Connect to DB", "Cancel", "Apply",
@@ -69,36 +68,13 @@ KNOWN_UI_STRINGS = [
     "Large file detected", "File exceeds recommended size",
     "Retry", "Processing failed. Would you like to retry?",
     "No labels found", "Connection settings", "Vector index mismatch",
-    # Constants - Tooltips
-    "Generate graph from selected files", "Select one or more files to delete",
-    "Preview generated graph.", "Visualize the graph in Bloom",
-    "File/Files to be deleted", "Documentation", "GitHub Issues",
-    "Light / Dark mode", "Entity Graph Extraction Settings", "Start a chat",
-    "Upload files", "Delete", "Maximise", "Copy to Clipboard", "Copied",
-    "Stop Speaking", "Text to Speech", "Define schema from text",
-    "Fetch schema from database", "Clear Chat History", "Continue",
-    "Clear configured Graph Schema", "Apply Graph Schema", "Chat",
-    "Download Conversation", "Visualize Graph Schema",
-    "Analyze instructions for schema", "Predefined Schema",
-    "Data Importer JSON",
-    # Constants - Button Captions
-    "Explore Graph", "Preview Graph", "Delete Files", "Generate Graph",
-    "Documents, Images, Unstructured text", "Youtube", "GCS", "Amazon S3",
-    "No Labels Found in the Database", "Drop your neo4j credentials file here",
-    "Analyze text to extract graph schema", "Connect", "Disconnect",
-    "Submit", "Connect to DB", "Cancel", "Details", "Continue",
-    "Clear Schema", "Ask", "Apply",
-    "Provide Additional Instructions for Entity Extractions",
-    "Analyze Instructions",
-    "Provide specific instructions for entity extraction, such as focusing on the key topics.",
-    "JSON Documents",
     # Constants - App Labels
     "Or Define your own Schema", "Select a Pre-defined Schema",
     "Select a Chunking Configuration", "Graph Pattern", "Selected Patterns",
     "Schema from Data Importer",
     # Constants - Graph Labels
     "Inspect Generated Graph from", "Document", "Chunk", "DocumentChunk",
-    "Result Overview", "Total Nodes", "No Entities Found",
+    "No Entities Found",
     "Select atleast one checkbox for graph view", "Total Relationships",
     "Communities", "No Nodes and No relationships",
     # DrawerDropzone
@@ -127,7 +103,8 @@ KNOWN_UI_STRINGS = [
     "No secrets configured yet. Click Load to check.",
     "Manage users, roles, and organisation settings.",
     "Administrator access required.",
-]
+    "Assistant Voice", # Added for Issue 17
+])))
 
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -174,7 +151,7 @@ async def _llm_translate(text: str, lang_code: str, model: Optional[str] = None)
 
         return content
     except Exception as e:
-        logger.error(f"LLM translation failed for '{text}' → {lang_code}: {e}")
+        logger.error(f"LLM translation critical failure for '{text}' → {lang_code}: {str(e)}", exc_info=True)
         return None   # signal failure so we don't save to DB
 
 

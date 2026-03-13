@@ -764,6 +764,8 @@ export interface FileContextType {
   setImporterRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
   importerPattern: string[];
   setImporterPattern: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedVoice: string;
+  setSelectedVoice: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export interface showTextFromSchemaDialogType {
