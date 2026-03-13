@@ -231,7 +231,7 @@ const AccountSettings: React.FC = () => {
 const AISettings: React.FC = () => {
   const t = useTranslate();
   const { colorMode } = useContext(ThemeWrapperContext);
-  const { model, setModel, setFilesData } = useFileContext();
+  const { model, setModel, setFilesData, selectedVoice, setSelectedVoice } = useFileContext();
   const [isOpen, setIsOpen] = useState(false);
   const chatAnchor = useRef<HTMLDivElement>(null);
   const [showChatModeToggle, setShowChatModeToggle] = useState(false);
@@ -342,18 +342,14 @@ const AISettings: React.FC = () => {
             <button
               key={v}
               onClick={() => {
-                const { setSelectedVoice } = useFileContext();
                 setSelectedVoice(v);
                 localStorage.setItem('selectedVoice', v);
               }}
               className={clsx('px-3 py-1 rounded-full border text-xs font-bold transition-all', {
-                'bg-[#D4AF37] text-black border-[#D4AF37]':
-                  useFileContext().selectedVoice === v && colorMode === 'dark',
-                'bg-blue-600 text-white border-blue-600': useFileContext().selectedVoice === v && colorMode === 'light',
-                'border-white/10 text-white/40 hover:text-white/70':
-                  useFileContext().selectedVoice !== v && colorMode === 'dark',
-                'border-gray-200 text-gray-500 hover:text-gray-800':
-                  useFileContext().selectedVoice !== v && colorMode === 'light',
+                'bg-[#D4AF37] text-black border-[#D4AF37]': selectedVoice === v && colorMode === 'dark',
+                'bg-blue-600 text-white border-blue-600': selectedVoice === v && colorMode === 'light',
+                'border-white/10 text-white/40 hover:text-white/70': selectedVoice !== v && colorMode === 'dark',
+                'border-gray-200 text-gray-500 hover:text-gray-800': selectedVoice !== v && colorMode === 'light',
               })}
             >
               {v.charAt(0).toUpperCase() + v.slice(1)}

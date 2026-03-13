@@ -10,7 +10,7 @@ const useSpeechSynthesis = (props: SpeechSynthesisProps = {}) => {
   };
 
   const speak = (args: SpeechArgs = {}, isSupported: boolean) => {
-    const { text = '', rate = 1, pitch = 1, volume = 1, lang = 'en-US' } = args;
+    const { text = '', rate = 1, pitch = 1, volume = 1, lang = 'en-US', voiceURI } = args;
     if (!isSupported || typeof window === 'undefined') {
       return;
     }
@@ -22,10 +22,13 @@ const useSpeechSynthesis = (props: SpeechSynthesisProps = {}) => {
       utterance.lang = lang;
 
       const voices = window.speechSynthesis.getVoices();
-      // Try to find a voice that matches the lang exactly or partially
-      const voice = voices.find(
-        (v) => v.lang === lang || v.lang.replace('_', '-') === lang || v.lang.startsWith(lang.split('-')[0])
-      );
+      // Try to find a voice that matches voiceURI first, then fall back to language
+      const voice =
+        (voiceURI ? voices.find((v) => v.voiceURI === voiceURI || v.name === voiceURI) : null) ||
+        voices.find(
+          (v) => v.lang === lang || v.lang.replace('_', '-') === lang || v.lang.startsWith(lang.split('-')[0])
+        );
+
       if (voice) {
         utterance.voice = voice;
       }

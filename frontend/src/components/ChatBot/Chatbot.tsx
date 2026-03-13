@@ -425,7 +425,9 @@ const Chatbot: FC<ChatbotProps> = (props) => {
 
       // 2. Play Audio (Browser or Backend Fallback)
       const isBrowserTtsSupported = typeof window !== 'undefined' && window.speechSynthesis !== undefined;
-      if (isBrowserTtsSupported) {
+      const isOpenAiVoice = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].includes(selectedVoice);
+
+      if (isBrowserTtsSupported && !isOpenAiVoice) {
         speak({ text: textToSpeak, lang: language.speechCode, voiceURI: selectedVoice }, true);
       } else {
         try {
