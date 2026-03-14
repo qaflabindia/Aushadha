@@ -114,8 +114,8 @@ const PatientDropdown: React.FC = () => {
           className={clsx(
             'absolute top-full mt-3 w-full rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[1000] animate-inc-scale origin-top overflow-hidden',
             {
-              'bg-[#0B0C10] border-[#D4AF37]/20': colorMode === 'dark',
-              'bg-white border-gray-100': colorMode === 'light',
+              '!bg-[#0F1014] border-[#D4AF37]/20': colorMode === 'dark',
+              '!bg-white border-gray-100 shadow-xl': colorMode === 'light',
             }
           )}
         >

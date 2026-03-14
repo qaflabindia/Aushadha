@@ -104,8 +104,8 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
           className={clsx(
             'absolute z-[1100] w-full mt-2 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] origin-top animate-inc-scale overflow-hidden',
             {
-              'bg-[#0B0C10] border-white/10': colorMode === 'dark',
-              'bg-white border-gray-100': colorMode === 'light',
+              '!bg-[#0F1014] border-white/10': colorMode === 'dark',
+              '!bg-white border-gray-100 shadow-xl': colorMode === 'light',
             }
           )}
         >

@@ -35,7 +35,9 @@ const ThemeWrapper = ({ children }: ThemeWrapperProps) => {
   const themeBodyInjection = (mode: string) => {
     if (mode === 'dark') {
       document.body.classList.add('ndl-theme-dark');
+      document.body.classList.remove('ndl-theme-light');
     } else {
+      document.body.classList.add('ndl-theme-light');
       document.body.classList.remove('ndl-theme-dark');
     }
   };

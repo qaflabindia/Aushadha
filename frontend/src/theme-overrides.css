@@ -18,7 +18,7 @@
 .ndl-theme-dark .ndl-modal,
 .ndl-theme-dark .ndl-drawer,
 .ndl-theme-dark .ndl-dialog {
-  background: rgba(5, 5, 5, 0.9) !important;
+  background: #050505 !important;
   color: #ffffff !important;
   border: 1px solid rgba(212, 175, 55, 0.2) !important;
 }

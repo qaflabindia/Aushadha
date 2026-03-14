@@ -282,7 +282,7 @@ const AISettings: React.FC = () => {
             <div
               className={clsx('absolute top-full left-0 mt-1 w-full rounded-xl border shadow-2xl z-50 overflow-auto', {
                 'bg-[#0D0D0D] border-white/10 max-h-72': colorMode === 'dark',
-                'bg-white border-gray-200 max-h-72': colorMode === 'light',
+                'bg-white border-gray-200 shadow-xl max-h-72': colorMode === 'light',
               })}
             >
               {llms.map((llmOption) => (
