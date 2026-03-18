@@ -1,7 +1,7 @@
 import { FC, useContext, useState } from 'react';
 import { ChunkProps } from '../../types';
 import { Flex, LoadingSpinner, TextLink, Typography } from '@neo4j-ndl/react';
-import { DocumentTextIconOutline, ExploreIcon, GlobeAltIconOutline } from '@neo4j-ndl/react/icons';
+import { RiFileTextLine, RiCompassDiscoverLine, RiGlobalLine } from 'react-icons/ri';
 import wikipedialogo from '../../assets/images/wikipedia.svg';
 import youtubelogo from '../../assets/images/youtube.svg';
 import gcslogo from '../../assets/images/gcs.webp';
@@ -14,8 +14,10 @@ import GraphViewModal from '../Graph/GraphViewModal';
 import { handleGraphNodeClick } from './chatInfo';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
 import remarkGfm from 'remark-gfm';
+import { useTranslate } from '../../context/TranslationContext';
 const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
   const themeUtils = useContext(ThemeWrapperContext);
+  const t = useTranslate();
   const [neoNodes, setNeoNodes] = useState<any[]>([]);
   const [neoRels, setNeoRels] = useState<any[]>([]);
   const [openGraphView, setOpenGraphView] = useState(false);
@@ -49,7 +51,7 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                   <>
                     <div className='flex! flex-row items-center gap-1'>
                       <>
-                        <DocumentTextIconOutline className='w-4 h-4 inline-block mr-2' />
+                        <RiFileTextLine className='w-4 h-4 inline-block mr-2' size={16} />
                         <Typography
                           variant='body-medium'
                           className='text-ellipsis whitespace-nowrap overflow-hidden max-w-lg'
@@ -63,20 +65,24 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       mode !== chatModeLables.graph &&
                       chunk.score && (
                         <Flex alignItems='center' flexDirection='row' justifyContent='space-between'>
-                          <Typography variant='subheading-small'>Similarity Score: {chunk?.score}</Typography>
+                          <Typography variant='subheading-small'>
+                            {t('similarityScore')}: {chunk?.score}
+                          </Typography>
                           <IconButtonWithToolTip
                             placement='top'
-                            text='View Graph'
+                            text={t('viewGraph')}
                             label='View Graph btn'
                             className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                             onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                           >
-                            <ExploreIcon className='n-size-token-5' />
+                            <RiCompassDiscoverLine className='n-size-token-5' size={20} />
                           </IconButtonWithToolTip>
                         </Flex>
                       )}
                     <div>
-                      <Typography variant='subheading-small'>Page: {chunk?.page_number}</Typography>
+                      <Typography variant='subheading-small'>
+                        {t('page')}: {chunk?.page_number}
+                      </Typography>
                     </div>
                   </>
                 ) : chunk?.url && chunk?.start_time ? (
@@ -103,15 +109,17 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       mode !== chatModeLables.graph && (
                         <>
                           <Flex alignItems='center' flexDirection='row' justifyContent='space-between'>
-                            <Typography variant='subheading-small'>Similarity Score: {chunk?.score}</Typography>
+                            <Typography variant='subheading-small'>
+                              {t('similarityScore')}: {chunk?.score}
+                            </Typography>
                             <IconButtonWithToolTip
                               placement='top'
-                              text='View Graph'
+                              text={t('viewGraph')}
                               label='View Graph btn'
                               className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                               onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                             >
-                              <ExploreIcon className='n-size-token-5' />
+                              <RiCompassDiscoverLine className='n-size-token-5' size={20} />
                             </IconButtonWithToolTip>
                           </Flex>
                         </>
@@ -128,16 +136,18 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       mode !== chatModeLables.graph && (
                         <>
                           <Flex alignItems='center' flexDirection='row' justifyContent='space-between'>
-                            <Typography variant='subheading-small'>Similarity Score: {chunk?.score}</Typography>
+                            <Typography variant='subheading-small'>
+                              {t('similarityScore')}: {chunk?.score}
+                            </Typography>
 
                             <IconButtonWithToolTip
                               placement='top'
-                              text='View Graph'
+                              text={t('viewGraph')}
                               label='View Graph btn'
                               className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                               onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                             >
-                              <ExploreIcon className='n-size-token-5' />
+                              <RiCompassDiscoverLine className='n-size-token-5' size={20} />
                             </IconButtonWithToolTip>
                           </Flex>
                           <div></div>
@@ -155,15 +165,17 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       mode !== chatModeLables.graph && (
                         <>
                           <Flex alignItems='center' flexDirection='row' justifyContent='space-between'>
-                            <Typography variant='subheading-small'>Similarity Score: {chunk?.score}</Typography>
+                            <Typography variant='subheading-small'>
+                              {t('similarityScore')}: {chunk?.score}
+                            </Typography>
                             <IconButtonWithToolTip
                               placement='top'
-                              text='View Graph'
+                              text={t('viewGraph')}
                               label='View Graph btn'
                               className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                               onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                             >
-                              <ExploreIcon className='n-size-token-5' />
+                              <RiCompassDiscoverLine className='n-size-token-5' size={20} />
                             </IconButtonWithToolTip>
                           </Flex>
                         </>
@@ -180,15 +192,17 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       mode !== chatModeLables.graph && (
                         <>
                           <Flex alignItems='center' flexDirection='row' justifyContent='space-between'>
-                            <Typography variant='subheading-small'>Similarity Score: {chunk?.score}</Typography>
+                            <Typography variant='subheading-small'>
+                              {t('similarityScore')}: {chunk?.score}
+                            </Typography>
                             <IconButtonWithToolTip
                               placement='top'
-                              text='View Graph'
+                              text={t('viewGraph')}
                               label='View Graph btn'
                               className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                               onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                             >
-                              <ExploreIcon className='n-size-token-5' />
+                              <RiCompassDiscoverLine className='n-size-token-5' size={20} />
                             </IconButtonWithToolTip>
                           </Flex>
                         </>
@@ -199,7 +213,7 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                   !isAllowedHost(chunk?.url, ['storage.googleapis.com', 'wikipedia.org', 'youtube.com']) ? (
                   <>
                     <div className='flex! flex-row items-center gap-1'>
-                      <GlobeAltIconOutline className='n-size-token-7' />
+                      <RiGlobalLine className='n-size-token-7' size={28} />
                       <TextLink
                         href={chunk?.url}
                         type='external'
@@ -215,15 +229,17 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       mode !== chatModeLables.graph && (
                         <>
                           <Flex alignItems='center' flexDirection='row' justifyContent='space-between'>
-                            <Typography variant='subheading-small'>Similarity Score: {chunk?.score}</Typography>
+                            <Typography variant='subheading-small'>
+                              {t('similarityScore')}: {chunk?.score}
+                            </Typography>
                             <IconButtonWithToolTip
                               placement='top'
-                              text='View Graph'
+                              text={t('viewGraph')}
                               label='View Graph btn'
                               className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                               onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                             >
-                              <ExploreIcon className='n-size-token-5' />
+                              <RiCompassDiscoverLine className='n-size-token-5' size={20} />
                             </IconButtonWithToolTip>
                           </Flex>
                         </>
@@ -235,7 +251,7 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                       <Flex flexDirection='row' justifyContent='space-between'>
                         <div className='flex items-center'>
                           {chunk.fileSource === 'local file' ? (
-                            <DocumentTextIconOutline className='n-size-token-7 mr-2' />
+                            <RiFileTextLine className='n-size-token-7 mr-2' size={28} />
                           ) : (
                             <img
                               src={getLogo(themeUtils.colorMode)[chunk.fileSource]}
@@ -253,12 +269,12 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
                         </div>
                         <IconButtonWithToolTip
                           placement='top'
-                          text='View Graph'
+                          text={t('viewGraph')}
                           label='View Graph btn'
                           className={`${loadingGraphView ? 'cursor-wait' : 'cursor-pointer'}`}
                           onClick={() => handleChunkClick(chunk.element_id, 'Chunk')}
                         >
-                          <ExploreIcon className='n-size-token-5' />
+                          <RiCompassDiscoverLine className='n-size-token-5' />
                         </IconButtonWithToolTip>
                       </Flex>
                       <></>
@@ -276,7 +292,7 @@ const ChunkInfo: FC<ChunkProps> = ({ loading, chunks, mode }) => {
           </ul>
         </div>
       ) : (
-        <span className='h6 text-center'> No Chunks Found</span>
+        <span className='h6 text-center'>{t('noChunksFound')}</span>
       )}
       {openGraphView && (
         <GraphViewModal

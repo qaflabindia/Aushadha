@@ -1,6 +1,6 @@
 import React, { FC, lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { TextInput, IconButton, Modal, useCopyToClipboard, SpotlightTarget } from '@neo4j-ndl/react';
-import { XMarkIconOutline } from '@neo4j-ndl/react/icons';
+import { RiCloseLine } from 'react-icons/ri';
 import {
   ChatbotProps,
   Chunk,
@@ -34,7 +34,8 @@ import remarkGfm from 'remark-gfm';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { useContext } from 'react';
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
-import { useLanguage, useTranslation } from '../../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { useAlertContext } from '../../context/Alert';
 import { RiRobotLine, RiUserLine, RiMicLine, RiMicFill, RiChatSettingsLine } from 'react-icons/ri';
 import ChatModeToggle from './ChatModeToggle';
@@ -318,7 +319,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                   ...msg,
                   isLoading: false,
                   isTyping: false,
-                  modes: { ...msg.modes, [chatModes[0]]: { message: 'Generation cancelled by user.' } },
+                  modes: { ...msg.modes, [chatModes[0]]: { message: t('generationCancelled') } },
                 }
               : msg)
           )
@@ -419,7 +420,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
             setTranslationCache((prev) => ({ ...prev, [cacheKey]: textToSpeak }));
           }
         } catch (error) {
-          showAlert('error', 'Translation failed. Please try again.');
+          showAlert('error', t('translationFailed'));
         }
       }
 
@@ -447,7 +448,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
             audio.play();
           }
         } catch (error) {
-          showAlert('error', 'Speech synthesis failed. Please try again.');
+          showAlert('error', t('speechSynthesisFailed'));
         }
       }
 
@@ -491,7 +492,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               'text-[#1A1A1A]': colorMode === 'light',
             })}
           >
-            {t('conciergeIntelligence')}
+            {t('Concierge Intelligence')}
           </span>
           <span
             className={clsx('text-[8px] uppercase tracking-[0.2em] font-bold mt-1 opacity-40', {
@@ -499,7 +500,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               'text-gray-500': colorMode === 'light',
             })}
           >
-            {t('neuralNetwork')}
+            {t('Medical Neural Network')}
           </span>
         </div>
         <div
@@ -511,7 +512,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
       </div>
       {isDeleteChatLoading && (
         <div className='absolute inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center'>
-          <Loader title='Processing Architecture...' />
+          <Loader title={t('processingArchitecture')} />
         </div>
       )}
 
@@ -541,7 +542,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                           'text-[#D4AF37]': colorMode === 'light',
                         })}
                       >
-                        {t('conciergeIntelligence')}
+                        {t('Concierge Intelligence')}
                       </span>
                     </>
                   ) : (
@@ -552,7 +553,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                           'text-black/40': colorMode === 'light',
                         })}
                       >
-                        {t('authorizedTerminal')}
+                        {t('Authorized Terminal')}
                       </span>
                       <div
                         className={clsx('w-7 h-7 rounded-full border flex items-center justify-center', {
@@ -609,7 +610,9 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                     >
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {chat.id === 2 && chat.user === 'chatbot' && index === 0
-                          ? t('welcomeMessage')
+                          ? t(
+                              'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.'
+                            )
                           : chat.modes[chat.currentMode]?.message || ''}
                       </ReactMarkdown>
                     </div>
@@ -657,7 +660,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
               value={inputMessage}
               onChange={handleInputChange}
               isFluid
-              placeholder={t('inquireVault')}
+              placeholder={t('Inquire Vault')}
               className={clsx('focus:border-[#D4AF37]/50 py-4 px-12 rounded-2xl w-full', {
                 'text-white shadow-inner': colorMode === 'dark',
                 'text-black': colorMode === 'light',
@@ -675,7 +678,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                   'text-gray-500': colorMode === 'light',
                 }
               )}
-              title='Intelligence Search Mode'
+              title={t('Intelligence Search Mode')}
             >
               <RiChatSettingsLine size={18} />
             </button>
@@ -720,7 +723,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                   }
                 )}
               >
-                Cancel
+                {t('Cancel')}
               </button>
             ) : (
               <button
@@ -735,7 +738,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                   }
                 )}
               >
-                Ask
+                {t('Ask')}
               </button>
             )}
           </SpotlightTarget>
@@ -751,7 +754,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
         >
           <div className='flex justify-end p-4'>
             <IconButton size='large' isClean ariaLabel='close' onClick={() => setShowInfoModal(false)}>
-              <XMarkIconOutline className='w-6 h-6' />
+              <RiCloseLine className='n-size-token-6' size={24} />
             </IconButton>
           </div>
           <InfoModal

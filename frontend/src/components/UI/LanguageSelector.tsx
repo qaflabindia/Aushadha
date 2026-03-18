@@ -1,6 +1,6 @@
-import React from 'react';
 import { RiGlobalLine } from 'react-icons/ri';
-import { useLanguage, SUPPORTED_LANGUAGES } from '../../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { SUPPORTED_LANGUAGES } from '../../context/LangTypes';
 import { PremiumDropdown } from './PremiumDropdown';
 
 const LanguageSelector: React.FC = () => {
@@ -18,7 +18,7 @@ const LanguageSelector: React.FC = () => {
       options={options}
       onChange={setLanguageByCode}
       icon={<RiGlobalLine />}
-      width="200px"
+      width='200px'
     />
   );
 };

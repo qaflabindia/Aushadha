@@ -14,6 +14,7 @@ class Neo4jCredentials(BaseModel):
     database: Optional[str] = Field(None, description="Neo4j database name")
     email: Optional[str] = Field(None, description="User email for logging")
     target_user_email: Optional[str] = Field(None, description="Email of the patient being impersonated by an Admin/Doctor/Staff")
+    patient_id: Optional[str] = Field(None, description="Case ID of the patient context for strict data isolation")
     user_role: Optional[str] = Field(None, description="Role of the authenticated user")
 
     def validate_required(self) -> None:
@@ -53,6 +54,7 @@ async def get_neo4j_credentials(
     database: Optional[str] = Form(None),
     email: Optional[str] = Form(None),
     target_user_email: Optional[str] = Form(None),
+    patient_id: Optional[str] = Form(None),
     user_role: Optional[str] = Form(None)
 ) -> Neo4jCredentials:
     """
@@ -87,5 +89,6 @@ async def get_neo4j_credentials(
         database=database,
         email=email,
         target_user_email=target_user_email,
+        patient_id=patient_id,
         user_role=user_role
     )

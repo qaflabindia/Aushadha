@@ -13,7 +13,11 @@ export const llms =
     ? (import.meta.env.VITE_LLM_MODELS?.split(',') as string[])
     : [
         'gemini_2.5_flash',
+        'openai_gpt_5.4_mini',
+        'openai_gpt_5.4_nano',
         'openai_gpt_5.2',
+        'openai_gpt_4.5',
+        'openai_gpt_4.5_0',
         'openai_gpt_5_mini',
         'gemini_2.5_pro',
         'diffbot',
@@ -152,7 +156,13 @@ export const tooltips = {
   predinedSchema: 'Predefined Schema',
   dataImporterJson: 'Data Importer JSON',
 };
-export const PRODMODELS = ['gemini_2.5_flash', 'openai_gpt_5_mini', 'diffbot', 'anthropic_claude_4.5_haiku'];
+export const PRODMODELS = [
+  'gemini_2.5_flash',
+  'openai_gpt_5.4_mini',
+  'openai_gpt_5_mini',
+  'diffbot',
+  'anthropic_claude_4.5_haiku',
+];
 export const buttonCaptions = {
   exploreGraphWithBloom: 'Explore Graph',
   showPreviewGraph: 'Preview Graph',

@@ -11,6 +11,15 @@ from src.api_response import create_api_response
 from src.entities.user_credential import Neo4jCredentials, get_neo4j_credentials
 from src.graphDB_dataAccess import graphDBdataAccess
 from src.logger import CustomLogger
+import bcrypt
+import logging
+
+logger = logging.getLogger(__name__)
+
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 from src.main import create_graph_database_connection
 from src.shared.common_fn import formatted_time
 from src.shared.google_auth import require_auth, AuthenticatedUser
@@ -21,6 +30,7 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models import User, Role
 from src.llm import translate_text
+from pydantic import BaseModel
 
 async def require_admin(
     user: AuthenticatedUser = Depends(require_auth),
@@ -40,7 +50,6 @@ async def require_admin(
         
     return user
 
-logger = CustomLogger()
 router = APIRouter(tags=["Administration"])
 
 
@@ -59,15 +68,40 @@ async def get_secrets_list(user: AuthenticatedUser = Depends(require_admin)):
 
 @router.get("/secrets/values")
 async def get_secret_value(name: str, user: AuthenticatedUser = Depends(require_admin)):
-    """Get the value of a secret from the vault."""
+    """Get the plaintext value of a secret from the vault (admin-only)."""
     try:
         value = get_secret(name)
         if value is None:
             return create_api_response("Failed", message=f"Secret '{name}' not found")
-        # Obscure the secret value to prevent leakage
-        is_set = bool(value)
-        return create_api_response("Success", data={"name": name, "is_set": is_set})
+        return create_api_response("Success", data=value)
     except Exception as e:
+        return create_api_response("Failed", error=str(e))
+
+
+class PasswordUpdateRequest(BaseModel):
+    password: str
+
+@router.post("/update-password")
+async def update_password(request: PasswordUpdateRequest, db: Session = Depends(get_db), current_user = Depends(require_auth)):
+    logging.info(f"Update password request for user: {current_user.email}")
+    try:
+        new_password = request.password
+        if not new_password:
+            logging.warning("Password update failed: No password provided")
+            return create_api_response("Failed", message="Password is required")
+        
+        db_user = db.query(User).filter(User.email == current_user.email).first()
+        if not db_user:
+            logging.warning(f"Password update failed: User {current_user.email} not found in DB")
+            return create_api_response("Failed", message="User not found")
+        
+        logging.info(f"Hasing and saving new password for {current_user.email}")
+        db_user.hashed_password = hash_password(new_password)
+        db.commit()
+        logging.info(f"Password update successful for {current_user.email}")
+        return create_api_response("Success", message="Password updated successfully")
+    except Exception as e:
+        logging.exception(f"Password update error: {e}")
         return create_api_response("Failed", error=str(e))
 
 

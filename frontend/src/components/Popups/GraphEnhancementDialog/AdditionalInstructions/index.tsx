@@ -14,6 +14,7 @@ import { useFileContext } from '../../../../context/UsersFiles';
 import { showNormalToast } from '../../../../utils/Toasts';
 import { OnChangeValue } from 'react-select';
 import { OptionType } from '../../../../types';
+import { usePatientContext } from '../../../../context/PatientContext';
 
 export default function AdditionalInstructionsText({
   closeEnhanceGraphSchemaDialog,
@@ -32,8 +33,10 @@ export default function AdditionalInstructionsText({
     selectedChunks_to_combine,
     setSelectedChunks_to_combine,
   } = useFileContext();
+  const { selectedPatient } = usePatientContext();
+  const patientEmail = selectedPatient?.case_id || 'global';
   const clickAnalyzeInstructHandler = useCallback(async () => {
-    localStorage.setItem('instructions', additionalInstructions);
+    localStorage.setItem(`${patientEmail}_instructions`, additionalInstructions);
     closeEnhanceGraphSchemaDialog();
     showNormalToast(`Successfully Applied the Instructions`);
   }, [additionalInstructions]);
@@ -45,7 +48,7 @@ export default function AdditionalInstructionsText({
         return;
       }
       setSelectedTokenChunkSize(parsedValue);
-      localStorage.setItem('selectedChunk_size', JSON.stringify({ selectedOption: parsedValue }));
+      localStorage.setItem(`${patientEmail}_selectedTokenChunkSize`, JSON.stringify({ selectedOption: parsedValue }));
     }
   };
   const onChangeChunk_overlap = (newValue: OnChangeValue<OptionType, false>) => {
@@ -56,7 +59,7 @@ export default function AdditionalInstructionsText({
         return;
       }
       setSelectedChunk_overlap(parsedValue);
-      localStorage.setItem('selectedChunk_overlap', JSON.stringify({ selectedOption: parsedValue }));
+      localStorage.setItem(`${patientEmail}_selectedChunk_overlap`, JSON.stringify({ selectedOption: parsedValue }));
     }
   };
   const onChangeChunks_to_combine = (newValue: OnChangeValue<OptionType, false>) => {
@@ -67,7 +70,10 @@ export default function AdditionalInstructionsText({
         return;
       }
       setSelectedChunks_to_combine(parsedValue);
-      localStorage.setItem('selectedChunks_to_combine', JSON.stringify({ selectedOption: parsedValue }));
+      localStorage.setItem(
+        `${patientEmail}_selectedChunks_to_combine`,
+        JSON.stringify({ selectedOption: parsedValue })
+      );
     }
   };
   return (

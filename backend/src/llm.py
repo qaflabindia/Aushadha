@@ -16,6 +16,14 @@ import boto3
 import google.auth
 from src.shared.constants import ADDITIONAL_INSTRUCTIONS
 from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import List, Optional
+import asyncio
+
+# Global semaphore to prevent flooding LLM APIs
+# Gemini Flash usually has high RPM but lower TPU quotas
+llm_semaphore = asyncio.Semaphore(int(os.getenv("MAX_CONCURRENT_LLM_CALLS", "5")))
 import re
 from typing import List
 from langchain_core.callbacks.manager import CallbackManager
@@ -128,7 +136,8 @@ def get_llm(model: str):
             
             )
         elif "OPENAI" in model:
-            model_name, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, api_key = parts[0], parts[1]
             if "MINI" in model:
                 llm= ChatOpenAI(
                 api_key=api_key,
@@ -144,7 +153,8 @@ def get_llm(model: str):
                 )
 
         elif "AZURE" in model:
-            model_name, api_endpoint, api_key, api_version = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, api_endpoint, api_key, api_version = parts[0], parts[1], parts[2], parts[3]
             llm = AzureChatOpenAI(
                 api_key=api_key,
                 azure_endpoint=api_endpoint,
@@ -157,21 +167,25 @@ def get_llm(model: str):
             )
 
         elif "ANTHROPIC" in model:
-            model_name, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, api_key = parts[0], parts[1]
             llm = ChatAnthropic(
                 api_key=api_key, model=model_name, temperature=0, timeout=None,callbacks=callback_manager, 
             )
 
         elif "FIREWORKS" in model:
-            model_name, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, api_key = parts[0], parts[1]
             llm = ChatFireworks(api_key=api_key, model=model_name,callbacks=callback_manager)
 
         elif "GROQ" in model:
-            model_name, base_url, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, base_url, api_key = parts[0], parts[1], parts[2]
             llm = ChatGroq(api_key=api_key, model_name=model_name, temperature=0,callbacks=callback_manager)
 
         elif "BEDROCK" in model:
-            model_name, aws_access_key, aws_secret_key, region_name = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, aws_access_key, aws_secret_key, region_name = parts[0], parts[1], parts[2], parts[3]
             bedrock_client = boto3.client(
                 service_name="bedrock-runtime",
                 region_name=region_name,
@@ -184,11 +198,13 @@ def get_llm(model: str):
             )
 
         elif "OLLAMA" in model:
-            model_name, base_url = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, base_url = parts[0], parts[1]
             llm = ChatOllama(base_url=base_url, model=model_name,callbacks=callback_manager)
 
         elif "LOCAL" in model or "SARVAM" in model:
-            model_name, base_url, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, base_url, api_key = parts[0], parts[1], parts[2]
             llm = ChatOpenAI(
                 api_key=api_key,
                 base_url=base_url,
@@ -217,7 +233,8 @@ def get_llm(model: str):
 
         elif "DIFFBOT" in model:
             #model_name = "diffbot"
-            model_name, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, api_key = parts[0], parts[1]
             llm = DiffbotGraphTransformer(
                 diffbot_api_key=api_key,
                 extract_types=["entities", "facts"],
@@ -225,7 +242,8 @@ def get_llm(model: str):
             callback_handler = None
         
         else: 
-            model_name, api_endpoint, api_key = env_value.split(",")
+            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
+            model_name, api_endpoint, api_key = parts[0], parts[1], parts[2]
             llm = ChatOpenAI(
                 api_key=api_key,
                 base_url=api_endpoint,
@@ -321,9 +339,14 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
                         target_name = FULL_LANG_NAMES.get(target_lang, target_lang)
                         source_name = FULL_LANG_NAMES.get(source_lang, source_lang)
                         
-                        # Use GPT-4o-mini as a high-quality global fallback for non-Indian languages
-                        # unless explicitly requested otherwise.
-                        current_model = "OPENAI_GPT_4O_MINI" if target_lang not in SARVAM_LANG_MAP else "SARVAM"
+                        # Indic languages (Hindi, Tamil, etc.) MUST use Sarvam AI
+                        # Non-Indic (French, German, etc.) use GPT-4o-mini as fallback
+                        indic_langs = ["hi", "ta", "te", "bn", "mr", "kn", "ml", "gu", "pa", "or", "as", "ur"]
+                        if target_lang in indic_langs:
+                            current_model = "SARVAM"
+                        else:
+                            current_model = "OPENAI_GPT_4O_MINI"
+                            
                         llm_res = get_llm(current_model)
                         clinical_llm = llm_res[0]
 
@@ -331,8 +354,13 @@ async def translate_text(text: str, target_lang: str, source_lang: str = "en") -
                             SystemMessage(content=system_prompt),
                             HumanMessage(content=f"Translate to {target_name} from {source_name}: {segment}")
                         ]
-                        response = await clinical_llm.ainvoke(messages)
-                        translated = response.content.strip()
+                        async with llm_semaphore:
+                            # Basic token estimation: ~4 chars per token for English, ~2 for Indic
+                            estimated_tokens = len(segment) // 2 
+                            logging.debug(f"Calling LLM for translation. Estimated tokens: {estimated_tokens}")
+                            
+                            response = await clinical_llm.ainvoke(messages)
+                            translated = response.content.strip()
                         
                         # Robust cleanup of reasoning/thought blocks
                         if "<think>" in translated:
@@ -418,6 +446,8 @@ async def get_graph_document_list(
 ):
     if additional_instructions:
         additional_instructions = sanitize_additional_instruction(additional_instructions)
+    
+    logging.info(f"Transforming {len(combined_chunk_document_list)} documents into graph documents")
     graph_document_list = []
     token_usage = 0
     try:
@@ -445,6 +475,20 @@ async def get_graph_document_list(
             graph_document_list = llm_transformer.convert_to_graph_documents(combined_chunk_document_list)
         else:
             graph_document_list = await llm_transformer.aconvert_to_graph_documents(combined_chunk_document_list)
+        
+        # Post-extraction sanitization for relationship types
+        for doc in graph_document_list:
+            for rel in doc.relationships:
+                # Remove common conversational junk patterns
+                rel.type = re.sub(r'(?i)(okay,\s*let\'s\s*tackle.*|here\s*is\s*the\s*translation.*|the\s*user\s*wrote.*|it\s*means.*|in\s*tamil.*)', '', rel.type).strip()
+                # Remove leading/trailing numbers in parentheses like (9)
+                rel.type = re.sub(r'\(\d+\)$', '', rel.type).strip()
+                # Replace spaces with underscores and uppercase
+                rel.type = rel.type.replace(' ', '_').upper()
+                # Default to a generic but clean type if empty after sanitization
+                if not rel.type or len(rel.type) > 50:
+                    rel.type = "RELATED_TO"
+                    
     except Exception as e:
        logging.error(f"Error in graph transformation: {e}", exc_info=True)
        raise LLMGraphBuilderException(f"Graph transformation failed: {str(e)}")
@@ -453,9 +497,11 @@ async def get_graph_document_list(
             if callback_handler:
                 usage = callback_handler.report()
                 token_usage = usage.get("total_tokens", 0)
+                logging.info(f"Graph transformation token usage: {token_usage}")
         except Exception as usage_err:
             logging.error(f"Error while reporting token usage: {usage_err}")
 
+    logging.info(f"Successfully generated {len(graph_document_list)} graph documents")
     return graph_document_list, token_usage
 
 async def get_graph_from_llm(model, chunkId_chunkDoc_list, allowedNodes, allowedRelationship, chunks_to_combine, additional_instructions=None):
@@ -466,7 +512,9 @@ async def get_graph_from_llm(model, chunkId_chunkDoc_list, allowedNodes, allowed
        combined_chunk_document_list = get_combined_chunks(chunkId_chunkDoc_list, chunks_to_combine)
        logging.info(f"Combined {len(combined_chunk_document_list)} chunks")
     
-       allowed_nodes = [node.strip() for node in allowedNodes.split(',') if node.strip()]
+       allowed_nodes = []
+       if allowedNodes:
+           allowed_nodes = [node.strip() for node in allowedNodes.split(',') if node.strip()]
        logging.info(f"Allowed nodes: {allowed_nodes}")
     
        allowed_relationships = []
@@ -638,7 +686,10 @@ async def extract_structured_ehr_data(model: str, text: str, condition_profile: 
         ])
         
         chain = prompt | llm.with_structured_output(EHRSchema)
-        result = await chain.ainvoke({"text": text})
+        async with llm_semaphore:
+            # EHR extraction often involves large contexts
+            logging.info(f"Structured extraction call (estimated {len(text)//2} tokens)")
+            result = await chain.ainvoke({"text": text})
         return result
     except Exception as e:
         logging.error(f"Error in intelligence-first structured extraction: {e}")

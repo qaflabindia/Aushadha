@@ -1,28 +1,5 @@
 import React, { createContext, useContext, useState, FC, useCallback } from 'react';
-import { Dialog, Button, Typography } from '@neo4j-ndl/react';
-import { useTranslate } from './TranslationContext';
-import localTranslations, { TranslationKey } from '../utils/i18n';
-
-export interface AppLanguage {
-  code: string; // ISO 639-1 (e.g., 'en', 'hi', 'ta')
-  speechCode: string; // BCP 47 for Web Speech API (e.g., 'en-US', 'hi-IN')
-  name: string; // Display name in that language
-  nameEn: string; // Display name in English
-}
-
-export const SUPPORTED_LANGUAGES: AppLanguage[] = [
-  { code: 'en', speechCode: 'en-US', name: 'English', nameEn: 'English' },
-  { code: 'hi', speechCode: 'hi-IN', name: 'हिन्दी', nameEn: 'Hindi' },
-  { code: 'ta', speechCode: 'ta-IN', name: 'தமிழ்', nameEn: 'Tamil' },
-  { code: 'te', speechCode: 'te-IN', name: 'తెలుగు', nameEn: 'Telugu' },
-  { code: 'bn', speechCode: 'bn-IN', name: 'বাংলা', nameEn: 'Bengali' },
-  { code: 'mr', speechCode: 'mr-IN', name: 'मराठी', nameEn: 'Marathi' },
-  { code: 'kn', speechCode: 'kn-IN', name: 'ಕನ್ನಡ', nameEn: 'Kannada' },
-  { code: 'ml', speechCode: 'ml-IN', name: 'മലയാളം', nameEn: 'Malayalam' },
-  { code: 'gu', speechCode: 'gu-IN', name: 'ગુજરાતી', nameEn: 'Gujarati' },
-  { code: 'pa', speechCode: 'pa-IN', name: 'ਪੰਜਾਬੀ', nameEn: 'Punjabi' },
-  { code: 'or', speechCode: 'or-IN', name: 'ଓଡ଼ିଆ', nameEn: 'Odia' },
-];
+import { SUPPORTED_LANGUAGES, AppLanguage } from './LangTypes';
 
 interface LanguageContextType {
   language: AppLanguage;
@@ -38,54 +15,20 @@ interface LanguageProviderProps {
 export const LanguageProvider: FC<LanguageProviderProps> = ({ children }) => {
   const stored = localStorage.getItem('appLanguage');
   const initial = SUPPORTED_LANGUAGES.find((l) => l.code === stored) || SUPPORTED_LANGUAGES[0];
-  const [language] = useState<AppLanguage>(initial);
-  const [pendingLanguage, setPendingLanguage] = useState<AppLanguage | null>(null);
-  const t = useTranslate();
+  const [language, setLanguage] = useState<AppLanguage>(initial);
 
   const setLanguageByCode = useCallback(
     (code: string) => {
       const found = SUPPORTED_LANGUAGES.find((l) => l.code === code);
       if (found && found.code !== language.code) {
-        setPendingLanguage(found);
+        localStorage.setItem('appLanguage', found.code);
+        setLanguage(found);
       }
     },
     [language.code]
   );
 
-  const confirmLanguageSwitch = () => {
-    if (pendingLanguage) {
-      localStorage.setItem('appLanguage', pendingLanguage.code);
-      window.location.reload();
-    }
-  };
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguageByCode }}>
-      {children}
-      <Dialog
-        size='small'
-        isOpen={Boolean(pendingLanguage)}
-        onClose={() => setPendingLanguage(null)}
-        htmlAttributes={{
-          'aria-labelledby': 'language-switch-title',
-        }}
-      >
-        <Dialog.Header>{t('Select Language')}</Dialog.Header>
-        <Dialog.Content className='n-flex n-flex-col n-gap-token-4'>
-          <Typography variant='body-medium'>
-            {t('Changing the language to')} <strong>{pendingLanguage?.name}</strong>{' '}
-            {t('requires refreshing the application. Any unsaved work may be lost. Proceed?')}
-          </Typography>
-        </Dialog.Content>
-        <Dialog.Actions>
-          <Button onClick={confirmLanguageSwitch}>{t('Continue')}</Button>
-          <Button fill='outlined' color='neutral' onClick={() => setPendingLanguage(null)}>
-            {t('Cancel')}
-          </Button>
-        </Dialog.Actions>
-      </Dialog>
-    </LanguageContext.Provider>
-  );
+  return <LanguageContext.Provider value={{ language, setLanguageByCode }}>{children}</LanguageContext.Provider>;
 };
 
 export const useLanguage = (): LanguageContextType => {
@@ -94,43 +37,4 @@ export const useLanguage = (): LanguageContextType => {
     throw new Error('useLanguage must be used within a LanguageProvider');
   }
   return context;
-};
-
-/**
- * Hook that returns a translation function `t(key)` bound to the current language.
- * BRIDGE: Maps legacy camelCase keys to English phrases, then fetches from backend.
- * Falls back to local i18n.ts if phrase or translation is missing.
- */
-export const useTranslation = () => {
-  const { language } = useLanguage();
-  const t_backend = useTranslate();
-
-  return useCallback(
-    (key: TranslationKey) => {
-      // 1. Map key to English phrase using local i18n.ts
-      const englishPhrase = localTranslations.en[key];
-
-      if (!englishPhrase) {
-        // eslint-disable-next-line no-console
-        console.warn(`[LanguageBridge] No English phrase found for key: ${key}`);
-        return key;
-      }
-
-      // 2. Fetch translation from backend system
-      const translated = t_backend(englishPhrase);
-
-      // 3. Safety Fallback: if backend returns the phrase itself (not translated)
-      // AND we have a local translation for this specific language, we COULD use it.
-      // But for "minimum code", we trust the backend's passthrough/fallback logic.
-      if (translated === englishPhrase && language.code !== 'en') {
-        const localFallback = (localTranslations as any)[language.code]?.[key];
-        if (localFallback) {
-          return localFallback;
-        }
-      }
-
-      return translated;
-    },
-    [language.code, t_backend]
-  );
 };

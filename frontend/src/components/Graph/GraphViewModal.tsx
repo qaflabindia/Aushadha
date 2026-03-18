@@ -24,9 +24,18 @@ import {
   ExploreIcon,
 } from '@neo4j-ndl/react/icons';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
-import { filterData, getCheckboxConditions, graphTypeFromNodes, processGraphData } from '../../utils/Utils';
+import {
+  filterData,
+  getCheckboxConditions,
+  getNodeCaption,
+  graphTypeFromNodes,
+  processGraphData,
+  translateGraphTokens,
+} from '../../utils/Utils';
 import { useCredentials } from '../../context/UserCredentials';
-import { useLanguage, useTranslation } from '../../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useTranslate } from '../../context/TranslationContext';
+import { usePatientContext } from '../../context/PatientContext';
 
 import { getGraphSchema, graphQueryAPI } from '../../services/GraphQuery';
 import { graphLabels, nvlOptions, queryMap } from '../../utils/Constants';
@@ -58,7 +67,8 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
   const { userCredentials } = useCredentials();
   const { model } = useFileContext();
   const { language: appLanguage } = useLanguage();
-  const t = useTranslation();
+  const { selectedPatient } = usePatientContext();
+  const t = useTranslate();
   const [scheme, setScheme] = useState<Scheme>({});
   const [newScheme, setNewScheme] = useState<Scheme>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,7 +143,8 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
           selectedRows?.map((f) => f.name),
           graphQueryAbortControllerRef.current.signal,
           appLanguage.code,
-          model
+          model,
+          selectedPatient?.case_id
         );
       } else if (viewPoint === graphLabels.showSchemaView) {
         nodeRelationshipData = await getGraphSchema();
@@ -143,21 +154,22 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
           [inspectedName ?? ''],
           graphQueryAbortControllerRef.current.signal,
           appLanguage.code,
-          model
+          model,
+          selectedPatient?.case_id
         );
       }
       return nodeRelationshipData;
     } catch (error: any) {
       console.error('Error fetching graph data:', error);
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        throw new Error('Request timed out. The dataset might be too large to preview. Try selecting fewer documents.');
+        throw new Error(t('requestTimeout'));
       }
       if (error.name === 'AbortError') {
-        throw new Error('Request was cancelled.');
+        throw new Error(t('requestCancelled'));
       }
-      throw new Error(error.response?.data?.error || error.message || 'Failed to fetch graph data. Please try again.');
+      throw new Error(error.response?.data?.error || error.message || t('fetchGraphFailed'));
     }
-  }, [viewPoint, selectedRows, graphQuery, inspectedName, userCredentials, appLanguage]);
+  }, [viewPoint, selectedRows, graphQuery, inspectedName, userCredentials, appLanguage, selectedPatient]);
 
   // Api call to get the nodes and relations
   const graphApi = async (mode?: string) => {
@@ -178,6 +190,21 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
       }
 
       const { nodes = [], relationships = [] } = result.data.data;
+      const allTokens = new Set<string>();
+      nodes.forEach((n: any) => {
+        n.labels?.forEach((l: string) => allTokens.add(l));
+        const caption = getNodeCaption(n);
+        if (caption) {
+          allTokens.add(caption);
+        }
+      });
+      relationships.forEach((r: any) => {
+        if (r.type) {
+          allTokens.add(r.type);
+        }
+      });
+
+      const tokenTranslations = await translateGraphTokens(Array.from(allTokens), appLanguage.code);
 
       if (nodes.length === 0) {
         setLoading(false);
@@ -185,8 +212,8 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
         const documentCount = viewPoint === graphLabels.showGraphView ? selectedRows?.length || 0 : 1;
         setStatusMessage(
           documentCount > 1
-            ? `No graph data found for the selected ${documentCount} documents. This may be because the documents are still processing or contain no extractable entities.`
-            : `No graph data found for ${inspectedName}. The document may still be processing or contain no extractable entities.`
+            ? t('noGraphDataSelected').replace('{count}', documentCount.toString())
+            : t('noGraphDataFound').replace('{name}', inspectedName ?? '')
         );
         return;
       }
@@ -196,7 +223,7 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
       const neoRels = relationships
         .map((f: Relationship) => f)
         .filter((rel: any) => nodeIds.has(rel.end_node_element_id) && nodeIds.has(rel.start_node_element_id));
-      const { finalNodes, finalRels, schemeVal } = processGraphData(neoNodes, neoRels);
+      const { finalNodes, finalRels, schemeVal } = processGraphData(neoNodes, neoRels, tokenTranslations);
 
       if (mode === 'refreshMode') {
         initGraph(graphType, finalNodes, finalRels, schemeVal);
@@ -229,7 +256,11 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
       if (viewPoint !== graphLabels.chatInfoView) {
         graphApi();
       } else {
-        const { finalNodes, finalRels, schemeVal } = processGraphData(nodeValues ?? [], relationshipValues ?? []);
+        const { finalNodes, finalRels, schemeVal } = processGraphData(
+          nodeValues ?? [],
+          relationshipValues ?? [],
+          {} // Translations for chatInfoView are already handled or can be added if needed
+        );
         setAllNodes(finalNodes);
         setAllRelationships(finalRels);
         setScheme(schemeVal);
@@ -336,8 +367,8 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
     viewPoint === graphLabels.showGraphView || viewPoint === graphLabels.chatInfoView
       ? t('generatedGraph')
       : viewPoint === graphLabels.showSchemaView
-        ? graphLabels.renderSchemaGraph
-        : `${graphLabels.inspectGeneratedGraphFrom} ${inspectedName}`;
+        ? t('renderSchemaGraph')
+        : `${t('inspectGeneratedGraphFrom')} ${inspectedName}`;
 
   const checkBoxView = viewPoint !== graphLabels.chatInfoView;
 
@@ -447,12 +478,7 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
         </Dialog.Header>
         <Dialog.Content className='flex flex-col n-gap-token-4 w-full grow overflow-auto border! border-palette-neutral-border-weak!'>
           {showLargeDatasetWarning && selectedRows && (
-            <Banner
-              name='large-dataset-warning'
-              description={`You are previewing ${selectedRows.length} documents. Loading may take longer and could timeout with large datasets. For better performance, try selecting fewer documents (4-8 recommended).`}
-              type='warning'
-              usage='inline'
-            />
+            <Banner name='large-dataset-warning' description={t('largFilesWarning')} type='warning' usage='inline' />
           )}
           <div className='bg-white relative w-full h-full max-h-full border! border-palette-neutral-border-weak!'>
             {loading ? (
@@ -465,11 +491,11 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
               </div>
             ) : node.length === 0 && relationship.length === 0 && graphType.length !== 0 ? (
               <div className='my-40 flex! items-center justify-center'>
-                <Banner name='graph banner' description={graphLabels.noNodesRels} type='danger' usage='inline' />
+                <Banner name='graph banner' description={t('noNodesRels')} type='danger' usage='inline' />
               </div>
             ) : graphType.length === 0 && checkBoxView ? (
               <div className='my-40 flex! items-center justify-center'>
-                <Banner name='graph banner' description={graphLabels.selectCheckbox} type='danger' usage='inline' />
+                <Banner name='graph banner' description={t('selectCheckbox')} type='danger' usage='inline' />
               </div>
             ) : (
               <>
@@ -488,8 +514,8 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
                     />
                     <IconButtonArray orientation='vertical' isFloating={true} className='absolute top-4 right-4'>
                       <IconButtonWithToolTip
-                        label='Schema View'
-                        text='Schema View'
+                        label={t('schemaView')}
+                        text={t('schemaView')}
                         onClick={() => handleSchemaView(node, relationship)}
                         placement='left'
                       >
@@ -499,8 +525,8 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
                     <IconButtonArray orientation='vertical' isFloating={true} className='absolute bottom-4 right-4'>
                       {viewPoint !== 'chatInfoView' && (
                         <IconButtonWithToolTip
-                          label='Refresh'
-                          text='Refresh graph'
+                          label={t('refreshGraph')}
+                          text={t('refreshGraph')}
                           onClick={handleRefresh}
                           placement='left'
                           disabled={disableRefresh}
@@ -508,15 +534,25 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
                           <ArrowPathIconOutline className='n-size-token-7' />
                         </IconButtonWithToolTip>
                       )}
-                      <IconButtonWithToolTip label='Zoomin' text='Zoom in' onClick={handleZoomIn} placement='left'>
+                      <IconButtonWithToolTip
+                        label={t('zoomIn')}
+                        text={t('zoomIn')}
+                        onClick={handleZoomIn}
+                        placement='left'
+                      >
                         <MagnifyingGlassPlusIconOutline className='n-size-token-7' />
                       </IconButtonWithToolTip>
-                      <IconButtonWithToolTip label='Zoom out' text='Zoom out' onClick={handleZoomOut} placement='left'>
+                      <IconButtonWithToolTip
+                        label={t('zoomOut')}
+                        text={t('zoomOut')}
+                        onClick={handleZoomOut}
+                        placement='left'
+                      >
                         <MagnifyingGlassMinusIconOutline className='n-size-token-7' />
                       </IconButtonWithToolTip>
                       <IconButtonWithToolTip
-                        label='Zoom to fit'
-                        text='Zoom to fit'
+                        label={t('zoomToFit')}
+                        text={t('zoomToFit')}
                         onClick={handleZoomToFit}
                         placement='left'
                       >

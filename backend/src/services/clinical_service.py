@@ -1,12 +1,12 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from src.models import Patient, Visit, Vital, Symptom, LifestyleFactor
 from src.database import SessionLocal
 from src.llm import extract_structured_ehr_data
 
 class ClinicalService:
     @staticmethod
-    async def process_and_persist_ehr(file_name: str, model: str, pages: list, patient_email: str = None):
+    async def process_and_persist_ehr(file_name: str, model: str, pages: list, patient_id: str = None):
         """
         Orchestrates structured EHR extraction from document pages and persists to PostgreSQL.
         """
@@ -28,25 +28,14 @@ class ClinicalService:
             try:
                 # 1. Patient Upsert
                 patient = None
-                if patient_email:
-                    from src.models import User
-                    user = db.query(User).filter(User.email == patient_email).first()
-                    if user:
-                        patient = db.query(Patient).filter(Patient.user_id == user.id).first()
-                        if not patient:
-                            patient = Patient(
-                                case_id=ehr_data.case_id,
-                                user_id=user.id,
-                                age_group=ehr_data.age_group,
-                                sex=ehr_data.sex
-                            )
-                            db.add(patient)
-
+                # Use patient_id (Case ID) as primary identifier if provided
+                p_id = patient_id or ehr_data.case_id
+                
                 if not patient:
-                    patient = db.query(Patient).filter(Patient.case_id == ehr_data.case_id).first()
+                    patient = db.query(Patient).filter(Patient.case_id == p_id).first()
                 if not patient:
                     patient = Patient(
-                        case_id=ehr_data.case_id,
+                        case_id=p_id,
                         age_group=ehr_data.age_group,
                         sex=ehr_data.sex
                     )
@@ -55,25 +44,41 @@ class ClinicalService:
                 db.refresh(patient)
                 
                 # 2. Visit Creation
-                visit_date = datetime.now().date()
+                visit_date = datetime.now(timezone.utc).date()  # Fix #23: timezone-aware
                 if hasattr(ehr_data, 'visit_date') and ehr_data.visit_date != "Unknown":
                     try:
                         visit_date = datetime.strptime(ehr_data.visit_date, "%Y-%m-%d").date()
                     except ValueError:
                         pass
 
-                visit = Visit(
-                    patient_id=patient.id,
-                    visit_date=visit_date,
-                    condition_name=ehr_data.condition_name,
-                    chief_complaint=ehr_data.chief_complaint,
-                    red_flag_any=ehr_data.red_flag_any,
-                    red_flag_details=ehr_data.red_flag_details,
-                    bp_category=getattr(ehr_data, 'bp_category', 'Unknown')
-                )
-                db.add(visit)
-                db.commit()
-                db.refresh(visit)
+                # Fix #8: Deduplicate visits — don't create a new one if this (patient, date, condition) exists
+                existing_visit = db.query(Visit).filter(
+                    Visit.patient_id == patient.id,
+                    Visit.visit_date == visit_date,
+                    Visit.condition_name == ehr_data.condition_name
+                ).first()
+
+                if existing_visit:
+                    visit = existing_visit
+                    logging.info(f"Reusing existing visit for {file_name} (patient {patient.id}, date {visit_date})")
+                    # Fix #8: purge stale child rows before re-inserting — prevents doubling on reprocess
+                    db.query(Vital).filter(Vital.visit_id == visit.id).delete(synchronize_session=False)
+                    db.query(Symptom).filter(Symptom.visit_id == visit.id).delete(synchronize_session=False)
+                    db.query(LifestyleFactor).filter(LifestyleFactor.visit_id == visit.id).delete(synchronize_session=False)
+                    db.flush()
+                else:
+                    visit = Visit(
+                        patient_id=patient.id,
+                        visit_date=visit_date,
+                        condition_name=ehr_data.condition_name,
+                        chief_complaint=ehr_data.chief_complaint,
+                        red_flag_any=ehr_data.red_flag_any,
+                        red_flag_details=ehr_data.red_flag_details,
+                        bp_category=getattr(ehr_data, 'bp_category', 'Unknown')
+                    )
+                    db.add(visit)
+                    db.commit()
+                    db.refresh(visit)
                 
                 # 3. Vitals Persistence
                 for v in ehr_data.vitals:
@@ -97,11 +102,12 @@ class ClinicalService:
                 
                 # 5. Lifestyle Suspicions (if any)
                 if hasattr(ehr_data, 'suspicions'):
+                    status_map = {"True": True, "False": False, "Unknown": None}
                     for susp in ehr_data.suspicions:
                         factor = LifestyleFactor(
                             visit_id=visit.id,
                             name=susp.factor,
-                            status=susp.status
+                            status=status_map.get(str(susp.status), None)
                         )
                         db.add(factor)
 

@@ -52,7 +52,11 @@ const ButtonWithToolTip = ({
           {children}
         </Button>
       </Tooltip.Trigger>
-      {isHovered && <Tooltip.Content style={{ whiteSpace: 'nowrap' }}>{text}</Tooltip.Content>}
+      {isHovered && (
+        <Tooltip.Content style={{ whiteSpace: 'normal', maxWidth: '250px', textAlign: 'center' }}>
+          {text}
+        </Tooltip.Content>
+      )}
     </Tooltip>
   );
 };

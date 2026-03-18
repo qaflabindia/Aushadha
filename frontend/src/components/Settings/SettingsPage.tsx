@@ -1,7 +1,7 @@
 import React, { useState, useContext, useRef } from 'react';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import clsx from 'clsx';
-import { useTranslate } from '../../context/TranslationContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import {
   RiUserSettingsLine,
   RiGlobalLine,
@@ -22,6 +22,7 @@ import { OptionType } from '../../types';
 import GraphSettingsTabs from './GraphSettingsTabs';
 import AdminPage from '../Admin/AdminPage';
 import { useFileContext } from '../../context/UsersFiles';
+import { usePatientContext } from '../../context/PatientContext';
 import { llms } from '../../utils/Constants';
 import { capitalizeWithUnderscore } from '../../utils/Utils';
 import ChatModeToggle from '../ChatBot/ChatModeToggle';
@@ -105,7 +106,7 @@ const SettingRow: React.FC<{ label: string; description?: string; children: Reac
 
 // ─── General Settings ────────────────────────────────────────────────────────
 const GeneralSettings: React.FC = () => {
-  const t = useTranslate();
+  const t = useTranslation();
   const { colorMode, toggleColorMode } = useContext(ThemeWrapperContext);
   return (
     <div>
@@ -143,11 +144,54 @@ const GeneralSettings: React.FC = () => {
   );
 };
 
-// ─── Account & Context ────────────────────────────────────────────────────────
 const AccountSettings: React.FC = () => {
-  const t = useTranslate();
+  const t = useTranslation();
   const { colorMode } = useContext(ThemeWrapperContext);
   const { user, logout, isAuthenticated } = useGoogleAuth();
+  const [passwords, setPasswords] = useState({ new: '', confirm: '' });
+  const [passStatus, setPassStatus] = useState<{ type: 'success' | 'danger'; message: string } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { getAuthHeaders } = useGoogleAuth();
+  const apiBase = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
+
+  const handleUpdatePassword = async () => {
+    if (!passwords.new || !passwords.confirm) {
+      setPassStatus({ type: 'danger', message: t('All fields are required') });
+      return;
+    }
+    if (passwords.new !== passwords.confirm) {
+      setPassStatus({ type: 'danger', message: t('Passwords do not match') });
+      return;
+    }
+    if (passwords.new.length < 6) {
+      setPassStatus({ type: 'danger', message: t('Password must be at least 6 characters') });
+      return;
+    }
+
+    setIsUpdating(true);
+    setPassStatus(null);
+    try {
+      const resp = await fetch(`${apiBase}/update-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ password: passwords.new }),
+      });
+      const data = await resp.json();
+      if (data.status === 'Success') {
+        setPassStatus({ type: 'success', message: t('Password updated successfully') });
+        setPasswords({ new: '', confirm: '' });
+      } else {
+        setPassStatus({ type: 'danger', message: data.message || data.error || t('Update failed') });
+      }
+    } catch {
+      setPassStatus({ type: 'danger', message: t('Network error') });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div>
@@ -204,41 +248,86 @@ const AccountSettings: React.FC = () => {
         </SettingRow>
       )}
 
-      <SettingRow label={t('Session')} description={t('Log out of the application.')}>
-        <button
-          onClick={() => {
-            logout();
-            window.location.href = '/login';
-          }}
-          className={clsx(
-            'flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-300',
-            {
-              'border-red-500/40 text-red-400 hover:text-red-300 hover:border-red-400/60 bg-red-500/10':
-                colorMode === 'dark',
-              'border-red-200 text-red-600 hover:border-red-400 bg-red-50': colorMode === 'light',
-            }
-          )}
+      {/* Password Management */}
+      <div
+        className={clsx('mt-8 p-6 rounded-2xl border', {
+          'bg-white/5 border-white/10': colorMode === 'dark',
+          'bg-gray-50 border-gray-200': colorMode === 'light',
+        })}
+      >
+        <p
+          className={clsx('text-sm font-bold mb-4', {
+            'text-white': colorMode === 'dark',
+            'text-gray-900': colorMode === 'light',
+          })}
         >
-          <RiLogoutBoxLine className='w-4 h-4' />
-          {t('Logout')}
-        </button>
-      </SettingRow>
+          {t('Change Password')}
+        </p>
+        <div className='space-y-4'>
+          <TextInput
+            placeholder={t('New Password')}
+            htmlAttributes={{ type: 'password' }}
+            value={passwords.new}
+            onChange={(e) => setPasswords((p) => ({ ...p, new: e.target.value }))}
+            isFluid
+          />
+          <TextInput
+            placeholder={t('Confirm New Password')}
+            htmlAttributes={{ type: 'password' }}
+            value={passwords.confirm}
+            onChange={(e) => setPasswords((p) => ({ ...p, confirm: e.target.value }))}
+            isFluid
+          />
+          {passStatus && (
+            <Banner type={passStatus.type} isCloseable onClose={() => setPassStatus(null)}>
+              {passStatus.message}
+            </Banner>
+          )}
+          <Button onClick={handleUpdatePassword} isLoading={isUpdating} className='w-full'>
+            {t('Update Password')}
+          </Button>
+        </div>
+      </div>
+
+      <div className='mt-8'>
+        <SettingRow label={t('Session')} description={t('Log out of the application.')}>
+          <button
+            onClick={() => {
+              logout();
+              window.location.href = '/login';
+            }}
+            className={clsx(
+              'flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-300',
+              {
+                'border-red-500/40 text-red-400 hover:text-red-300 hover:border-red-400/60 bg-red-500/10':
+                  colorMode === 'dark',
+                'border-red-200 text-red-600 hover:border-red-400 bg-red-50': colorMode === 'light',
+              }
+            )}
+          >
+            <RiLogoutBoxLine className='w-4 h-4' />
+            {t('Logout')}
+          </button>
+        </SettingRow>
+      </div>
     </div>
   );
 };
 
 // ─── AI Engine & Sources ────────────────────────────────────────────────────────
 const AISettings: React.FC = () => {
-  const t = useTranslate();
+  const t = useTranslation();
   const { colorMode } = useContext(ThemeWrapperContext);
   const { model, setModel, setFilesData, selectedVoice, setSelectedVoice } = useFileContext();
+  const { selectedPatient } = usePatientContext();
+  const patientEmail = selectedPatient?.case_id || 'global';
   const [isOpen, setIsOpen] = useState(false);
   const chatAnchor = useRef<HTMLDivElement>(null);
   const [showChatModeToggle, setShowChatModeToggle] = useState(false);
 
   const handleModelChange = (selectedValue: string) => {
     setModel(selectedValue);
-    localStorage.setItem('selectedModel', selectedValue);
+    localStorage.setItem(`${patientEmail}_selectedModel`, selectedValue);
     setFilesData((prevfiles) =>
       prevfiles.map((curfile) => ({
         ...curfile,
@@ -269,8 +358,12 @@ const AISettings: React.FC = () => {
             className={clsx(
               'w-full flex items-center justify-between gap-3 px-4 py-2 rounded-lg border text-sm font-semibold transition-all',
               {
-                'bg-white/5 border-white/10 text-white hover:border-white/30': colorMode === 'dark',
-                'bg-white border-gray-200 text-gray-700 hover:border-blue-300': colorMode === 'light',
+                '!bg-black/70 !backdrop-blur-2xl border-white/20 text-white hover:border-[#D4AF37]/50 hover:shadow-[0_0_20px_rgba(212,175,55,0.1)]':
+                  colorMode === 'dark',
+                '!bg-white/70 !backdrop-blur-2xl border-gray-200 text-gray-700 hover:border-blue-400 shadow-md':
+                  colorMode === 'light',
+                'border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.15)]': colorMode === 'dark' && isOpen,
+                'border-blue-500 ring-2 ring-blue-500/20': colorMode === 'light' && isOpen,
               }
             )}
           >
@@ -280,10 +373,13 @@ const AISettings: React.FC = () => {
 
           {isOpen && (
             <div
-              className={clsx('absolute top-full left-0 mt-1 w-full rounded-xl border shadow-2xl z-50 overflow-auto', {
-                'bg-[#0D0D0D] border-white/10 max-h-72': colorMode === 'dark',
-                'bg-white border-gray-200 shadow-xl max-h-72': colorMode === 'light',
-              })}
+              className={clsx(
+                'absolute top-full left-0 mt-1 w-full rounded-xl border shadow-2xl z-[1100] overflow-auto',
+                {
+                  '!bg-black/70 !backdrop-blur-2xl border-white/20 max-h-72': colorMode === 'dark',
+                  '!bg-white/70 !backdrop-blur-2xl border-gray-200 shadow-2xl max-h-72': colorMode === 'light',
+                }
+              )}
             >
               {llms.map((llmOption) => (
                 <button
@@ -343,7 +439,7 @@ const AISettings: React.FC = () => {
               key={v}
               onClick={() => {
                 setSelectedVoice(v);
-                localStorage.setItem('selectedVoice', v);
+                localStorage.setItem(`${patientEmail}_selectedVoice`, v);
               }}
               className={clsx('px-3 py-1 rounded-full border text-xs font-bold transition-all', {
                 'bg-[#D4AF37] text-black border-[#D4AF37]': selectedVoice === v && colorMode === 'dark',
@@ -371,7 +467,7 @@ const GraphSettingsSection: React.FC<{
   combinedRels: OptionType[];
   setCombinedRels: React.Dispatch<React.SetStateAction<OptionType[]>>;
 }> = ({ combinedPatterns, setCombinedPatterns, combinedNodes, setCombinedNodes, combinedRels, setCombinedRels }) => {
-  const t = useTranslate();
+  const t = useTranslation();
   return (
     <div>
       <SectionHeader title={t('Graph Settings')} subtitle={t('Knowledge graph construction and schema settings.')} />
@@ -391,7 +487,7 @@ const GraphSettingsSection: React.FC<{
 
 // ─── Administration & Security ─────────────────────────────────────────────────
 const SecuritySection: React.FC = () => {
-  const t = useTranslate();
+  const t = useTranslation();
   const { colorMode } = useContext(ThemeWrapperContext);
   const [secretName, setSecretName] = useState('');
   const [secretValue, setSecretValue] = useState('');
@@ -545,7 +641,7 @@ const SecuritySection: React.FC = () => {
 
 // ─── Administration ────────────────────────────────────────────────────────────
 const AdminSection: React.FC = () => {
-  const t = useTranslate();
+  const t = useTranslation();
   const { user } = useGoogleAuth();
   const { colorMode } = useContext(ThemeWrapperContext);
 
@@ -598,7 +694,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   setCombinedRels,
 }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
-  const t = useTranslate();
+  const t = useTranslation();
   const { user } = useGoogleAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('general');
   const isPatient = user?.role?.toUpperCase() === 'PATIENT';

@@ -22,7 +22,9 @@ import { useGoogleAuth } from '../../../context/GoogleAuthContext';
 import { createDefaultFormData } from '../../../API/Index';
 import { getNodeLabelsAndRelTypesFromText } from '../../../services/SchemaFromTextAPI';
 import { useFileContext } from '../../../context/UsersFiles';
+import { usePatientContext } from '../../../context/PatientContext';
 import { getSecrets, saveSecret, getSecretValue } from '../../../services/SecretAPI';
+import { useTranslate } from '../../../context/TranslationContext';
 
 export default function ConnectionModal({
   open,
@@ -74,6 +76,9 @@ export default function ConnectionModal({
   const [userDbVectorIndex, setUserDbVectorIndex] = useState<number | undefined>(initialuserdbvectorindex ?? undefined);
   const [vectorIndexLoading, setVectorIndexLoading] = useState<boolean>(false);
   const { model } = useFileContext();
+  const { selectedPatient } = usePatientContext();
+  const patientEmail = selectedPatient?.case_id || 'global';
+  const t = useTranslate();
   const connectRef = useRef<HTMLButtonElement>(null);
   const uriRef = useRef<HTMLInputElement>(null);
   const databaseRef = useRef<HTMLInputElement>(null);
@@ -312,8 +317,8 @@ export default function ConnectionModal({
         const isReadOnlyUser = !response.data.data.write_access;
         const isGCSActive = response.data.data.gcs_file_cache === 'True';
         const chunksTobeProcess = Number(response.data.data.chunk_to_be_created);
-        const existingRels = JSON.parse(localStorage.getItem('selectedRelationshipLabels') ?? 'null');
-        const existingNodes = JSON.parse(localStorage.getItem('selectedNodeLabels') ?? 'null');
+        const existingRels = JSON.parse(localStorage.getItem(`${patientEmail}_selectedRelationshipLabels`) ?? 'null');
+        const existingNodes = JSON.parse(localStorage.getItem(`${patientEmail}_selectedNodeLabels`) ?? 'null');
         const pattern = /^[^,]+,[^,]+,[^,]+$/;
         if (existingRels && existingRels.selectedOptions.length) {
           if (!pattern.test(existingRels.selectedOptions[0].value)) {
@@ -446,11 +451,11 @@ export default function ConnectionModal({
           'aria-labelledby': 'form-dialog-title',
         }}
       >
-        <Dialog.Header htmlAttributes={{ id: 'form-dialog-title' }}>Connect to DB</Dialog.Header>
+        <Dialog.Header htmlAttributes={{ id: 'form-dialog-title' }}>{t('Connect to DB')}</Dialog.Header>
         <Dialog.Content className='n-flex n-flex-col n-gap-token-4'>
           <Typography variant='body-medium' className='mb-4'>
             <TextLink type='external' href='https://console.neo4j.io/'>
-              Don't have a DB instance? Start for free today
+              {t("Don't have a DB instance? Start for free today")}
             </TextLink>
           </Typography>
           {connectionMessage?.type !== 'unknown' &&
@@ -475,7 +480,7 @@ export default function ConnectionModal({
           <div className='n-flex max-h-44'>
             <Dropzone
               isTesting={false}
-              customTitle={<>Drop your DB credentials file here</>}
+              customTitle={<>{t('Drop your DB credentials file here')}</>}
               className='n-p-6 end-0 top-0 w-full h-full'
               acceptedFileExtensions={['.txt', '.env']}
               dropZoneOptions={{
@@ -581,7 +586,11 @@ export default function ConnectionModal({
             </div>
           </form>
           <Flex flexDirection='row' justifyContent='space-between' alignItems='center'>
-            <Checkbox label='Save to Vault' isChecked={saveToVault} onChange={() => setSaveToVault(!saveToVault)} />
+            <Checkbox
+              label={t('Save to Vault')}
+              isChecked={saveToVault}
+              onChange={() => setSaveToVault(!saveToVault)}
+            />
             <Button
               isLoading={isLoading}
               isDisabled={isDisabled}

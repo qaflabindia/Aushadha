@@ -4,6 +4,7 @@ One row per English phrase, 22 language columns.
 On cache miss, the configured LLM auto-generates and persists the value.
 """
 import logging
+from typing import Optional, List, Dict
 from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from sqlalchemy.orm import Session
 from .database import Base, engine
@@ -70,7 +71,7 @@ def _col_attr(lang_code: str) -> str:
     return {"or": "or_", "as": "as_"}.get(lang_code, lang_code)
 
 
-def get_ui_translation(db: Session, english_key: str, lang_code: str) -> str | None:
+def get_ui_translation(db: Session, english_key: str, lang_code: str) -> Optional[str]:
     """
     Look up a single translation.
     Returns the translated string, or None if the row/column is missing.
@@ -86,8 +87,8 @@ def get_ui_translation(db: Session, english_key: str, lang_code: str) -> str | N
 
 
 def get_ui_translations_batch(
-    db: Session, english_keys: list[str], lang_code: str
-) -> dict[str, str | None]:
+    db: Session, english_keys: List[str], lang_code: str
+) -> dict[str, Optional[str]]:
     """
     Batch lookup: returns {english_key: translated_value | None} for all keys.
     """
@@ -121,7 +122,7 @@ def upsert_ui_translation(
 
 
 def bulk_upsert_ui_translations(
-    db: Session, entries: list[dict]
+    db: Session, entries: List[dict]
 ) -> int:
     """
     Bulk insert/update. Each dict: {english_key, lang_code, value}.
@@ -137,13 +138,17 @@ def bulk_upsert_ui_translations(
     return count
 
 
-def get_coverage_stats(db: Session) -> dict:
+def get_coverage_stats(db: Session) -> Dict:
     """Return translation coverage counts per language."""
-    total = db.query(func.count(UITranslation.id)).scalar() or 0
+    # The true total is the number of unique English phrases we have ever encountered and stored in the DB.
+    db_keys = [r[0] for r in db.query(UITranslation.english_key).distinct().all()]
+    total = len(db_keys)
+    
     stats = {"total_keys": total, "by_language": {}}
     for code in SUPPORTED_LANG_CODES:
         attr = _col_attr(code)
         col = getattr(UITranslation, attr)
+        # Count how many rows have a non-null value for this language column
         count = db.query(func.count(UITranslation.id)).filter(col.isnot(None)).scalar() or 0
         stats["by_language"][code] = {"name": LANG_NAMES[code], "translated": count, "missing": total - count}
     return stats

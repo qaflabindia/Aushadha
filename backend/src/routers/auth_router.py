@@ -11,43 +11,61 @@ from src.shared.google_auth import require_auth, create_local_token, Authenticat
 from passlib.context import CryptContext
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd_context removed as we use bcrypt directly
+
+import bcrypt
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        if not hashed_password:
+            return False
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except Exception as e:
+        logging.error(f"Password verification error: {e}")
+        return False
 
 @router.post("/local_login")
 async def local_login(request: Request, db: Session = Depends(get_db)):
     """
     Issue a local RS256-signed JWT.
-    Accepts JSON body: {"email": "...", "password": "..."}
+    Accepts JSON body: {"username_or_email": "...", "password": "..."}
     Validates hashed password from the database.
     """
     try:
         data = await request.json()
-        email = data.get("email", "").strip()
+        username_or_email = data.get("email", data.get("username_or_email", "")).strip()
         password = data.get("password", "").strip()
-        name = data.get("name", email.split("@")[0] if "@" in email else email)
+        name = data.get("name", username_or_email.split("@")[0] if "@" in username_or_email else username_or_email)
 
-        if not email or not password:
-            return create_api_response("Failed", message="Email and password are required")
+        if not username_or_email or not password:
+            logger.warning("Login failed: Missing username/email or password")
+            return create_api_response("Failed", message="Username/Email and password are required")
 
-        db_user = db.query(User).filter(User.email == email).first()
+        logger.info(f"Login attempt for: {username_or_email}")
+        db_user = db.query(User).filter(User.email == username_or_email).first()
         
-        if not db_user or not db_user.hashed_password:
+        if not db_user:
+            logger.warning(f"Login failed: User not found: {username_or_email}")
+            return create_api_response("Failed", message="Invalid credentials")
+
+        if not db_user.hashed_password:
+            logger.warning(f"Login failed: User {username_or_email} has no local password set")
             return create_api_response("Failed", message="Invalid credentials or user not configured for local login")
         
         if not verify_password(password, db_user.hashed_password):
+            logger.warning(f"Login failed: Incorrect password for {username_or_email}")
             return create_api_response("Failed", message="Invalid credentials")
 
-        role = db_user.role.name if db_user.role else ""
+        logger.info(f"Login successful for: {username_or_email}")
+
         role = db_user.role.name if db_user and db_user.role else ""
 
-        token = create_local_token(email=email, name=name)
+        token = create_local_token(email=username_or_email, name=name)
         return create_api_response("Success", data={
             "token": token,
-            "email": email,
+            "email": username_or_email,
             "name": name,
             "auth_method": "local",
             "role": role
@@ -75,12 +93,30 @@ async def google_verify(request: Request, db: Session = Depends(get_db)):
 
         db_user = db.query(User).filter(User.email == user.email).first()
         if not db_user:
-            db_user = User(email=user.email)
+            # Auto-provision first-time Google users
+            from src.models import Role
+            default_role = db.query(Role).filter(Role.name == "Patient").first()
+            if not default_role:
+                # Create role if missing (safeguard)
+                default_role = Role(name="Patient")
+                db.add(default_role)
+                db.flush()
+            
+            db_user = User(
+                email=user.email,
+                role_id=default_role.id,
+                # hashed_password is None for Google users
+            )
             db.add(db_user)
-            db.commit()
-            db.refresh(db_user)
+            try:
+                db.commit()
+                db.refresh(db_user)
+                logger.info(f"Auto-provisioned new user: {user.email}")
+            except Exception as commit_error:
+                db.rollback()
+                return create_api_response("Failed", error=f"Auto-provisioning failed: {str(commit_error)}")
         
-        role = db_user.role.name if db_user and db_user.role else ""
+        role = db_user.role.name if db_user and db_user.role else "Patient"
 
         local_token = create_local_token(email=user.email, name=user.name)
         return create_api_response("Success", data={

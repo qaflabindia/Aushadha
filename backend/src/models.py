@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date, JSON, Table, DateTime
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date, JSON, Table, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 import datetime
 from .database import Base
@@ -26,7 +26,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String, nullable=True)  # Nullable for Google-only users
     role_id = Column(Integer, ForeignKey("roles.id"))
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     role = relationship("Role", back_populates="users")
     
@@ -55,7 +55,7 @@ class Visit(Base):
     __tablename__ = "visits"
 
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("patients.id"))
+    patient_id = Column(Integer, ForeignKey("patients.id", ondelete="CASCADE"))  # Fix #22: cascade deletes
     visit_date = Column(Date)
     condition_name = Column(String)
     chief_complaint = Column(String)
@@ -63,16 +63,20 @@ class Visit(Base):
     red_flag_any = Column(Boolean)
     red_flag_details = Column(JSON) # List of Red Flag IDs: HRF1, HRF2...
 
+    __table_args__ = (
+        UniqueConstraint('patient_id', 'visit_date', 'condition_name', name='uq_visit_patient_date_condition'),  # Fix #21
+    )
+
     patient = relationship("Patient", back_populates="visits")
-    vitals = relationship("Vital", back_populates="visit")
-    symptoms = relationship("Symptom", back_populates="visit")
-    lifestyle_factors = relationship("LifestyleFactor", back_populates="visit")
+    vitals = relationship("Vital", back_populates="visit", cascade="all, delete-orphan")
+    symptoms = relationship("Symptom", back_populates="visit", cascade="all, delete-orphan")
+    lifestyle_factors = relationship("LifestyleFactor", back_populates="visit", cascade="all, delete-orphan")
 
 class Vital(Base):
     __tablename__ = "vitals"
 
     id = Column(Integer, primary_key=True, index=True)
-    visit_id = Column(Integer, ForeignKey("visits.id"))
+    visit_id = Column(Integer, ForeignKey("visits.id", ondelete="CASCADE"))  # Fix #22
     name = Column(String)
     value = Column(Float)
     unit = Column(String)
@@ -84,7 +88,7 @@ class Symptom(Base):
     __tablename__ = "symptoms"
 
     id = Column(Integer, primary_key=True, index=True)
-    visit_id = Column(Integer, ForeignKey("visits.id"))
+    visit_id = Column(Integer, ForeignKey("visits.id", ondelete="CASCADE"))  # Fix #22
     name = Column(String)
     status = Column(String)
 
@@ -94,8 +98,8 @@ class LifestyleFactor(Base):
     __tablename__ = "lifestyle_factors"
 
     id = Column(Integer, primary_key=True, index=True)
-    visit_id = Column(Integer, ForeignKey("visits.id"))
+    visit_id = Column(Integer, ForeignKey("visits.id", ondelete="CASCADE"))  # Fix #22
     name = Column(String)  # High Salt Diet, etc.
-    status = Column(String)  # True, False, Unknown
+    status = Column(Boolean, nullable=True)  # True, False, None (Unknown)
 
     visit = relationship("Visit", back_populates="lifestyle_factors")

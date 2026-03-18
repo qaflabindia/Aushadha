@@ -3,6 +3,7 @@ import { ResizePanelDetails } from './ResizePanel';
 import { BasicNode, BasicRelationship, GraphPropertiesPanelProps } from '../../types';
 import { LegendsChip } from './LegendsChip';
 import GraphPropertiesTable from './GraphPropertiesTable';
+import { useTranslate } from '../../context/TranslationContext';
 
 const sortAlphabetically = (a: string, b: string) => a.toLowerCase().localeCompare(b.toLowerCase());
 
@@ -11,6 +12,7 @@ const isNode = (item: BasicNode | BasicRelationship): item is BasicNode => {
 };
 
 const GraphPropertiesPanel = ({ inspectedItem, newScheme }: GraphPropertiesPanelProps) => {
+  const t = useTranslate();
   const inspectedItemType = isNode(inspectedItem) ? 'node' : 'relationship';
   const filteredProperties =
     inspectedItemType === 'node'
@@ -69,7 +71,7 @@ const GraphPropertiesPanel = ({ inspectedItem, newScheme }: GraphPropertiesPanel
   return (
     <>
       <ResizePanelDetails.Title>
-        <h6 className='mr-auto'>{inspectedItemType === 'node' ? 'Node details' : 'Relationship details'}</h6>
+        <h6 className='mr-auto'>{inspectedItemType === 'node' ? t('nodeDetails') : t('relationshipDetails')}</h6>
       </ResizePanelDetails.Title>
       <ResizePanelDetails.Content>
         <div className='mx-4 flex! flex-row flex-wrap gap-2'>

@@ -17,6 +17,10 @@ from src.logger import CustomLogger
 from src.main import create_graph_database_connection
 from src.neighbours import get_neighbour_nodes
 from src.shared.common_fn import formatted_time
+from src.database import get_db
+from src.services.access_service import verify_patient_access
+from sqlalchemy.orm import Session
+from typing import Optional
 
 logger = CustomLogger()
 router = APIRouter(tags=["Chat & Query"])
@@ -30,9 +34,18 @@ async def chat_bot(
     document_names=Form(None),
     session_id=Form(None),
     mode=Form(None),
-    language=Form("en")
+    language=Form("en"),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
 ):
     """Run QA chat bot on the graph database."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
+    elif credentials.user_role == "Patient":
+        # For patients, we should ideally fetch their patient_id if not provided
+        # But for now, let's assume it should be provided or inferred from user context
+        # If the user is a patient, their patient record should be linked.
+        pass
     logging.info(f"QA_RAG called at {datetime.now()}")
     qa_rag_start_time = time.time()
     try:
@@ -43,18 +56,13 @@ async def chat_bot(
 
         graphDb_data_Access = graphDBdataAccess(graph)
         write_access = graphDb_data_Access.check_account_access(database=credentials.database)
-        # Inject language instruction for non-English responses
-        lang_instruction = ""
-        if language and language != "en":
-            lang_map = {"hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam", "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"}
-            lang_name = lang_map.get(language, language)
-            lang_instruction = (
-                f" IMPORTANT: You MUST respond entirely in {lang_name}. "
-                f"Do not mix English keywords, technical terms, or phrases. "
-                f"All clinical terms must be translated to their {lang_name} equivalents."
-            )
-            question = f"{question}{lang_instruction}"
-        result = await QA_RAG(graph=graph, model=model, question=question, document_names=document_names, session_id=session_id, mode=mode, write_access=write_access, email=credentials.email, uri=credentials.uri, language=language)
+        # Fix #16: language instruction must NOT be appended to `question` before QA_RAG — doing so
+        # stores the raw instruction string as a HumanMessage in Neo4j chat history, corrupting
+        # conversation summaries and history-aware follow-ups. The `language` parameter is already
+        # passed to QA_RAG which handles output translation; language-specific prompting belongs
+        # inside the LLM chain, not in the user question stored in history.
+        # Passed patient_id to QA_RAG
+        result = await QA_RAG(graph=graph, model=model, question=question, document_names=document_names, session_id=session_id, mode=mode, write_access=write_access, email=credentials.email, uri=credentials.uri, language=language, patient_id=patient_id)
 
         total_call_time = time.time() - qa_rag_start_time
         logging.info(f"Total Response time is  {total_call_time:.2f} seconds")
@@ -128,16 +136,21 @@ async def graph_query(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
     document_names: str = Form(None),
     language: str = Form("en"),
-    model: str = Form(None)
+    model: str = Form(None),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
 ):
     """Query the graph for results based on document names."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
         result = await get_graph_results(
             credentials,
             document_names=document_names,
             language=language,
-            model=model
+            model=model,
+            patient_id=patient_id
         )
         end = time.time()
         elapsed_time = end - start
@@ -191,15 +204,22 @@ async def clear_chat_bot(
 
 @router.post("/fetch_chunktext")
 async def fetch_chunktext(
-   credentials: Neo4jCredentials = Depends(get_neo4j_credentials),document_name: str = Form(),page_no: int = Form(1)
+   credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+   document_name: str = Form(),
+   page_no: int = Form(1),
+   patient_id: Optional[str] = Form(None),
+   db: Session = Depends(get_db)
 ):
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
         result = await asyncio.to_thread(
             get_chunktext_results,
             credentials,
             document_name=document_name,
-            page_no=page_no
+            page_no=page_no,
+            patient_id=patient_id
         )
         end = time.time()
         elapsed_time = end - start

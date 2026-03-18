@@ -43,18 +43,21 @@ load_dotenv()
 
 EMBEDDING_MODEL = get_value_from_env("EMBEDDING_MODEL", "sentence_transformer")
 
+_session_history_lock = threading.Lock()  # Fix #9: module-level lock for SessionChatHistory
+
 class SessionChatHistory:
     history_dict = {}
 
     @classmethod
     def get_chat_history(cls, session_id):
         """Retrieve or create chat message history for a given session ID."""
-        if session_id not in cls.history_dict:
-            logging.info(f"Creating new ChatMessageHistory Local for session ID: {session_id}")
-            cls.history_dict[session_id] = ChatMessageHistory()
-        else:
-            logging.info(f"Retrieved existing ChatMessageHistory Local for session ID: {session_id}")
-        return cls.history_dict[session_id]
+        with _session_history_lock:  # guard check-then-act on shared class dict
+            if session_id not in cls.history_dict:
+                logging.info(f"Creating new ChatMessageHistory Local for session ID: {session_id}")
+                cls.history_dict[session_id] = ChatMessageHistory()
+            else:
+                logging.info(f"Retrieved existing ChatMessageHistory Local for session ID: {session_id}")
+            return cls.history_dict[session_id]
 
 class CustomCallback(BaseCallbackHandler):
 
@@ -181,11 +184,14 @@ def get_rag_chain(llm, system_template=CHAT_SYSTEM_TEMPLATE):
         raise
 
 def format_documents(documents, model,chat_mode_settings):
-    prompt_token_cutoff = 4
+    prompt_token_cutoff = None
     for model_names, value in CHAT_TOKEN_CUT_OFF.items():
         if model in model_names:
             prompt_token_cutoff = value
             break
+    if prompt_token_cutoff is None:  # Fix #24: warn instead of silently using 4
+        logging.warning(f"[format_documents] Model '{model}' not found in CHAT_TOKEN_CUT_OFF — defaulting to 10.")
+        prompt_token_cutoff = 10
 
     sorted_documents = sorted(documents, key=lambda doc: doc.state.get("query_similarity_score", 0), reverse=True)
     sorted_documents = sorted_documents[:prompt_token_cutoff]
@@ -336,7 +342,7 @@ def create_document_retriever_chain(llm, retriever):
         logging.error(f"Error creating document retriever chain: {e}", exc_info=True)
         raise
 
-def initialize_neo4j_vector(graph, chat_mode_settings):
+def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
     try:
         retrieval_query = chat_mode_settings.get("retrieval_query")
         index_name = chat_mode_settings.get("index_name")
@@ -344,6 +350,7 @@ def initialize_neo4j_vector(graph, chat_mode_settings):
         node_label = chat_mode_settings.get("node_label")
         embedding_node_property = chat_mode_settings.get("embedding_node_property")
         text_node_properties = chat_mode_settings.get("text_node_properties")
+        query_params = {"patient_id": patient_id} if patient_id else {}
 
 
         if not retrieval_query or not index_name:
@@ -359,7 +366,8 @@ def initialize_neo4j_vector(graph, chat_mode_settings):
                 node_label=node_label,
                 embedding_node_property=embedding_node_property,
                 text_node_properties=text_node_properties,
-                keyword_index_name=keyword_index
+                keyword_index_name=keyword_index,
+                params=query_params
             )
             logging.info(f"Successfully retrieved Neo4jVector Fulltext index '{index_name}' and keyword index '{keyword_index}'")
         else:
@@ -370,7 +378,8 @@ def initialize_neo4j_vector(graph, chat_mode_settings):
                 graph=graph,
                 node_label=node_label,
                 embedding_node_property=embedding_node_property,
-                text_node_properties=text_node_properties
+                text_node_properties=text_node_properties,
+                params=query_params
             )
             logging.info(f"Successfully retrieved Neo4jVector index '{index_name}'")
     except Exception as e:
@@ -399,10 +408,10 @@ def create_retriever(neo_db, document_names, chat_mode_settings,search_k, score_
         logging.info(f"Successfully created retriever with search_k={search_k}, score_threshold={score_threshold}")
     return retriever
 
-def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD):
+def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD, patient_id=None):
     try:
 
-        neo_db = initialize_neo4j_vector(graph, chat_mode_settings)
+        neo_db = initialize_neo4j_vector(graph, chat_mode_settings, patient_id=patient_id)
         # document_names= list(map(str.strip, json.loads(document_names)))
         search_k = chat_mode_settings["top_k"]
         ef_ratio = get_value_from_env("EFFECTIVE_SEARCH_RATIO", 5, "int")
@@ -414,7 +423,7 @@ def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshol
         raise Exception(f"An error occurred while retrieving the Neo4jVector index or creating the retriever. Please drop and create a new vector index '{index_name}': {e}") from e 
 
 
-def setup_chat(model, graph, document_names, chat_mode_settings):
+def setup_chat(model, graph, document_names, chat_mode_settings, patient_id=None):
     start_time = time.time()
     try:
         if model == "diffbot":
@@ -423,7 +432,7 @@ def setup_chat(model, graph, document_names, chat_mode_settings):
         llm, model_name, _ = get_llm(model=model)
         logging.info(f"Model called in chat: {model} (version: {model_name})")
 
-        retriever = get_neo4j_retriever(graph=graph, chat_mode_settings=chat_mode_settings, document_names=document_names)
+        retriever = get_neo4j_retriever(graph=graph, chat_mode_settings=chat_mode_settings, document_names=document_names, patient_id=patient_id)
         doc_retriever = create_document_retriever_chain(llm, retriever)
         
         chat_setup_time = time.time() - start_time
@@ -435,7 +444,7 @@ def setup_chat(model, graph, document_names, chat_mode_settings):
     
     return llm, doc_retriever, model_name
 
-async def process_chat_response(messages, history, question, model, graph, document_names, chat_mode_settings, email=None, uri=None, language="en"):
+async def process_chat_response(messages, history, question, model, graph, document_names, chat_mode_settings, email=None, uri=None, language="en", patient_id=None):
     try:
         if get_value_from_env("TRACK_TOKEN_USAGE", "false", "bool"):
             try:
@@ -443,7 +452,7 @@ async def process_chat_response(messages, history, question, model, graph, docum
             except LLMGraphBuilderException as e:
                 logging.error(str(e))
                 raise RuntimeError(str(e))
-        llm, doc_retriever, model_version = setup_chat(model, graph, document_names, chat_mode_settings)
+        llm, doc_retriever, model_version = setup_chat(model, graph, document_names, chat_mode_settings, patient_id=patient_id)
         
         docs,transformed_question = retrieve_documents(doc_retriever, messages)  
 
@@ -530,7 +539,7 @@ def summarize_and_log(history, stored_messages, llm):
 
         summary_message = summarization_chain.invoke({"chat_history": stored_messages})
 
-        with threading.Lock():
+        with _session_history_lock:  # Fix #5: use module-level lock, not a new instance per call
             history.clear()
             history.add_user_message("Our current conversation summary till now")
             history.add_message(summary_message)
@@ -565,12 +574,13 @@ def create_graph_chain(model, graph):
         return graph_chain,qa_llm,model_name
 
     except Exception as e:
-        logging.error(f"An error occurred while creating the GraphCypherQAChain instance. : {e}") 
+        logging.error(f"An error occurred while creating the GraphCypherQAChain instance. : {e}")
+        raise  # Fix #2: propagate so caller tuple-unpack doesn't crash on None
 
 def get_graph_response(graph_chain, question):
     try:
         cypher_res = graph_chain.invoke({"query": question})
-        
+
         response = cypher_res.get("result")
         cypher_query = ""
         context = []
@@ -578,7 +588,7 @@ def get_graph_response(graph_chain, question):
         for step in cypher_res.get("intermediate_steps", []):
             if "query" in step:
                 cypher_string = step["query"]
-                cypher_query = cypher_string.replace("cypher\n", "").replace("\n", " ").strip() 
+                cypher_query = cypher_string.replace("cypher\n", "").replace("\n", " ").strip()
             elif "context" in step:
                 context = step["context"]
         return {
@@ -586,32 +596,37 @@ def get_graph_response(graph_chain, question):
             "cypher_query": cypher_query,
             "context": context
         }
-    
+
     except Exception as e:
         logging.error(f"An error occurred while getting the graph response : {e}")
+        raise  # Fix #3: propagate so caller .get() doesn't crash on None
 
-async def process_graph_response(model, graph, question, messages, history, language="en"):
+async def process_graph_response(model, graph, question, messages, history, language="en", patient_id=None):
+    model_version = model  # Fix #4: initialize before try so except block can safely reference it
     try:
+        if patient_id:
+            question = f"For patient with ID '{patient_id}': {question}"
         graph_chain, qa_llm, model_version = create_graph_chain(model, graph)
-        
+
         graph_response = get_graph_response(graph_chain, question)
-        
+
         ai_response_content = graph_response.get("response", "Something went wrong")
         ai_response = AIMessage(content=ai_response_content)
-        
+
         messages.append(ai_response)
-        # summarize_and_log(history, messages, qa_llm)
         summarization_thread = threading.Thread(target=summarize_and_log, args=(history, messages, qa_llm))
         summarization_thread.start()
         logging.info("Summarization thread started.")
-        
+
         # Translate context if needed (it often contains node/rel info)
         if language and language != "en":
-             graph_response["context"] = await translate_metadata({"context": graph_response.get("context", [])}, language, model).get("context", [])
+            # Fix #1: await the coroutine first, then call .get() on the resulting dict
+            translated = await translate_metadata({"context": graph_response.get("context", [])}, language, model)
+            graph_response["context"] = translated.get("context", [])
 
-        metric_details = {"question":question,"contexts":graph_response.get("context", ""),"answer":ai_response_content}
+        metric_details = {"question": question, "contexts": graph_response.get("context", ""), "answer": ai_response_content}
         result = {
-            "session_id": "", 
+            "session_id": "",
             "message": ai_response_content,
             "info": {
                 "model": model_version,
@@ -623,16 +638,16 @@ async def process_graph_response(model, graph, question, messages, history, lang
             },
             "user": "chatbot"
         }
-        
+
         return result
-    
+
     except Exception as e:
         logging.exception(f"Error processing graph response at {datetime.now()}: {str(e)}")
         return {
-            "session_id": "",  
+            "session_id": "",
             "message": "Something went wrong",
             "info": {
-                "model": model_version,
+                "model": model_version,  # now always defined
                 "cypher_query": "",
                 "context": "",
                 "mode": "graph",
@@ -668,7 +683,8 @@ async def process_ayush_response(model: str, graph, document_names: str, questio
         try:
             # Use the vector+fulltext retrieval mode (same as regular RAG)
             vector_fulltext_settings = get_chat_mode_settings(mode=CHAT_DEFAULT_MODE)
-            doc_names_list = list(map(str.strip, json.loads(document_names))) if document_names else []
+            # Fix #15: document_names is now always a list (parsed by QA_RAG before call)
+            doc_names_list = list(map(str.strip, document_names)) if document_names else []
             retriever = get_neo4j_retriever(
                 graph=graph,
                 document_names=doc_names_list,
@@ -777,8 +793,7 @@ async def process_ayush_response(model: str, graph, document_names: str, questio
             },
             "user": "chatbot",
         }
-
-    return chat_mode_settings
+    # Fix #6: removed unreachable `return chat_mode_settings` — both try and except already return
 
 def create_neo4j_chat_message_history(graph, session_id, write_access=True):
     """
@@ -814,7 +829,7 @@ def get_chat_mode_settings(mode,settings_map=CHAT_MODE_CONFIG_MAP):
 
     return chat_mode_settings
 
-async def QA_RAG(graph, model, question, document_names, session_id, mode, write_access=True, email=None, uri=None, language="en"):
+async def QA_RAG(graph, model, question, document_names, session_id, mode, write_access=True, email=None, uri=None, language="en", patient_id=None):
     logging.info(f"Chat Mode: {mode}")
 
     history = create_neo4j_chat_message_history(graph, session_id, write_access)
@@ -824,8 +839,12 @@ async def QA_RAG(graph, model, question, document_names, session_id, mode, write
     messages.append(user_question)
 
     if mode == CHAT_GRAPH_MODE:
-        result = await process_graph_response(model, graph, question, messages, history, language=language)
+        result = await process_graph_response(model, graph, question, messages, history, language=language, patient_id=patient_id)
     elif mode == CHAT_AYUSH_MODE:
+        # Fix #15: parse document_names here (same as the else branch) so process_ayush_response
+        # always receives a list, never a raw JSON string
+        if document_names and isinstance(document_names, str):
+            document_names = list(map(str.strip, json.loads(document_names)))
         result = await process_ayush_response(model, graph, document_names, question, messages, history, session_id, language=language)
     else:
         chat_mode_settings = get_chat_mode_settings(mode=mode)
@@ -847,7 +866,7 @@ async def QA_RAG(graph, model, question, document_names, session_id, mode, write
                 "user": "chatbot"
             }
         else:
-            result = await process_chat_response(messages,history, question, model, graph, document_names,chat_mode_settings, email, uri, language=language)
+            result = await process_chat_response(messages,history, question, model, graph, document_names,chat_mode_settings, email, uri, language=language, patient_id=patient_id)
 
     result["session_id"] = session_id
     

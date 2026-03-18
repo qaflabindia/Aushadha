@@ -6,8 +6,10 @@ import { graphLabels } from '../../utils/Constants';
 import { parseEntity } from '../../utils/Utils';
 import GraphViewModal from '../Graph/GraphViewModal';
 import { handleGraphNodeClick } from './chatInfo';
+import { useTranslate } from '../../context/TranslationContext';
 
 const EntitiesInfo: FC<EntitiesProps> = ({ loading, mode, graphonly_entities, infoEntities }) => {
+  const t = useTranslate();
   const [neoNodes, setNeoNodes] = useState<any[]>([]);
   const [neoRels, setNeoRels] = useState<any[]>([]);
   const [openGraphView, setOpenGraphView] = useState(false);
@@ -135,7 +137,7 @@ const EntitiesInfo: FC<EntitiesProps> = ({ loading, mode, graphonly_entities, in
         </ul>
       ) : (
         <Typography variant='h6' className='text-center'>
-          No Entities Found
+          {t('noEntitiesFound')}
         </Typography>
       )}
       {openGraphView && (

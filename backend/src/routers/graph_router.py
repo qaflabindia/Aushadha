@@ -7,6 +7,7 @@ import os
 import time
 from datetime import datetime, timezone
 
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from google.oauth2.credentials import Credentials
 from langchain_neo4j import Neo4jGraph
@@ -32,10 +33,20 @@ from src.post_processing import create_entity_embedding, create_vector_fulltext_
 from src.shared.common_fn import formatted_time
 from src.shared.env_utils import get_value_from_env
 from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
+from src.database import get_db
+from src.services.access_service import verify_patient_access
+from sqlalchemy.orm import Session
 
 logger = CustomLogger()
-CHUNK_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chunks")
-MERGED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "merged_files")
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+def get_patient_paths(patient_id: Optional[str]):
+    # Maintain root-level isolation per patient above the src directory
+    p_id = patient_id or "default"
+    base_path = os.path.join(BACKEND_ROOT, p_id)
+    chunks_path = os.path.join(base_path, "chunks")
+    merged_path = os.path.join(base_path, "merged_files")
+    return chunks_path, merged_path
 
 router = APIRouter(tags=["Graph & Extraction"])
 
@@ -115,29 +126,26 @@ async def backend_connection_configuration():
         password= get_value_from_env("NEO4J_PASSWORD")
         gcs_cache = get_value_from_env("GCS_FILE_CACHE","False","bool")
         if all([uri, username, database, password]):
-            graph = Neo4jGraph()
-            logging.info(f'login connection status of object: {graph}')
-            if graph is not None:
-                graph_connection = True
-                temp_credentials = Neo4jCredentials(uri=uri, userName=username, password=password, database=database)
+            graph_connection = True
+            temp_credentials = Neo4jCredentials(uri=uri, userName=username, password=password, database=database)
 
-                logging.info(f"Final URI for connection attempt: {temp_credentials.uri}")
-                graph = create_graph_database_connection(temp_credentials)
+            logging.info(f"Final URI for connection attempt: {temp_credentials.uri}")
+            graph = create_graph_database_connection(temp_credentials)
 
-                logging.info(f"Connection created, checking dimensions for database: {temp_credentials.database}")
-                result = await asyncio.to_thread(connection_check_and_get_vector_dimensions, graph, temp_credentials.database)
-                logging.info(f"Dimensions check result: {result}")
+            logging.info(f"Connection created, checking dimensions for database: {temp_credentials.database}")
+            result = await asyncio.to_thread(connection_check_and_get_vector_dimensions, graph, temp_credentials.database)
+            logging.info(f"Dimensions check result: {result}")
 
-                result['gcs_file_cache'] = gcs_cache
-                result['uri'] = uri
-                end = time.time()
-                elapsed_time = end - start
-                result['api_name'] = 'backend_connection_configuration'
-                result['elapsed_api_time'] = f'{elapsed_time:.2f}'
-                result['graph_connection'] = f'{graph_connection}',
-                result['connection_from'] = 'backendAPI'
-                logger.log_struct(result, "INFO")
-                return create_api_response('Success',message=f"Backend connection successful",data=result)
+            result['gcs_file_cache'] = gcs_cache
+            result['uri'] = uri
+            end = time.time()
+            elapsed_time = end - start
+            result['api_name'] = 'backend_connection_configuration'
+            result['elapsed_api_time'] = f'{elapsed_time:.2f}'
+            result['graph_connection'] = f'{graph_connection}',
+            result['connection_from'] = 'backendAPI'
+            logger.log_struct(result, "INFO")
+            return create_api_response('Success',message=f"Backend connection successful",data=result)
         else:
             graph_connection = False
             return create_api_response('Success',message=f"Backend connection is not successful",data=graph_connection)
@@ -167,20 +175,20 @@ async def create_source_knowledge_graph_url(
         source = params.source_url if params.source_url is not None else params.wiki_query
         graph = create_graph_database_connection(credentials)
         if params.source_type == 's3 bucket' and params.aws_access_key_id and params.aws_secret_access_key:
-            lst_file_name, success_count, failed_count = await asyncio.to_thread(create_source_node_graph_url_s3, graph, params)
+            lst_file_name, success_count, failed_count = await asyncio.to_thread(create_source_node_graph_url_s3, graph, params, credentials)
         elif params.source_type == 'gcs bucket':
             lst_file_name, success_count, failed_count = create_source_node_graph_url_gcs(
-                graph, params, Credentials(params.access_token)
+                graph, params, credentials
             )
         elif params.source_type == 'web-url':
             lst_file_name, success_count, failed_count = await asyncio.to_thread(
-                create_source_node_graph_web_url, graph, params)
+                create_source_node_graph_web_url, graph, params, credentials)
         elif params.source_type == 'youtube':
             lst_file_name, success_count, failed_count = await asyncio.to_thread(
-                create_source_node_graph_url_youtube, graph, params)
+                create_source_node_graph_url_youtube, graph, params, credentials)
         elif params.source_type == 'Wikipedia':
             lst_file_name, success_count, failed_count = await asyncio.to_thread(
-                create_source_node_graph_url_wikipedia, graph, params)
+                create_source_node_graph_url_wikipedia, graph, params, credentials)
         else:
             return create_api_response('Failed', message='source_type is other than accepted source')
 
@@ -202,7 +210,7 @@ async def create_source_knowledge_graph_url(
     except LLMGraphBuilderException as e:
         error_message = str(e)
         message = f" Unable to create source node for source type: {params.source_type} and source: {source}"
-        json_obj = {'error_message':error_message, 'status':'Success','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database,'success_count':1, 'source_type': params.source_type, 'source_url':params.source_url, 'wiki_query':params.wiki_query, 'logging_time': formatted_time(datetime.now(timezone.utc)),'email':credentials.email}
+        json_obj = {'error_message':error_message, 'status':'Failed','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database,'failed_count':1, 'source_type': params.source_type, 'source_url':params.source_url, 'wiki_query':params.wiki_query, 'logging_time': formatted_time(datetime.now(timezone.utc)),'email':credentials.email}
         logger.log_struct(json_obj, "INFO")
         logging.exception(f'File Failed in upload: {e}')
         return create_api_response('Failed',message=message + error_message[:80],error=error_message,file_source=params.source_type)
@@ -223,14 +231,21 @@ async def upload_large_file_into_chunks(
     totalChunks=Form(None),
     originalname=Form(None),
     model=Form(None),
-    patient_email=Form(None),
-    credentials: Neo4jCredentials = Depends(get_neo4j_credentials)
+    patient_id=Form(None),
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    db: Session = Depends(get_db)
 ):
     """Upload a large file in chunks and create a source node."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
+        chunk_dir, merged_dir = get_patient_paths(patient_id)
+        os.makedirs(chunk_dir, exist_ok=True)
+        os.makedirs(merged_dir, exist_ok=True)
+        
         graph = create_graph_database_connection(credentials)
-        result = await asyncio.to_thread(upload_file, graph, model, file, chunkNumber, totalChunks, originalname, credentials.uri, CHUNK_DIR, MERGED_DIR, credentials.email, patient_email)
+        result = await asyncio.to_thread(upload_file, graph, model, file, chunkNumber, totalChunks, originalname, credentials.uri, chunk_dir, merged_dir, patient_id)
         end = time.time()
         elapsed_time = end - start
         if int(chunkNumber) == int(totalChunks):
@@ -247,7 +262,7 @@ async def upload_large_file_into_chunks(
         error_message = str(e)
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
-        graphDb_data_Access.update_exception_db(originalname,error_message)
+        graphDb_data_Access.update_exception_db(originalname,error_message, patient_id=patient_id)
         logging.info(message)
         logging.exception(f'Exception:{error_message}')
         return create_api_response('Failed', message=message + error_message[:100], error=error_message, file_name = originalname)
@@ -262,9 +277,15 @@ async def upload_large_file_into_chunks(
 @router.post("/extract")
 async def extract_knowledge_graph_from_file(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
-    params: SourceScanExtractParams = Depends(get_source_scan_extract_params)
+    params: SourceScanExtractParams = Depends(get_source_scan_extract_params),
+    db: Session = Depends(get_db)
 ):
     """Extract a knowledge graph from a file or URL source."""
+    if params.patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, params.patient_id, db)
+    # Verification: Ensure user has access to the specified patient
+    # await verify_patient_access(credentials, params.patient_id)
+    merged_file_path = None  # Initialize before try so except handlers can safely reference it
     try:
         start_time = time.time()
         graph = create_graph_database_connection(credentials)
@@ -273,7 +294,9 @@ async def extract_knowledge_graph_from_file(
         if params.source_type == 'local file':
             file_name = sanitize_filename(params.file_name)
             params.file_name = file_name
-            merged_file_path = validate_file_path(MERGED_DIR, file_name)
+            _, merged_dir = get_patient_paths(params.patient_id)
+            os.makedirs(merged_dir, exist_ok=True)
+            merged_file_path = validate_file_path(merged_dir, file_name)
             uri_latency, result = await extract_graph_from_file_local_file(credentials, params, merged_file_path)
         elif params.source_type == 's3 bucket' and params.source_url:
             uri_latency, result = await extract_graph_from_file_s3(credentials, params)
@@ -321,14 +344,14 @@ async def extract_knowledge_graph_from_file(
         result.update(uri_latency)
         logging.info(f"extraction completed in {extract_api_time:.2f} seconds for file name {params.file_name}")
         return create_api_response('Success', data=result, file_source= params.source_type)
-    except LLMGraphBuilderException as e:
+    except Exception as e:
         error_message = str(e)
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
-        graphDb_data_Access.update_exception_db(params.file_name,error_message, params.retry_condition)
-        if params.source_type == 'local file':
-            failed_file_process(credentials.uri,params.file_name, merged_file_path)
-        node_detail = graphDb_data_Access.get_current_status_document_node(params.file_name)
+        graphDb_data_Access.update_exception_db(params.file_name,error_message, params.retry_condition, patient_id=params.patient_id)
+        # Note: failed_file_process call removed per data retention policy.
+            
+        node_detail = graphDb_data_Access.get_current_status_document_node(params.file_name, patient_id=params.patient_id)
         json_obj = {'api_name':'extract','message':error_message,'file_created_at':formatted_time(node_detail[0]['created_time']),'error_message':error_message, 'filename': params.file_name,'status':'Completed',
                     'db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database,'failed_count':1, 'source_type': params.source_type, 'source_url':params.source_url, 'wiki_query':params.wiki_query, 'logging_time': formatted_time(datetime.now(timezone.utc)),'email':credentials.email}
         logger.log_struct(json_obj, "ERROR")
@@ -342,7 +365,8 @@ async def extract_knowledge_graph_from_file(
         graphDb_data_Access.update_exception_db(params.file_name,error_message, params.retry_condition)
         if params.source_type == 'local file':
             failed_file_process(credentials.uri,params.file_name, merged_file_path)
-        node_detail = graphDb_data_Access.get_current_status_document_node(params.file_name)
+            
+        node_detail = graphDb_data_Access.get_current_status_document_node(params.file_name, patient_id=params.patient_id)
 
         json_obj = {'api_name':'extract','message':message,'file_created_at':formatted_time(node_detail[0]['created_time']),'error_message':error_message, 'filename': params.file_name,'status':'Failed',
                     'db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database,'failed_count':1, 'source_type': params.source_type, 'source_url':params.source_url, 'wiki_query':params.wiki_query, 'logging_time': formatted_time(datetime.now(timezone.utc)),'email':credentials.email}
@@ -358,14 +382,20 @@ async def extract_knowledge_graph_from_file(
 # ---------------------------------------------------------------------------
 
 @router.post("/sources_list")
-async def get_source_list(credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
+async def get_source_list(
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
     """Get the list of sources already present in the database."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
-        result = await asyncio.to_thread(get_source_list_from_graph,credentials)
+        result = await asyncio.to_thread(get_source_list_from_graph, credentials, patient_id)
         end = time.time()
         elapsed_time = end - start
-        json_obj = {'api_name':'sources_list','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email}
+        json_obj = {'api_name':'sources_list','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email, 'patient_id': patient_id}
         logger.log_struct(json_obj, "INFO")
         return create_api_response("Success",data=result, message=f"Total elapsed API time {elapsed_time:.2f}")
     except Exception as e:
@@ -376,15 +406,21 @@ async def get_source_list(credentials: Neo4jCredentials = Depends(get_neo4j_cred
         return create_api_response(job_status, message=message, error=error_message)
 
 @router.post("/schema")
-async def get_structured_schema(credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
+async def get_structured_schema(
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
     """Get the structured schema (labels and relation types) from Neo4j."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
-        result = await asyncio.to_thread(get_labels_and_relationtypes, credentials)
+        result = await asyncio.to_thread(get_labels_and_relationtypes, credentials, patient_id)
         end = time.time()
         elapsed_time = end - start
         logging.info(f'Schema result from DB: {result}')
-        json_obj = {'api_name':'schema','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email}
+        json_obj = {'api_name':'schema','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email, 'patient_id': patient_id}
         logger.log_struct(json_obj, "INFO")
         return create_api_response('Success', data=result,message=f"Total elapsed API time {elapsed_time:.2f}")
     except Exception as e:
@@ -397,16 +433,22 @@ async def get_structured_schema(credentials: Neo4jCredentials = Depends(get_neo4
         gc.collect()
 
 @router.post("/schema_visualization")
-async def get_schema_visualization(credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
+async def get_schema_visualization(
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
-        result = await asyncio.to_thread(visualize_schema,credentials)
+        result = await asyncio.to_thread(visualize_schema, credentials, patient_id)
         if result:
             logging.info("Graph schema visualization query successful")
         end = time.time()
         elapsed_time = end - start
         logging.info(f'Schema result from DB: {result}')
-        json_obj = {'api_name':'schema_visualization','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email}
+        json_obj = {'api_name':'schema_visualization','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email, 'patient_id': patient_id}
         logger.log_struct(json_obj, "INFO")
         return create_api_response('Success', data=result,message=f"Total elapsed API time {elapsed_time:.2f}")
     except Exception as e:
@@ -525,9 +567,13 @@ async def update_extract_status(
     userName: str = None,
     password: str = None,
     database: str = None,
-    credentials: Neo4jCredentials = Depends(get_neo4j_credentials)
+    patient_id: str = None,
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    db: Session = Depends(get_db)
 ):
     """Stream updates on extract status for a given file name."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     async def generate():
         status = ''
         if password is not None and password != "null":
@@ -535,20 +581,26 @@ async def update_extract_status(
         else:
             decoded_password = None
 
-        url = uri
-        if url and " " in url:
-            url= url.replace(" ","+")
+        current_url = uri
+        if current_url and " " in current_url:
+            current_url = current_url.replace(" ", "+")
         
-        if not url:
-            url = get_value_from_env("NEO4J_URI")
-        if not userName:
-            userName = get_value_from_env("NEO4J_USERNAME")
-        if not decoded_password:
-            decoded_password = get_value_from_env("NEO4J_PASSWORD")
-        if not database:
-            database = get_value_from_env("NEO4J_DATABASE", "neo4j")
+        if not current_url:
+            current_url = get_value_from_env("NEO4J_URI")
+        
+        current_userName = userName
+        if not current_userName:
+            current_userName = get_value_from_env("NEO4J_USERNAME")
             
-        credentials = Neo4jCredentials(uri=url, userName=userName, password=decoded_password, database=database)
+        current_password = decoded_password
+        if not current_password:
+            current_password = get_value_from_env("NEO4J_PASSWORD")
+            
+        current_database = database
+        if not current_database:
+            current_database = get_value_from_env("NEO4J_DATABASE", "neo4j")
+            
+        credentials = Neo4jCredentials(uri=current_url, userName=current_userName, password=current_password, database=current_database)
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
         while True:
@@ -557,11 +609,7 @@ async def update_extract_status(
                     logging.info(" SSE Client disconnected")
                     break
                 else:
-                    if credentials.user_role == "Admin" and not credentials.target_user_email:
-                        owner_filter = None
-                    else:
-                        owner_filter = credentials.target_user_email or credentials.email
-                    result = graphDb_data_Access.get_current_status_document_node(file_name, owner_filter)
+                    result = graphDb_data_Access.get_current_status_document_node(file_name, patient_id=patient_id)
                     if len(result) > 0:
                         status = json.dumps({'fileName':file_name,
                         'status':result[0]['Status'],
@@ -584,12 +632,15 @@ async def update_extract_status(
                     yield status
             except asyncio.CancelledError:
                 logging.info("SSE Connection cancelled")
+                raise
 
     return EventSourceResponse(generate(),ping=60)
 
 @router.get('/document_status/{file_name}')
-async def get_document_status(file_name, url, userName, password, database, credentials: Neo4jCredentials = Depends(get_neo4j_credentials)):
+async def get_document_status(file_name, url, userName, password, database, patient_id: str = None, credentials: Neo4jCredentials = Depends(get_neo4j_credentials), db: Session = Depends(get_db)):
     """Get the status of a document in the graph database."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     decoded_password = decode_password(password)
 
     try:
@@ -611,12 +662,7 @@ async def get_document_status(file_name, url, userName, password, database, cred
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
         
-        if credentials.user_role == "Admin" and not credentials.target_user_email:
-            owner_filter = None
-        else:
-            owner_filter = credentials.target_user_email or credentials.email
-            
-        result = graphDb_data_Access.get_current_status_document_node(file_name, owner_filter)
+        result = graphDb_data_Access.get_current_status_document_node(file_name, patient_id=patient_id)
         if len(result) > 0:
             status = {'fileName':file_name,
                 'status':result[0]['Status'],
@@ -650,20 +696,20 @@ async def delete_document_and_entities(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
     filenames=Form(),
     source_types=Form(),
-    deleteEntities=Form()
+    deleteEntities=Form(),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
 ):
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     """Delete documents and their entities from the graph database."""
     try:
         start = time.time()
         graph = create_graph_database_connection(credentials)
         graphDb_data_Access = graphDBdataAccess(graph)
         
-        if credentials.user_role == "Admin" and not credentials.target_user_email:
-            owner_filter = None
-        else:
-            owner_filter = credentials.target_user_email or credentials.email
-            
-        files_list_size = await asyncio.to_thread(graphDb_data_Access.delete_file_from_graph, filenames, source_types, deleteEntities, MERGED_DIR, credentials.uri, owner_filter)
+        _, merged_dir = get_patient_paths(patient_id)
+        files_list_size = await asyncio.to_thread(graphDb_data_Access.delete_file_from_graph, filenames, source_types, deleteEntities, merged_dir, credentials.uri, patient_id)
         message = f"Deleted {files_list_size} documents with entities from database"
         end = time.time()
         elapsed_time = end - start
@@ -684,17 +730,22 @@ async def delete_document_and_entities(
 async def cancelled_job(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
     filenames=Form(None),
-    source_types=Form(None)
+    source_types=Form(None),
+    patient_id: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
 ):
     """Cancel a running job for the given filenames and source types."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
         graph = create_graph_database_connection(credentials)
-        result = manually_cancelled_job(graph, filenames, source_types, MERGED_DIR, credentials.uri)
+        _, merged_dir = get_patient_paths(patient_id)
+        result = manually_cancelled_job(graph, filenames, source_types, merged_dir, credentials.uri, patient_id=patient_id)
         end = time.time()
         elapsed_time = end - start
         json_obj = {'api_name':'cancelled_job','db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'filenames':filenames,
-                            'source_types':source_types, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email}
+                            'source_types':source_types, 'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email, 'patient_id': patient_id}
         logger.log_struct(json_obj, "INFO")
         return create_api_response('Success',message=result)
     except Exception as e:
@@ -710,9 +761,13 @@ async def cancelled_job(
 async def retry_processing(
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
     file_name=Form(),
-    retry_condition=Form()
+    retry_condition=Form(),
+    patient_id=Form(None),
+    db: Session = Depends(get_db)
 ):
     """Set status to retry for a given file name and condition."""
+    if patient_id:
+        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
     try:
         start = time.time()
         graph = create_graph_database_connection(credentials)
@@ -721,7 +776,7 @@ async def retry_processing(
         json_obj = {'api_name':'retry_processing', 'db_url':credentials.uri, 'userName':credentials.userName, 'database':credentials.database, 'filename':file_name,'retry_condition':retry_condition,
                             'logging_time': formatted_time(datetime.now(timezone.utc)), 'elapsed_api_time':f'{elapsed_time:.2f}','email':credentials.email}
         logger.log_struct(json_obj, "INFO")
-        await asyncio.to_thread(set_status_retry, graph,file_name,retry_condition)
+        await asyncio.to_thread(set_status_retry, graph,file_name,retry_condition, patient_id=patient_id or (credentials.patient_id if hasattr(credentials, 'patient_id') else None))
         return create_api_response('Success',message=f"Status set to Ready to Reprocess for filename : {file_name}")
     except Exception as e:
         job_status = "Failed"

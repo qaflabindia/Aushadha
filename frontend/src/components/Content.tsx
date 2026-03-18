@@ -52,7 +52,8 @@ import { useHasSelections } from '../hooks/useHasSelections';
 import { ChevronUpIconOutline, ChevronDownIconOutline } from '@neo4j-ndl/react/icons';
 import { ThemeWrapperContext } from '../context/ThemeWrapper';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useTranslation } from '../context/LanguageContext';
+import { useTranslation } from '../hooks/useTranslation';
+import { usePatientContext } from '../context/PatientContext';
 import React from 'react';
 
 const ConfirmationDialog = lazy(() => import('./Popups/LargeFilePopUp/ConfirmationDialog'));
@@ -98,6 +99,10 @@ const Content: React.FC<ContentProps> = ({
   const { isAuthenticated } = useAuth0();
   const t = useTranslation();
   const { setIsOpen } = useSpotlightContext();
+  const { selectedPatient } = usePatientContext();
+  // patientId is the case_id (PK in patients table) — the sole clinical isolation key.
+  // null when no patient is selected: callers must handle null explicitly.
+  const patientId = selectedPatient?.case_id ?? null;
   const [alertStateForRetry, setAlertStateForRetry] = useState<BannerAlertProps>({
     showAlert: false,
     alertType: 'neutral',
@@ -163,7 +168,10 @@ const Content: React.FC<ContentProps> = ({
 
   useEffect(() => {
     if (afterFirstRender) {
-      localStorage.setItem('processedCount', JSON.stringify({ db: userCredentials?.uri, count: processedCount }));
+      localStorage.setItem(
+        `${patientId ?? 'global'}_processedCount`,
+        JSON.stringify({ db: userCredentials?.uri, count: processedCount })
+      );
     }
     if (processedCount == batchSize && !isReadOnlyUser) {
       handleGenerateGraph([], true);
@@ -236,7 +244,10 @@ const Content: React.FC<ContentProps> = ({
 
   useEffect(() => {
     if (afterFirstRender) {
-      localStorage.setItem('waitingQueue', JSON.stringify({ db: userCredentials?.uri, queue: queue.items }));
+      localStorage.setItem(
+        `${patientId ?? 'global'}_waitingQueue`,
+        JSON.stringify({ db: userCredentials?.uri, queue: queue.items })
+      );
     }
     afterFirstRender = true;
   }, [queue.items.length, userCredentials]);
@@ -350,7 +361,8 @@ const Content: React.FC<ContentProps> = ({
         fileItem.googleProjectId,
         fileItem.language,
         fileItem.accessToken,
-        additionalInstructions
+        additionalInstructions,
+        patientId ?? undefined // case_id (null → undefined): sole Neo4j isolation key
       );
       if (apiResponse?.status === 'Failed') {
         let errorobj = { error: apiResponse.error, message: apiResponse.message, fileName: apiResponse.file_name };
@@ -630,16 +642,16 @@ const Content: React.FC<ContentProps> = ({
     setSelectedNodes([]);
     setSelectedRels([]);
     setAllPatterns([]);
-    localStorage.removeItem('selectedTokenChunkSize');
+    localStorage.removeItem(`${patientId ?? 'global'}_selectedTokenChunkSize`);
     setSelectedTokenChunkSize(tokenchunkSize);
-    localStorage.removeItem('selectedChunk_overlap');
+    localStorage.removeItem(`${patientId ?? 'global'}_selectedChunk_overlap`);
     setSelectedChunk_overlap(chunkOverlap);
-    localStorage.removeItem('selectedChunks_to_combine');
+    localStorage.removeItem(`${patientId ?? 'global'}_selectedChunks_to_combine`);
     setSelectedChunks_to_combine(chunksToCombine);
-    localStorage.removeItem('instructions');
-    localStorage.removeItem('selectedNodeLabels');
-    localStorage.removeItem('selectedRelationshipLabels');
-    localStorage.removeItem('selectedPattern');
+    localStorage.removeItem(`${patientId ?? 'global'}_instructions`);
+    localStorage.removeItem(`${patientId ?? 'global'}_selectedNodeLabels`);
+    localStorage.removeItem(`${patientId ?? 'global'}_selectedRelationshipLabels`);
+    localStorage.removeItem(`${patientId ?? 'global'}_selectedPattern`);
     setAdditionalInstructions('');
     setMessages([
       {

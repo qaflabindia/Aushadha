@@ -24,6 +24,7 @@ import { graphLabels, nvlOptions } from '../../utils/Constants';
 import ResultOverview from './ResultOverview';
 import { ResizePanelDetails } from './ResizePanel';
 import GraphPropertiesPanel from './GraphPropertiesPanel';
+import { useTranslate } from '../../context/TranslationContext';
 
 const SchemaViz: React.FunctionComponent<SchemaViewModalProps> = ({
   open,
@@ -34,6 +35,7 @@ const SchemaViz: React.FunctionComponent<SchemaViewModalProps> = ({
   view,
 }) => {
   const nvlRef = useRef<NVL>(null);
+  const t = useTranslate();
   const [nodes, setNodes] = useState<ExtendedNode[]>([]);
   const [relationships, setRelationships] = useState<ExtendedRelationship[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -232,15 +234,25 @@ const SchemaViz: React.FunctionComponent<SchemaViewModalProps> = ({
                       nvlCallbacks={nvlCallbacks}
                     />
                     <IconButtonArray orientation='vertical' isFloating={true} className='absolute bottom-4 right-4'>
-                      <IconButtonWithToolTip label='Zoomin' text='Zoom in' onClick={handleZoomIn} placement='left'>
+                      <IconButtonWithToolTip
+                        label={t('Zoomin')}
+                        text={t('Zoom in')}
+                        onClick={handleZoomIn}
+                        placement='left'
+                      >
                         <MagnifyingGlassPlusIconOutline className='n-size-token-7' />
                       </IconButtonWithToolTip>
-                      <IconButtonWithToolTip label='Zoom out' text='Zoom out' onClick={handleZoomOut} placement='left'>
+                      <IconButtonWithToolTip
+                        label={t('Zoom out')}
+                        text={t('Zoom out')}
+                        onClick={handleZoomOut}
+                        placement='left'
+                      >
                         <MagnifyingGlassMinusIconOutline className='n-size-token-7' />
                       </IconButtonWithToolTip>
                       <IconButtonWithToolTip
-                        label='Zoom to fit'
-                        text='Zoom to fit'
+                        label={t('Zoom to fit')}
+                        text={t('Zoom to fit')}
                         onClick={handleZoomToFit}
                         placement='left'
                       >

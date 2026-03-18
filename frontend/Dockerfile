@@ -22,7 +22,7 @@ ARG VITE_CHUNK_TO_COMBINE=1
 
 WORKDIR /app
 COPY package.json yarn.lock ./
-RUN yarn install
+RUN yarn install --ignore-scripts --ignore-engines
 COPY . ./
 RUN VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL \
     VITE_REACT_APP_SOURCES=$VITE_REACT_APP_SOURCES \

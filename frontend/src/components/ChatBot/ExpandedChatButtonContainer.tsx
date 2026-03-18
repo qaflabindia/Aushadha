@@ -1,18 +1,18 @@
 import {
-  TrashIconOutline,
-  ChevronRightIconOutline,
-  ArrowsPointingOutIconSolid,
-  ArrowsPointingInIconSolid,
-  ArrowDownTrayIconOutline,
-} from '@neo4j-ndl/react/icons';
+  RiCloseLine,
+  RiDeleteBin6Line,
+  RiExpandDiagonalLine,
+  RiCollapseDiagonalLine,
+  RiDownloadLine,
+} from 'react-icons/ri';
 
 import { Messages } from '../../types';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
-import { tooltips } from '../../utils/Constants';
 import { memo, useRef, useContext } from 'react';
 import clsx from 'clsx';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { downloadClickHandler } from '../../utils/Utils';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export interface ExpandedChatButtonProps {
   closeChatBot: () => void;
@@ -29,6 +29,7 @@ const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
   isFullScreen,
   toggleFullScreen,
 }) => {
+  const t = useTranslation();
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const { colorMode } = useContext(ThemeWrapperContext);
 
@@ -44,48 +45,48 @@ const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
           }
         )}
       >
-        <IconButtonWithToolTip text='Close' onClick={closeChatBot} clean placement='left' label='Close'>
-          <ChevronRightIconOutline className='w-7 h-7 outline-none' />
+        <IconButtonWithToolTip text={t('Close')} onClick={closeChatBot} clean placement='right' label={t('Close')}>
+          <RiCloseLine className='n-size-token-7 outline-none' size={28} />
         </IconButtonWithToolTip>
 
         <IconButtonWithToolTip
-          text={tooltips.clearChat}
-          aria-label='Remove chat history'
+          text={t('Delete Chat')}
           clean
           onClick={deleteOnClick}
           disabled={messages.length <= 1}
-          placement='left'
-          label={tooltips.clearChat}
+          placement='right'
+          label={t('Delete Chat')}
         >
-          <TrashIconOutline
-            className={clsx('w-7 h-7 outline-none', messages.length <= 1 ? 'opacity-50' : 'text-red-500')}
+          <RiDeleteBin6Line
+            className={clsx('n-size-token-7 outline-none', messages.length <= 1 ? 'opacity-50' : 'text-red-500')}
+            size={28}
           />
         </IconButtonWithToolTip>
 
         {toggleFullScreen && (
           <IconButtonWithToolTip
-            text={isFullScreen ? 'Collapse Screen' : 'Expand Screen'}
+            text={isFullScreen ? t('Minimise') : t('Maximise')}
             onClick={toggleFullScreen}
             clean
-            placement='left'
-            label='Toggle Fullscreen'
+            placement='right'
+            label={isFullScreen ? t('Minimise') : t('Maximise')}
           >
             {isFullScreen ? (
-              <ArrowsPointingInIconSolid className='w-7 h-7 outline-none' />
+              <RiCollapseDiagonalLine className='n-size-token-7 outline-none' size={28} />
             ) : (
-              <ArrowsPointingOutIconSolid className='w-7 h-7 outline-none' />
+              <RiExpandDiagonalLine className='n-size-token-7 outline-none' size={28} />
             )}
           </IconButtonWithToolTip>
         )}
 
         <IconButtonWithToolTip
-          text='Download Chat'
+          text={t('Download Conversation')}
           onClick={() => downloadClickHandler({ conversation: messages }, downloadLinkRef as any, 'aushadha-chat.json')}
           clean
-          placement='left'
-          label='Download'
+          placement='right'
+          label={t('Download Conversation')}
         >
-          <ArrowDownTrayIconOutline className='w-7 h-7 outline-none' />
+          <RiDownloadLine className='n-size-token-7 outline-none' size={28} />
         </IconButtonWithToolTip>
       </div>
     </>

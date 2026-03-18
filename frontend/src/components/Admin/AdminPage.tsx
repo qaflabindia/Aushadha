@@ -11,7 +11,7 @@ import {
 } from '@neo4j-ndl/react';
 import { useReactTable, getCoreRowModel, createColumnHelper } from '@tanstack/react-table';
 import { useGoogleAuth } from '../../context/GoogleAuthContext';
-import { useTranslate } from '../../context/TranslationContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import axios from 'axios';
 import { PremiumDropdown } from '../UI/PremiumDropdown';
 import { RiLockLine, RiDeleteBinLine } from 'react-icons/ri';
@@ -24,9 +24,16 @@ interface UserRecord {
   created_at: string;
 }
 
+interface TranslationStat {
+  lang: string;
+  total: number;
+  translated: number;
+  coverage: number;
+}
+
 const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = false }) => {
   const { getAuthHeaders, user: currentUser } = useGoogleAuth();
-  const t = useTranslate();
+  const t = useTranslation();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +44,8 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
   const [newUserRole, setNewUserRole] = useState('Patient');
   const [newUserCaseId, setNewUserCaseId] = useState('');
 
+  const [transStats, setTransStats] = useState<TranslationStat[]>([]);
+
   const apiBase = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
   const columnHelper = createColumnHelper<UserRecord>();
 
@@ -44,15 +53,26 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
     setIsLoading(true);
     try {
       const headers = getAuthHeaders();
-      const [usersRes, rolesRes] = await Promise.all([
+      const [usersRes, rolesRes, statsRes] = await Promise.all([
         axios.get(`${apiBase}/rbac/users`, { headers }),
         axios.get(`${apiBase}/rbac/roles`, { headers }),
+        axios.get(`${apiBase}/translate/ui/stats`, { headers }),
       ]);
-      setUsers(usersRes.data);
-      setRoles(rolesRes.data);
+      setUsers(usersRes.data || []);
+      setRoles(rolesRes.data || []);
+      const byLang = statsRes.data.by_language || {};
+      const totalKeys = statsRes.data.total_keys || 0;
+      const stats = Object.entries(byLang).map(([lang, s]: [string, any]) => ({
+        lang,
+        total: totalKeys,
+        translated: s.translated || 0,
+        coverage: totalKeys > 0 ? (s.translated / totalKeys) * 100 : 0,
+      }));
+      setTransStats(stats);
     } catch (err) {
       console.error('Failed to fetch admin data', err);
-      setAlert({ type: 'danger', message: t('Failed to load user management data.') });
+      // Ensure we don't crash if stats aren't available
+      setAlert({ type: 'danger', message: t('Failed to load some management data. Check backend logs.') as any });
     } finally {
       setIsLoading(false);
     }
@@ -149,7 +169,7 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
       columnHelper.accessor('role', {
         header: t('Current Role'),
         cell: (info) => {
-          const {email} = info.row.original;
+          const { email } = info.row.original;
           const currentRole = info.getValue();
           const existingCaseId = info.row.original.case_id;
 
@@ -169,7 +189,7 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
         header: t('Case ID'),
         cell: (info) => {
           const caseId = info.getValue();
-          const {role} = info.row.original;
+          const { role } = info.row.original;
           if (role !== 'Patient' || !caseId) {
             return (
               <Typography variant='body-small' className='opacity-40'>
@@ -259,7 +279,7 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
               <TextInput
                 onChange={(e) => setNewUserCaseId(e.target.value)}
                 value={newUserCaseId}
-                htmlAttributes={{ placeholder: 'e.g. PT-001', maxLength: 32 }}
+                htmlAttributes={{ placeholder: t('e.g. PT-001'), maxLength: 32 }}
               />
             </div>
           )}
@@ -284,7 +304,7 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
         </Banner>
       )}
 
-      <div className='glass-panel p-4 flex-1'>
+      <div className='glass-panel p-4 mb-8 h-fit'>
         {/* @ts-ignore */}
         <DataGrid
           tableInstance={table}
@@ -298,6 +318,37 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
             Pagination: () => <></>,
           }}
         />
+      </div>
+
+      <Typography variant='h2' className='mt-4'>
+        {t('Translation Management')}
+      </Typography>
+      <div className='glass-panel p-4 mb-4'>
+        <table className='w-full text-left text-sm'>
+          <thead>
+            <tr className='border-b opacity-60'>
+              <th className='py-2'>{t('Language')}</th>
+              <th>{t('Coverage')}</th>
+              <th>{t('Untranslated')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transStats.map((s) => (
+              <tr key={s.lang} className='border-b last:border-none'>
+                <td className='py-3 font-bold'>{s.lang.toUpperCase()}</td>
+                <td>
+                  <div className='flex items-center gap-2'>
+                    <div className='bg-neutral-200 h-2 w-24 rounded-full overflow-hidden'>
+                      <div className='bg-green-500 h-full' style={{ width: `${s.coverage}%` }} />
+                    </div>
+                    {(s.coverage ?? 0).toFixed(1)}%
+                  </div>
+                </td>
+                <td>{s.total - s.translated}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Flex>
   );

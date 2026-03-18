@@ -5,7 +5,8 @@ export const graphQueryAPI = async (
   document_names: (string | undefined)[] | undefined,
   signal: AbortSignal,
   language?: string,
-  model?: string
+  model?: string,
+  patientId?: string
 ) => {
   try {
     const formData = new FormData();
@@ -16,6 +17,9 @@ export const graphQueryAPI = async (
     }
     if (model) {
       formData.append('model', model);
+    }
+    if (patientId) {
+      formData.append('patient_id', patientId);
     }
 
     const response = await api.post(`/graph_query`, formData, {

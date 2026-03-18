@@ -67,7 +67,7 @@ import { ThemeWrapperContext } from '../context/ThemeWrapper';
 import BreakDownPopOver from './BreakDownPopOver';
 import { InformationCircleIconOutline } from '@neo4j-ndl/react/icons';
 import { useAuth0 } from '@auth0/auth0-react';
-import { useTranslation } from '../context/LanguageContext';
+import { useTranslate } from '../context/TranslationContext';
 import React from 'react';
 
 let onlyfortheFirstRender = true;
@@ -92,7 +92,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
   const islargeDesktop = useMediaQuery(`(min-width:1440px )`);
   const tableRef = useRef(null);
   const { isAuthenticated } = useAuth0();
-  const t = useTranslation();
+  const t = useTranslate();
   const { updateStatusForLargeFiles } = useServerSideEvent(
     (inMinutes, time, fileName) => {
       showNormalToast(`${fileName} will take approx ${time} ${inMinutes ? 'Min' : 'Sec'}`);
@@ -126,9 +126,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               onChange={table.getToggleAllRowsSelectedHandler()}
               isDisabled={processingcheck}
               htmlAttributes={{
-                title: processingcheck
-                   ? t('filesProcessingSelectionWarning')
-                   : 'select all rows for deletion',
+                title: processingcheck ? t('filesProcessingSelectionWarning') : 'select all rows for deletion',
               }}
             />
           );
@@ -287,7 +285,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${statusFilter === 'All' ? 'n-bg-palette-primary-bg-selected' : ''} p-2`}>
-                    All Files
+                    {t('allFiles')}
                   </span>
                 ),
                 onClick: () => {
@@ -299,7 +297,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${statusFilter === 'Completed' ? 'n-bg-palette-primary-bg-selected' : ''} p-2`}>
-                    <StatusIndicator type='success'></StatusIndicator> Completed Files
+                    <StatusIndicator type='success'></StatusIndicator> {t('completedFiles')}
                   </span>
                 ),
                 onClick: () => {
@@ -311,7 +309,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${statusFilter === 'New' ? 'n-bg-palette-primary-bg-selected' : 'p-2'} p-2`}>
-                    <StatusIndicator type='info'></StatusIndicator> New Files
+                    <StatusIndicator type='info'></StatusIndicator> {t('newFiles')}
                   </span>
                 ),
                 onClick: () => {
@@ -323,7 +321,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${statusFilter === 'Failed' ? 'n-bg-palette-primary-bg-selected' : ''} p-2`}>
-                    <StatusIndicator type='danger'></StatusIndicator> Failed Files
+                    <StatusIndicator type='danger'></StatusIndicator> {t('failedFiles')}
                   </span>
                 ),
                 onClick: () => {
@@ -340,7 +338,11 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
       columnHelper.accessor((row) => row.uploadProgress, {
         id: 'uploadprogess',
         cell: (info: CellContext<CustomFile, string>) => {
-          if (Number(info.getValue()) === 100 || info.row.original?.status === 'New') {
+          if (
+            (Number(info.getValue()) === 100 || info.row.original?.status === 'New') &&
+            info.row.original?.status !== 'Failed' &&
+            info.row.original?.status !== 'Upload Failed'
+          ) {
             return (
               <div className='flex! gap-1 items-center'>
                 <Typography variant='body-medium'>
@@ -351,7 +353,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
             );
           } else if (info.row.original?.status === 'Uploading') {
             return <CustomProgressBar value={Number(info?.getValue())}></CustomProgressBar>;
-          } else if (info.row.original?.status === 'Failed') {
+          } else if (info.row.original?.status === 'Failed' || info.row.original?.status === 'Upload Failed') {
             return (
               <div className='flex! gap-1 items-center'>
                 <Typography variant='body-medium'>
@@ -418,7 +420,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${fileSourceFilter === 'All' ? 'n-bg-palette-primary-bg-selected' : ''} p-2`}>
-                    All Sources
+                    {t('allSources')}
                   </span>
                 ),
                 onClick: () => {
@@ -463,7 +465,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${filetypeFilter === 'All' ? 'n-bg-palette-primary-bg-selected' : ''} p-2`}>
-                    All Types
+                    {t('allTypes')}
                   </span>
                 ),
                 onClick: () => {
@@ -503,7 +505,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
               {
                 title: (
                   <span className={`${llmtypeFilter === 'All' ? 'n-bg-palette-primary-bg-selected' : ''} p-2`}>
-                    All
+                    {t('all')}
                   </span>
                 ),
                 onClick: () => {
@@ -621,7 +623,7 @@ const FileTable: ForwardRefRenderFunction<ChildRef, FileTableProps> = (props, re
         ),
         maxSize: 300,
         minSize: 180,
-        header: () => <span>Actions</span>,
+        header: () => <span>{t('actions')}</span>,
         footer: (info) => info.column.id,
       }),
     ],

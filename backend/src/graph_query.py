@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from neo4j import time 
 from neo4j import GraphDatabase
 from src.shared.env_utils import get_value_from_env
@@ -7,6 +8,40 @@ import json
 
 from src.shared.constants import GRAPH_CHUNK_LIMIT,GRAPH_QUERY,CHUNK_TEXT_QUERY,COUNT_CHUNKS_QUERY,SCHEMA_VISUALIZATION_QUERY
 from src.shared.localization import translate_graph_labels
+import re
+
+def is_junk_text(text: str) -> bool:
+    """Check if the text is conversational junk or filler."""
+    if not text:
+        return True
+    
+    # Check length
+    if len(text) > 100:
+        return True
+        
+    junk_patterns = [
+        r"(?i)okay,?\s*let\'s\s*tackle",
+        r"(?i)tackle\s*this",
+        r"(?i)the\s*user\s*wrote",
+        r"(?i)here\s*is\s*the\s*translation",
+        r"(?i)it\s*means",
+        r"(?i)intended\s*translation",
+        r"(?i)in\s*tamil",
+        r"(?i)in\s*hindi",
+        r"அடுத்த பகுதி",
+        r"உருப்படி உள்ளது",
+        r"குறிப்பிடப்பட்டுள்ளது",
+    ]
+    for pattern in junk_patterns:
+        if re.search(pattern, text):
+            return True
+            
+    # Check for sentence-like structures in what should be a label/type
+    words = text.split()
+    if len(words) > 8:
+        return True
+        
+    return False
 
 def get_graphDB_driver(credentials):
     """
@@ -44,7 +79,7 @@ def get_graphDB_driver(credentials):
         logging.error(error_message, exc_info=True)
 
 
-def execute_query(driver, query,document_names,doc_limit=None):
+def execute_query(driver, query,document_names,doc_limit=None, patient_id=None):
     """
     Executes a specified query using the Neo4j driver, with parameters based on the presence of a document name.
 
@@ -54,10 +89,10 @@ def execute_query(driver, query,document_names,doc_limit=None):
     try:
         if document_names:
             logging.info(f"Executing query for documents: {document_names}")
-            records, summary, keys = driver.execute_query(query, document_names=document_names)
+            records, summary, keys = driver.execute_query(query, document_names=document_names, patient_id=patient_id)
         else:
             logging.info(f"Executing query with a document limit of {doc_limit}")
-            records, summary, keys = driver.execute_query(query, doc_limit=doc_limit)
+            records, summary, keys = driver.execute_query(query, doc_limit=doc_limit, patient_id=patient_id)
         return records, summary, keys
     except Exception as e:
         error_message = f"graph_query module: Failed to execute the query. Error: {str(e)}"
@@ -68,12 +103,16 @@ def process_node(node):
     """
     Processes a node from a Neo4j database, extracting its ID, labels, and properties,
     while omitting certain properties like 'embedding' and 'text'.
-
-    Returns:
-    dict: A dictionary with the node's element ID, labels, and other properties,
-          with datetime objects formatted as ISO strings.
+    Returns None if the node's 'id' is considered junk.
     """
     try:
+        # Sanity check: Filter out 'junk' nodes based on ID
+        node_id = node.get("id")
+        if node_id is not None:
+            # Check if ID is junk
+            if is_junk_text(str(node_id)) or not str(node_id).strip() or re.match(r'^[^a-zA-Z0-9]+$', str(node_id)):
+                return None
+        
         labels = set(node.labels)
         labels.discard("__Entity__")
         if not labels:
@@ -84,7 +123,6 @@ def process_node(node):
             "labels": list(labels),
             "properties": {}
         }
-        # logging.info(f"Processing node with element ID: {node.element_id}")
 
         for key in node:
             if key in ["embedding", "text", "summary"]:
@@ -92,13 +130,16 @@ def process_node(node):
             value = node.get(key)
             if isinstance(value, time.DateTime):
                 node_element["properties"][key] = value.isoformat()
-                # logging.debug(f"Processed datetime property for {key}: {value.isoformat()}")
+            elif isinstance(value, str) and len(value) > 100:
+                # Truncate long strings for cleaner graph visualization
+                node_element["properties"][key] = value[:97] + "..."
             else:
                 node_element["properties"][key] = value
 
         return node_element
     except Exception as e:
-        logging.error("graph_query module:An unexpected error occurred while processing the node")
+        logging.error(f"graph_query module: An unexpected error occurred while processing the node: {e}")
+        return None
 
 def extract_node_elements(records):
     """
@@ -114,21 +155,21 @@ def extract_node_elements(records):
         for record in records:
             nodes = record.get("nodes", [])
             if not nodes:
-                # logging.debug(f"No nodes found in record: {record}")
                 continue
 
             for node in nodes:
                 if node.element_id in seen_element_ids:
-                    # logging.debug(f"Skipping already processed node with ID: {node.element_id}")
                     continue
-                seen_element_ids.add(node.element_id)
+                
                 node_element = process_node(node) 
-                node_elements.append(node_element)
-                # logging.info(f"Processed node with ID: {node.element_id}")
+                if node_element: # Skip if process_node returned None (junk node)
+                    seen_element_ids.add(node.element_id)
+                    node_elements.append(node_element)
 
         return node_elements
     except Exception as e:
-        logging.error("graph_query module: An error occurred while extracting node elements from records")
+        logging.error(f"graph_query module: An error occurred while extracting node elements from records: {e}")
+        return []
 
 def extract_relationships(records):
     """
@@ -150,23 +191,40 @@ def extract_relationships(records):
 
             for relation in relations:
                 if relation.element_id in seen_element_ids:
-                    # logging.debug(f"Skipping already processed relationship with ID: {relation.element_id}")
                     continue
                 seen_element_ids.add(relation.element_id)
 
                 try:
-                    nodes = relation.nodes
-                    if len(nodes) < 2:
-                        logging.warning(f"Relationship with ID {relation.element_id} does not have two nodes.")
+                    # Filter out junk relationship types
+                    if is_junk_text(relation.type):
                         continue
 
-                    relationship = {
-                        "element_id": relation.element_id,
-                        "type": relation.type,
-                        "start_node_element_id": process_node(nodes[0])["element_id"],
-                        "end_node_element_id": process_node(nodes[1])["element_id"],
-                    }
-                    relationships.append(relationship)
+                    nodes = relation.nodes
+                    if len(nodes) < 2:
+                        continue
+
+                    start_node = process_node(nodes[0])
+                    end_node = process_node(nodes[1])
+                    if start_node and end_node: # Only add if both nodes are valid
+                        # Extract relationship properties (omitting embedding/text as we do for nodes)
+                        rel_properties = {}
+                        for key in relation:
+                            if key in ["embedding", "text", "summary"]:
+                                continue
+                            value = relation.get(key)
+                            if isinstance(value, str) and len(value) > 100:
+                                rel_properties[key] = value[:97] + "..."
+                            else:
+                                rel_properties[key] = value
+
+                        relationship = {
+                            "element_id": relation.element_id,
+                            "type": relation.type,
+                            "start_node_element_id": start_node["element_id"],
+                            "end_node_element_id": end_node["element_id"],
+                            "properties": rel_properties
+                        }
+                        relationships.append(relationship)
 
                 except Exception as inner_e:
                     logging.error(f"graph_query module: Failed to process relationship with ID {relation.element_id}. Error: {inner_e}", exc_info=True)
@@ -176,15 +234,20 @@ def extract_relationships(records):
         logging.error("graph_query module: An error occurred while extracting relationships from records", exc_info=True)
 
 
-def get_completed_documents(driver):
+def get_completed_documents(driver, patient_id: Optional[str] = None):
     """
-    Retrieves the names of all documents with the status 'Completed' from the database.
+    Retrieves the names of all documents with the status 'Completed' from the database, filtered by patient.
     """
-    docs_query = "MATCH(node:Document {status:'Completed'}) RETURN node"
+    if patient_id:
+        docs_query = "MATCH(node:Document {status:'Completed', patient_id: $patient_id}) RETURN node"
+        params = {"patient_id": patient_id}
+    else:
+        docs_query = "MATCH(node:Document {status:'Completed'}) WHERE node.patient_id IS NULL RETURN node"
+        params = {}
     
     try:
         logging.info("Executing query to retrieve completed documents.")
-        records, summary, keys = driver.execute_query(docs_query)
+        records, summary, keys = driver.execute_query(docs_query, **params)
         logging.info(f"Query executed successfully, retrieved {len(records)} records.")
         documents = [record["node"]["fileName"] for record in records]
         logging.info("Document names extracted successfully.")
@@ -196,7 +259,7 @@ def get_completed_documents(driver):
     return documents
 
 
-async def get_graph_results(credentials, document_names, language="en", model=None):
+async def get_graph_results(credentials, document_names, language="en", model=None, patient_id: Optional[str] = None):
     """
     Retrieves graph data by executing a specified Cypher query using credentials and parameters provided.
     Processes the results to extract nodes and relationships and packages them in a structured output.
@@ -216,7 +279,7 @@ async def get_graph_results(credentials, document_names, language="en", model=No
         driver = get_graphDB_driver(credentials)  
         document_names= list(map(str, json.loads(document_names)))
         query = GRAPH_QUERY.format(graph_chunk_limit=GRAPH_CHUNK_LIMIT)
-        records, summary , keys = await asyncio.to_thread(execute_query, driver, query.strip(), document_names)
+        records, summary , keys = await asyncio.to_thread(execute_query, driver, query.strip(), document_names, patient_id=patient_id)
         document_nodes = extract_node_elements(records)
         document_relationships = extract_relationships(records)
 
@@ -243,7 +306,7 @@ async def get_graph_results(credentials, document_names, language="en", model=No
 
 
 
-def get_chunktext_results(credentials, document_name, page_no):
+def get_chunktext_results(credentials, document_name, page_no, patient_id: Optional[str] = None):
    """Retrieves chunk text, position, and page number from graph data with pagination."""
    driver = None
    try:
@@ -253,10 +316,10 @@ def get_chunktext_results(credentials, document_name, page_no):
        limit = offset
        driver = get_graphDB_driver(credentials)  
        with driver.session(database=credentials.database) as session:
-           total_chunks_result = session.run(COUNT_CHUNKS_QUERY, file_name=document_name)
+           total_chunks_result = session.run(COUNT_CHUNKS_QUERY, file_name=document_name, patient_id=patient_id)
            total_chunks = total_chunks_result.single()["total_chunks"]
            total_pages = (total_chunks + offset - 1) // offset  # Calculate total pages
-           records = session.run(CHUNK_TEXT_QUERY, file_name=document_name, skip=skip, limit=limit)
+           records = session.run(CHUNK_TEXT_QUERY, file_name=document_name, skip=skip, limit=limit, patient_id=patient_id)
            pageitems = [
                {
                    "text": record["chunk_text"],
@@ -278,17 +341,74 @@ def get_chunktext_results(credentials, document_name, page_no):
            driver.close()
 
 
-def visualize_schema(credentials):
+def visualize_schema(credentials, patient_id: Optional[str] = None):
    """Retrieves graph schema"""
    driver = None
    try:
-       logging.info("Starting visualizing graph schema")
-       driver = get_graphDB_driver(credentials)  
-       records, summary, keys = driver.execute_query(SCHEMA_VISUALIZATION_QUERY)
-       nodes = records[0].get("nodes", [])
-       relationships = records[0].get("relationships", [])
-       result = {"nodes": nodes, "relationships": relationships}
-       return result
+      logging.info("Starting visualizing graph schema")
+      driver = get_graphDB_driver(credentials)  
+      
+      if patient_id:
+         # Custom query for patient-specific schema
+         query = """
+         MATCH (d:Document {patient_id: $patient_id})<-[:PART_OF]-(c:Chunk)-[:HAS_ENTITY]->(n)-[r]->(m)
+         WITH DISTINCT labels(n) AS fromLabels, type(r) AS relType, labels(m) AS toLabels
+         RETURN fromLabels, relType, toLabels
+         """
+         params = {"patient_id": patient_id}
+         records, summary, keys = driver.execute_query(query, **params)
+         
+         # Reconstruct nodes and relationships in the format expected by the frontend
+         nodes_map = {}
+         rels_list = []
+         
+         for i, record in enumerate(records):
+            from_label = record["fromLabels"][0] if record["fromLabels"] else "Unknown"
+            to_label = record["toLabels"][0] if record["toLabels"] else "Unknown"
+            rel_type = record["relType"]
+            
+            if from_label not in nodes_map:
+               nodes_map[from_label] = {"element_id": f"node_{from_label}", "labels": [from_label], "properties": {}}
+            if to_label not in nodes_map:
+               nodes_map[to_label] = {"element_id": f"node_{to_label}", "labels": [to_label], "properties": {}}
+            
+            rels_list.append({
+               "type": rel_type,
+               "properties": {},
+               "element_id": f"rel_{i}",
+               "start_node_element_id": f"node_{from_label}",
+               "end_node_element_id": f"node_{to_label}"
+            })
+         
+         result = {"nodes": list(nodes_map.values()), "relationships": rels_list}
+      else:
+         query = """
+         MATCH (d:Document)<-[:PART_OF]-(c:Chunk)-[:HAS_ENTITY]->(n)-[r]->(m)
+         WHERE d.patient_id IS NULL
+         WITH DISTINCT labels(n) AS fromLabels, type(r) AS relType, labels(m) AS toLabels
+         RETURN fromLabels, relType, toLabels
+         """
+         records, summary, keys = driver.execute_query(query)
+         
+         nodes_map = {}
+         rels_list = []
+         for i, record in enumerate(records):
+            from_label = record["fromLabels"][0] if record["fromLabels"] else "Unknown"
+            to_label = record["toLabels"][0] if record["toLabels"] else "Unknown"
+            rel_type = record["relType"]
+            if from_label not in nodes_map:
+               nodes_map[from_label] = {"element_id": f"node_{from_label}", "labels": [from_label], "properties": {}}
+            if to_label not in nodes_map:
+               nodes_map[to_label] = {"element_id": f"node_{to_label}", "labels": [to_label], "properties": {}}
+            rels_list.append({
+               "type": rel_type,
+               "properties": {},
+               "element_id": f"rel_{i}",
+               "start_node_element_id": f"node_{from_label}",
+               "end_node_element_id": f"node_{to_label}"
+            })
+         result = {"nodes": list(nodes_map.values()), "relationships": rels_list}
+      return result
    except Exception as e:
        logging.error(f"An error occurred schema retrieval. Error: {str(e)}")
        raise Exception(f"An error occurred schema retrieval. Error: {str(e)}")

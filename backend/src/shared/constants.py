@@ -4,6 +4,7 @@ GRAPH_CHUNK_LIMIT = 50
 GRAPH_QUERY = """
 MATCH docs = (d:Document) 
 WHERE d.fileName IN $document_names
+  AND (($patient_id IS NULL AND d.patient_id IS NULL) OR d.patient_id = $patient_id)
 WITH docs, d 
 ORDER BY d.createdAt DESC
 
@@ -28,8 +29,8 @@ WITH *,
 CALL {{
   WITH selectedChunks
   UNWIND selectedChunks AS c
-  OPTIONAL MATCH entities = (c:Chunk)-[:HAS_ENTITY]->(e)
-  OPTIONAL MATCH entityRels = (e)--(e2:!Chunk) 
+  OPTIONAL MATCH entities = (c:Chunk)-[:HAS_ENTITY]->(e:__Entity__)
+  OPTIONAL MATCH entityRels = (e)-[r]-(e2:__Entity__) 
   WHERE exists {{
     (e2)<-[:HAS_ENTITY]-(other) WHERE other IN selectedChunks
   }}
@@ -144,12 +145,12 @@ RETURN
 """
 
 COUNT_CHUNKS_QUERY = """
-MATCH (d:Document {fileName: $file_name})<-[:PART_OF]-(c:Chunk)
+MATCH (d:Document {fileName: $file_name, patient_id: $patient_id})<-[:PART_OF]-(c:Chunk)
 RETURN count(c) AS total_chunks
 """
 
 CHUNK_TEXT_QUERY = """
-MATCH (d:Document {fileName: $file_name})<-[:PART_OF]-(c:Chunk)
+MATCH (d:Document {fileName: $file_name, patient_id: $patient_id})<-[:PART_OF]-(c:Chunk)
 RETURN c.text AS chunk_text, c.position AS chunk_position, c.page_number AS page_number
 ORDER BY c.position
 SKIP $skip
@@ -159,6 +160,7 @@ LIMIT $limit
 NODEREL_COUNT_QUERY_WITH_COMMUNITY = """
 MATCH (d:Document)
 WHERE d.fileName IS NOT NULL
+  AND (($patient_id IS NULL AND d.patient_id IS NULL) OR d.patient_id = $patient_id)
 OPTIONAL MATCH (d)<-[po:PART_OF]-(c:Chunk)
 OPTIONAL MATCH (c)-[he:HAS_ENTITY]->(e:__Entity__)
 OPTIONAL MATCH (c)-[sim:SIMILAR]->(c2:Chunk)
@@ -208,6 +210,7 @@ RETURN
 NODEREL_COUNT_QUERY_WITHOUT_COMMUNITY = """
 MATCH (d:Document)
 WHERE d.fileName = $document_name
+  AND (($patient_id IS NULL AND d.patient_id IS NULL) OR d.patient_id = $patient_id)
 OPTIONAL MATCH (d)<-[po:PART_OF]-(c:Chunk)
 OPTIONAL MATCH (c)-[he:HAS_ENTITY]->(e:__Entity__)
 OPTIONAL MATCH (c)-[sim:SIMILAR]->(c2:Chunk)
@@ -303,6 +306,7 @@ VECTOR_SEARCH_TOP_K = 5
 VECTOR_SEARCH_QUERY = """
 WITH node AS chunk, score
 MATCH (chunk)-[:PART_OF]->(d:Document)
+WHERE ($patient_id IS NULL AND d.patient_id IS NULL) OR d.patient_id = $patient_id
 WITH d, 
      collect(distinct {chunk: chunk, score: score}) AS chunks, 
      avg(score) AS avg_score
@@ -335,6 +339,7 @@ VECTOR_GRAPH_SEARCH_QUERY_PREFIX = """
 WITH node as chunk, score
 // find the document of the chunk
 MATCH (chunk)-[:PART_OF]->(d:Document)
+WHERE ($patient_id IS NULL AND d.patient_id IS NULL) OR d.patient_id = $patient_id
 // aggregate chunk-details
 WITH d, collect(DISTINCT {chunk: chunk, score: score}) AS chunks, avg(score) as avg_score
 // fetch entities
@@ -868,15 +873,14 @@ CHAT_MODE_CONFIG_MAP= {
 YOUTUBE_CHUNK_SIZE_SECONDS = 60
 
 QUERY_TO_GET_CHUNKS = """
-            MATCH (d:Document)
-            WHERE d.fileName = $filename
+            MATCH (d:Document {fileName: $filename, patient_id: $patient_id})
             WITH d
             OPTIONAL MATCH (d)<-[:PART_OF|FIRST_CHUNK]-(c:Chunk)
             RETURN c.id as id, c.text as text, c.position as position 
             """
             
 QUERY_TO_DELETE_EXISTING_ENTITIES = """
-                                MATCH (d:Document {fileName:$filename})
+                                MATCH (d:Document {fileName:$filename, patient_id: $patient_id})
                                 WITH d
                                 MATCH (d)<-[:PART_OF]-(c:Chunk)
                                 WITH d,c
@@ -902,7 +906,7 @@ QUERY_TO_GET_LAST_PROCESSED_CHUNK_WITHOUT_ENTITY = """
                               ORDER BY c.position LIMIT 1
                               """
 QUERY_TO_GET_NODES_AND_RELATIONS_OF_A_DOCUMENT = """
-                              MATCH (d:Document)<-[:PART_OF]-(:Chunk)-[:HAS_ENTITY]->(e) where d.fileName=$filename
+                              MATCH (d:Document {fileName: $filename, patient_id: $patient_id})<-[:PART_OF]-(:Chunk)-[:HAS_ENTITY]->(e)
                               OPTIONAL MATCH (d)<-[:PART_OF]-(:Chunk)-[:HAS_ENTITY]->(e2:!Chunk)-[rel]-(e)
                               RETURN count(DISTINCT e) as nodes, count(DISTINCT rel) as rels
                               """                              
@@ -971,7 +975,13 @@ Use these rules to group and name categories accurately without introducing erro
 
 ADDITIONAL_INSTRUCTIONS = """Your goal is to identify and categorize entities while ensuring that specific data 
 types such as dates, numbers, revenues, and other non-entity information are not extracted as separate nodes.
-Instead, treat these as properties associated with the relevant entities."""
+Instead, treat these as properties associated with the relevant entities.
+
+**RELATIONSHIP GUIDELINES:**
+- Use concise, ALL_CAPS relationship types (e.g., TREATS, CAUSES, PRESCRIBED_FOR, SYMPTOM_OF, CONTRAINDICATED_WITH).
+- NEVER include conversational filler, meta-comments, or reasoning in relationship types (e.g., DO NOT USE "Okay, let's tackle...", "Next part", "Item exists").
+- Relationship types must be PURELY clinical or structural predicates.
+- If translating, ensure the relationship type remains a professional technical term, not a natural language sentence fragment."""
 
 SCHEMA_VISUALIZATION_QUERY = """
 CALL db.schema.visualization() YIELD nodes, relationships

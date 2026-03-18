@@ -4,13 +4,16 @@ import ThemeWrapper from './context/ThemeWrapper';
 import QuickStarter from './components/QuickStarter';
 import ErrorBoundary from './components/UI/ErrroBoundary';
 import { Toaster, SpotlightProvider } from '@neo4j-ndl/react';
+import { TranslationLoadingGate } from './components/UI/TranslationLoadingGate';
 
 const Home: React.FC = () => {
   return (
     <ErrorBoundary>
       <ThemeWrapper>
         <SpotlightProvider>
-          <QuickStarter />
+          <TranslationLoadingGate>
+            <QuickStarter />
+          </TranslationLoadingGate>
         </SpotlightProvider>
         <Toaster />
       </ThemeWrapper>

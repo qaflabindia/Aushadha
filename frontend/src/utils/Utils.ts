@@ -201,7 +201,33 @@ export function createHtmlLabel(caption: string, nodeSize: number = 40): HTMLEle
   return htmlEl;
 }
 
-export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRelationship[]) => {
+export async function translateGraphTokens(texts: string[], lang: string): Promise<Record<string, string>> {
+  if (lang === 'en' || texts.length === 0) {
+    return Object.fromEntries(texts.map((t) => [t, t]));
+  }
+  try {
+    const res = await fetch(`${url()}/translate/dynamic/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts, lang }),
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return data.translations;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[translateGraphTokens] failed', e);
+    return Object.fromEntries(texts.map((t) => [t, t]));
+  }
+}
+
+export const processGraphData = (
+  neoNodes: ExtendedNode[],
+  neoRels: ExtendedRelationship[],
+  tokenTranslations?: Record<string, string>
+) => {
   const schemeVal: Scheme = {};
   let iterator = 0;
   const filteredNeoNodes = neoNodes.filter((node: any) => {
@@ -219,6 +245,7 @@ export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRela
   }
   const newNodes: ExtendedNode[] = filteredNeoNodes.map((g: any) => {
     const rawCaption = getNodeCaption(g);
+    const translatedCaption = tokenTranslations?.[rawCaption] || rawCaption;
     const nodeSize = getSize(g);
     return {
       id: g.element_id,
@@ -226,7 +253,7 @@ export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRela
       captionAlign: 'bottom',
       iconAlign: 'bottom',
       caption: '',
-      html: createHtmlLabel(rawCaption, nodeSize),
+      html: createHtmlLabel(translatedCaption, nodeSize),
       color: schemeVal[g.labels[0]],
       icon: getIcon(g),
       labels: g.labels,
@@ -246,7 +273,7 @@ export const processGraphData = (neoNodes: ExtendedNode[], neoRels: ExtendedRela
         id: relations.element_id,
         from: relations.start_node_element_id,
         to: relations.end_node_element_id,
-        caption: relations.type,
+        caption: tokenTranslations?.[relations.type] || relations.type,
       };
     });
   const finalRels = newRels.flat();
@@ -602,8 +629,9 @@ export function isFileReadyToProcess(file: CustomFile, withLocalCheck: boolean) 
   return file.status === 'New' || file.status == 'Ready to Reprocess';
 }
 
-export const updateLocalStorage = (userCredentials: UserCredentials, key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify({ db: userCredentials?.uri, selectedOptions: data }));
+export const updateLocalStorage = (userCredentials: UserCredentials, key: string, data: any, patientEmail?: string) => {
+  const fullKey = patientEmail ? `${patientEmail}_${key}` : key;
+  localStorage.setItem(fullKey, JSON.stringify({ db: userCredentials?.uri, selectedOptions: data }));
 };
 
 export const userDefinedGraphSchema = (nodes: OptionType[], relationships: OptionType[]): UserDefinedGraphSchema => {

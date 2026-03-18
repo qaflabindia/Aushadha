@@ -6,13 +6,17 @@ import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { Typography } from '@neo4j-ndl/react';
 import clsx from 'clsx';
 import { RiArrowDownSLine, RiShieldUserLine, RiRefreshLine } from 'react-icons/ri';
+import { useGoogleAuth } from '../../context/GoogleAuthContext';
 
 const PatientDropdown: React.FC = () => {
   const [patients, setPatients] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const { selectedPatient, setSelectedPatient } = usePatientContext();
   const { colorMode } = useContext(ThemeWrapperContext);
+  const { user } = useGoogleAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isPatient = user?.role?.toUpperCase() === 'PATIENT';
 
   useEffect(() => {
     const fetchPatients = async () => {
@@ -28,13 +32,18 @@ const PatientDropdown: React.FC = () => {
 
         const validPatients = response.data.filter((p: any) => p.email != null);
         setPatients(validPatients);
+
+        // Auto-select for Patients if there's exactly one record
+        if (user?.role?.toUpperCase() === 'PATIENT' && validPatients.length === 1 && !selectedPatient) {
+          setSelectedPatient(validPatients[0]);
+        }
       } catch (error) {
         console.error('Failed to fetch patients for dropdown', error);
       }
     };
 
     fetchPatients();
-  }, []);
+  }, [user, setSelectedPatient, selectedPatient]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -49,17 +58,19 @@ const PatientDropdown: React.FC = () => {
   return (
     <div className='relative' ref={dropdownRef}>
       <div
-        onClick={() => patients.length > 0 && setIsOpen(!isOpen)}
+        onClick={() => !isPatient && patients.length > 0 && setIsOpen(!isOpen)}
         className={clsx(
-          'flex items-center gap-2 px-5 py-2 rounded-full border transition-all duration-500 cursor-pointer group glass-luxe min-w-[200px] justify-between',
+          'flex items-center gap-2 px-5 py-2 rounded-full border transition-all duration-500 min-w-[200px] justify-between',
           {
+            'cursor-pointer group': !isPatient && patients.length > 0,
+            'cursor-default': isPatient || patients.length === 0,
             // Dark Mode Trigger
-            'bg-black/40 border-white/10 shadow-[0_0_20px_rgba(212,175,55,0.05)] hover:border-[#D4AF37]/40':
+            '!bg-black/70 !backdrop-blur-2xl border-white/20 shadow-[0_0_20px_rgba(212,175,55,0.05)] hover:border-[#D4AF37]/50':
               colorMode === 'dark',
             'border-[#D4AF37] shadow-[0_0_25px_rgba(212,175,55,0.15)]': colorMode === 'dark' && isOpen,
 
             // Light Mode Trigger
-            'bg-white/80 border-gray-200 shadow-sm hover:border-blue-400': colorMode === 'light',
+            '!bg-white/70 !backdrop-blur-2xl border-gray-200 shadow-md hover:border-blue-400': colorMode === 'light',
             'border-blue-500 ring-2 ring-blue-500/10': colorMode === 'light' && isOpen,
 
             'opacity-50 cursor-not-allowed': patients.length === 0,
@@ -99,14 +110,16 @@ const PatientDropdown: React.FC = () => {
             </Typography>
           </div>
         </div>
-        <RiArrowDownSLine
-          className={clsx('w-4 h-4 transition-transform duration-500', {
-            'rotate-180': isOpen,
-            'text-[#D4AF37]': colorMode === 'dark',
-            'text-blue-600': colorMode === 'light',
-            'opacity-30': patients.length === 0,
-          })}
-        />
+        {!isPatient && (
+          <RiArrowDownSLine
+            className={clsx('w-4 h-4 transition-transform duration-500', {
+              'rotate-180': isOpen,
+              'text-[#D4AF37]': colorMode === 'dark',
+              'text-blue-600': colorMode === 'light',
+              'opacity-30': patients.length === 0,
+            })}
+          />
+        )}
       </div>
 
       {isOpen && patients.length > 0 && (
@@ -114,8 +127,8 @@ const PatientDropdown: React.FC = () => {
           className={clsx(
             'absolute top-full mt-3 w-full rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[1000] animate-inc-scale origin-top overflow-hidden',
             {
-              '!bg-[#0F1014] border-[#D4AF37]/20': colorMode === 'dark',
-              '!bg-white border-gray-100 shadow-xl': colorMode === 'light',
+              '!bg-black/70 !backdrop-blur-2xl border-white/20': colorMode === 'dark',
+              '!bg-white/70 !backdrop-blur-2xl border-gray-200 shadow-2xl': colorMode === 'light',
             }
           )}
         >

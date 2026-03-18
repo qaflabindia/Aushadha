@@ -28,6 +28,11 @@ async def assign_role(
     """Admin assigns a role (Admin, Doctor, Staff, Patient) to a user."""
     role_name = request.role_name.capitalize()
     
+    # Fix #20: Whitelist allowed roles to prevent arbitrary role creation
+    ALLOWED_ROLES = {"Admin", "Doctor", "Patient", "Staff"}
+    if role_name not in ALLOWED_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role: {role_name}. Allowed: {list(ALLOWED_ROLES)}")
+    
     # 1. Ensure the Role exists
     role = db.query(Role).filter(Role.name == role_name).first()
     if not role:
@@ -134,11 +139,8 @@ async def get_all_roles(
     db: Session = Depends(get_db)
 ):
     """Admin retrieves all available role names."""
-    roles = db.query(Role).all()
-    db_roles = [r.name for r in roles]
-    default_roles = ["Admin", "Doctor", "Staff", "Patient"]
-    # Return unique roles by converting to a set then back to a list
-    return list(set(db_roles + default_roles))
+    # Fix #28: Return only the whitelisted system roles
+    return ["Admin", "Doctor", "Staff", "Patient"]
 
 @router.get("/my_patients")
 async def get_my_patients(

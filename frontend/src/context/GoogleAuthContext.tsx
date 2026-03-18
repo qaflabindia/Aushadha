@@ -25,7 +25,8 @@ interface GoogleAuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   loginWithGoogle: (idToken: string) => Promise<boolean>;
-  loginWithLocal: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  loginWithGoogleDetailed: (idToken: string) => Promise<{ success: boolean; message: string }>;
+  loginWithLocal: (usernameOrEmail: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   getAuthHeaders: () => Record<string, string>;
 }
@@ -36,6 +37,7 @@ const GoogleAuthContext = createContext<GoogleAuthContextType>({
   isAuthenticated: false,
   isLoading: true,
   loginWithGoogle: async () => false,
+  loginWithGoogleDetailed: async () => ({ success: false, message: '' }),
   loginWithLocal: async () => ({ success: false, message: '' }),
   logout: () => {},
   getAuthHeaders: () => ({}),
@@ -118,7 +120,6 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
     return () => axios.interceptors.response.eject(interceptorId);
   }, []);
 
-
   // Save session to localStorage whenever it changes
   useEffect(() => {
     if (token && user) {
@@ -159,21 +160,20 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
     [apiBase]
   );
 
-  // Local Login (RS256 JWT)
   const loginWithLocal = useCallback(
-    async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+    async (usernameOrEmail: string, password: string): Promise<{ success: boolean; message: string }> => {
       try {
         const res = await fetch(`${apiBase}/auth/local_login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: usernameOrEmail, password }),
         });
         const data = await res.json();
 
         if (data.status === 'Success' && data.data) {
           const authUser: AuthUser = {
             email: data.data.email,
-            name: data.data.name || email.split('@')[0],
+            name: data.data.name || data.data.email.split('@')[0],
             picture: '',
             auth_method: 'local',
             role: data.data.role || '',
@@ -215,6 +215,33 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
         isAuthenticated: Boolean(user),
         isLoading,
         loginWithGoogle,
+        loginWithGoogleDetailed: async (idToken: string): Promise<{ success: boolean; message: string }> => {
+          try {
+            const res = await fetch(`${apiBase}/auth/google_verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id_token: idToken }),
+            });
+            const data = await res.json();
+
+            if (data.status === 'Success' && data.data) {
+              const authUser: AuthUser = {
+                email: data.data.email,
+                name: data.data.name,
+                picture: data.data.picture || '',
+                auth_method: 'google',
+                role: data.data.role || '',
+              };
+              setUser(authUser);
+              setToken(data.data.token);
+              return { success: true, message: data.message || 'Success' };
+            }
+            return { success: false, message: data.message || 'Verification failed' };
+          } catch (err) {
+            console.error('Google login failed:', err);
+            return { success: false, message: 'Network error' };
+          }
+        },
         loginWithLocal,
         logout,
         getAuthHeaders,

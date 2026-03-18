@@ -1,11 +1,11 @@
-import { ClipboardDocumentIconOutline, SpeakerWaveIconOutline, SpeakerXMarkIconOutline } from '@neo4j-ndl/react/icons';
+import { RiFileCopyLine, RiVolumeUpLine, RiVolumeMuteLine } from 'react-icons/ri';
 import { Messages } from '../../types';
 import ButtonWithToolTip from '../UI/ButtonWithToolTip';
 import { IconButtonWithToolTip } from '../UI/IconButtonToolTip';
-import { buttonCaptions, tooltips } from '../../utils/Constants';
 import { useContext } from 'react';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import clsx from 'clsx';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function CommonActions({
   chat,
@@ -23,6 +23,7 @@ export default function CommonActions({
   listMessages: Messages[];
 }) {
   const { colorMode } = useContext(ThemeWrapperContext);
+  const t = useTranslation();
 
   return (
     <div className='flex items-center gap-2'>
@@ -38,38 +39,38 @@ export default function CommonActions({
         fill='text'
         placement='top'
         clean
-        text='Retrieval Information'
-        label='Retrieval Information'
+        text={t('Retrieval Information')}
+        label={t('Retrieval Information')}
         disabled={chat.isTyping || chat.isLoading}
         onClick={() => detailsHandler(chat, activeChat)}
-        aria-label='Retrieval Information'
+        aria-label={t('Retrieval Information')}
       >
-        {buttonCaptions.details}
+        {t('Details')}
       </ButtonWithToolTip>
       <IconButtonWithToolTip
-        label='copy text'
+        label={t('Copy to Clipboard')}
         placement='top'
         clean
-        text={chat.copying ? tooltips.copied : tooltips.copy}
+        text={chat.copying ? t('Copied') : t('Copy to Clipboard')}
         onClick={() => copyHandler(chat.modes[chat.currentMode]?.message, chat.id)}
         disabled={chat.isTyping || chat.isLoading}
-        aria-label='copy text'
+        aria-label={t('Copy to Clipboard')}
       >
-        <ClipboardDocumentIconOutline className='n-size-token-4' />
+        <RiFileCopyLine className='n-size-token-4' size={16} />
       </IconButtonWithToolTip>
       <IconButtonWithToolTip
         placement='top'
         clean
         onClick={() => speechHandler(chat)}
-        text={chat.speaking ? tooltips.stopSpeaking : tooltips.textTospeech}
+        text={chat.speaking ? t('Stop Speaking') : t('Text to Speech')}
         disabled={listMessages.some((msg) => msg.speaking && msg.id !== chat.id)}
-        label={chat.speaking ? 'stop speaking' : 'text to speech'}
+        label={chat.speaking ? t('Stop Speaking') : t('Text to Speech')}
         aria-label='speech'
       >
         {chat.speaking ? (
-          <SpeakerXMarkIconOutline className='n-size-token-4' />
+          <RiVolumeMuteLine className='n-size-token-4' size={16} />
         ) : (
-          <SpeakerWaveIconOutline className='n-size-token-4' />
+          <RiVolumeUpLine className='n-size-token-4' size={16} />
         )}
       </IconButtonWithToolTip>
     </div>

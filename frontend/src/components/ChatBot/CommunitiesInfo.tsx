@@ -6,7 +6,9 @@ import { chatModeLables } from '../../utils/Constants';
 import GraphViewModal from '../Graph/GraphViewModal';
 import { handleGraphNodeClick } from './chatInfo';
 import remarkGfm from 'remark-gfm';
+import { useTranslate } from '../../context/TranslationContext';
 const CommunitiesInfo: FC<CommunitiesProps> = ({ loading, communities, mode }) => {
+  const t = useTranslate();
   const [neoNodes, setNeoNodes] = useState<any[]>([]);
   const [neoRels, setNeoRels] = useState<any[]>([]);
   const [openGraphView, setOpenGraphView] = useState(false);
@@ -43,7 +45,7 @@ const CommunitiesInfo: FC<CommunitiesProps> = ({ loading, communities, mode }) =
                       htmlAttributes={{
                         onClick: () => handleCommunityClick(community.element_id, 'chatInfoView'),
                       }}
-                    >{`ID : ${community.id}`}</TextLink>
+                    >{`${t('id')} : ${community.id}`}</TextLink>
                   </Flex>
                   {mode === chatModeLables['global search+vector+fulltext'] && community.score && (
                     <Flex flexDirection='row' gap='2'>
@@ -61,8 +63,7 @@ const CommunitiesInfo: FC<CommunitiesProps> = ({ loading, communities, mode }) =
         </div>
       ) : (
         <Typography variant='h6' className='text-center'>
-          {' '}
-          No Communities Found
+          {t('noCommunitiesFound')}
         </Typography>
       )}
       {openGraphView && (

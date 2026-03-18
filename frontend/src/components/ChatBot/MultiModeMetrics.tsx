@@ -10,8 +10,9 @@ import { useContext, useMemo, useRef } from 'react';
 import { Banner, Box, DataGrid, DataGridComponents, Flex, IconButton, Popover, Typography } from '@neo4j-ndl/react';
 import { multimodelmetric } from '../../types';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
-import { InformationCircleIconOutline } from '@neo4j-ndl/react/icons';
+import { RiInformationLine } from 'react-icons/ri';
 import NotAvailableMetric from './NotAvailableMetric';
+import { useTranslate } from '../../context/TranslationContext';
 
 export default function MultiModeMetrics({
   data,
@@ -25,6 +26,7 @@ export default function MultiModeMetrics({
   isWithAdditionalMetrics: boolean | null;
 }) {
   const { colorMode } = useContext(ThemeWrapperContext);
+  const t = useTranslate();
   const tableRef = useRef<HTMLDivElement>(null);
   const columnHelper = createColumnHelper<multimodelmetric>();
   const columns = useMemo(
@@ -45,7 +47,7 @@ export default function MultiModeMetrics({
             </div>
           );
         },
-        header: () => <span>Mode</span>,
+        header: () => <span>{t('mode')}</span>,
         footer: (info) => info.column.id,
         maxSize: 150,
       }),
@@ -60,17 +62,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Relevancy</span>
+            <span>{t('answer_relevancy')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines How well the answer addresses the user's question.
-                </Typography>
+                <Typography variant='body-small'>{t('answer_relevancyTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -88,17 +88,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Faithful</span>
+            <span>{t('faithfulness')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines How accurately the answer reflects the provided information.
-                </Typography>
+                <Typography variant='body-small'>{t('faithfulnessTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -116,17 +114,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Context</span>
+            <span>{t('context_entity_recall')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines the recall of entities present in both generated answer and retrieved contexts.
-                </Typography>
+                <Typography variant='body-small'>{t('context_entity_recallTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -144,17 +140,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Semantic</span>
+            <span>{t('semantic_score')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines How well the generated answer understands the meaning of the reference answer.
-                </Typography>
+                <Typography variant='body-small'>{t('semantic_scoreTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -172,17 +166,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Rouge</span>
+            <span>{t('rouge_score')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines How much the generated answer matches the reference answer, word-for-word.
-                </Typography>
+                <Typography variant='body-small'>{t('rouge_scoreTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -211,7 +203,7 @@ export default function MultiModeMetrics({
             </div>
           );
         },
-        header: () => <span>Mode</span>,
+        header: () => <span>{t('mode')}</span>,
         footer: (info) => info.column.id,
         maxSize: 150,
       }),
@@ -226,17 +218,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Relevancy</span>
+            <span>{t('answer_relevancy')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines How well the answer addresses the user's question.
-                </Typography>
+                <Typography variant='body-small'>{t('answer_relevancyTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -253,17 +243,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Faithful</span>
+            <span>{t('faithfulness')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines How accurately the answer reflects the provided information.
-                </Typography>
+                <Typography variant='body-small'>{t('faithfulnessTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>
@@ -280,17 +268,15 @@ export default function MultiModeMetrics({
         },
         header: () => (
           <Flex flexDirection='row' alignItems='center'>
-            <span>Context</span>
+            <span>{t('context_entity_recall')}</span>
             <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
               <Popover.Trigger hasButtonWrapper>
                 <IconButton size='small' isClean ariaLabel='infoicon'>
-                  <InformationCircleIconOutline />
+                  <RiInformationLine size={20} />
                 </IconButton>
               </Popover.Trigger>
               <Popover.Content className='p-2'>
-                <Typography variant='body-small'>
-                  Determines the recall of entities present in both generated answer and retrieved contexts.
-                </Typography>
+                <Typography variant='body-small'>{t('context_entity_recallTooltip')}</Typography>
               </Popover.Content>
             </Popover>
           </Flex>

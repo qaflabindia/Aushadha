@@ -22,10 +22,13 @@ export const AuthenticationGuard: React.FC<{ component: React.ComponentType<obje
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      localStorage.setItem('isReadOnlyMode', 'true');
-      navigate('/login', { replace: true });
+      // Don't redirect if we are already on login
+      if (window.location.pathname !== '/login') {
+        localStorage.setItem('isReadOnlyMode', 'true');
+        navigate('/login', { replace: true });
+      }
     }
-  }, [isLoading, isAuthenticated]);
+  }, [isLoading, isAuthenticated, navigate]);
 
   if (isLoading) {
     return (
@@ -42,12 +45,12 @@ export const AuthenticationGuard: React.FC<{ component: React.ComponentType<obje
 // Login Page — Google + Local auth options
 // ---------------------------------------------------------------------------
 export const LoginPage: React.FC = () => {
-  const { loginWithGoogle, loginWithLocal, isAuthenticated } = useGoogleAuth();
+  const { loginWithGoogleDetailed, loginWithLocal, isAuthenticated } = useGoogleAuth();
   const navigate = useNavigate();
   const t = useTranslate();
 
   const [showLocalLogin, setShowLocalLogin] = useState(false);
-  const [email, setEmail] = useState('');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,23 +67,23 @@ export const LoginPage: React.FC = () => {
     if (credentialResponse.credential) {
       setLoading(true);
       setError('');
-      const success = await loginWithGoogle(credentialResponse.credential);
+      const result = await loginWithGoogleDetailed(credentialResponse.credential);
       setLoading(false);
-      if (!success) {
-        setError('Google authentication failed. Please try again.');
+      if (!result.success) {
+        setError(result.message || 'Google authentication failed. Please try again.');
       }
     }
   };
 
   const handleLocalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required');
+    if (!usernameOrEmail.trim() || !password.trim()) {
+      setError('Username/Email and password are required');
       return;
     }
     setLoading(true);
     setError('');
-    const result = await loginWithLocal(email, password);
+    const result = await loginWithLocal(usernameOrEmail, password);
     setLoading(false);
     if (!result.success) {
       setError(result.message);
@@ -126,10 +129,10 @@ export const LoginPage: React.FC = () => {
         ) : (
           <form onSubmit={handleLocalLogin} style={styles.form}>
             <input
-              type='email'
-              placeholder={t('Email')}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type='text'
+              placeholder={t('Username / Email')}
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
               style={styles.input}
               autoFocus
             />

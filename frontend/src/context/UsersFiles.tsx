@@ -20,22 +20,27 @@ import {
 } from '../utils/Constants';
 import { useCredentials } from './UserCredentials';
 import Queue from '../utils/Queue';
+import { usePatientContext } from './PatientContext';
 
 const FileContext = createContext<FileContextType | undefined>(undefined);
 
 const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
   const isProdEnv = import.meta.env.VITE_ENV === 'PROD';
-  const selectedNodeLabelstr = localStorage.getItem('selectedNodeLabels');
-  const selectedNodeRelsstr = localStorage.getItem('selectedRelationshipLabels');
-  const selectedTokenChunkSizeStr = localStorage.getItem('selectedTokenChunkSize');
-  const selectedChunk_overlapStr = localStorage.getItem('selectedChunk_overlap');
-  const selectedChunks_to_combineStr = localStorage.getItem('selectedChunks_to_combine');
-  const persistedQueue = localStorage.getItem('waitingQueue');
-  const selectedModel = localStorage.getItem('selectedModel');
-  const selectedVoiceStr = localStorage.getItem('selectedVoice');
-  const selectedInstructstr = localStorage.getItem('instructions');
-  const isProdDefaultModel = isProdEnv && selectedModel && PRODMODELS.includes(selectedModel);
   const { userCredentials } = useCredentials();
+  const { selectedPatient } = usePatientContext();
+  const patientEmail = selectedPatient?.case_id || 'global';
+
+  const selectedNodeLabelstr = localStorage.getItem(`${patientEmail}_selectedNodeLabels`);
+  const selectedNodeRelsstr = localStorage.getItem(`${patientEmail}_selectedRelationshipLabels`);
+  const selectedTokenChunkSizeStr = localStorage.getItem(`${patientEmail}_selectedTokenChunkSize`);
+  const selectedChunk_overlapStr = localStorage.getItem(`${patientEmail}_selectedChunk_overlap`);
+  const selectedChunks_to_combineStr = localStorage.getItem(`${patientEmail}_selectedChunks_to_combine`);
+  const persistedQueue = localStorage.getItem(`${patientEmail}_waitingQueue`);
+  const selectedModel = localStorage.getItem(`${patientEmail}_selectedModel`);
+  const selectedVoiceStr = localStorage.getItem(`${patientEmail}_selectedVoice`);
+  const selectedInstructstr = localStorage.getItem(`${patientEmail}_instructions`);
+
+  const isProdDefaultModel = isProdEnv && selectedModel && PRODMODELS.includes(selectedModel);
   const [files, setFiles] = useState<(File | null)[] | []>([]);
   const [filesData, setFilesData] = useState<CustomFile[] | []>([]);
   let initialQueue = [];
@@ -154,7 +159,19 @@ const FileContextProvider: FC<FileContextProviderProps> = ({ children }) => {
       const selectedInstructions = selectedInstructstr;
       setAdditionalInstructions(selectedInstructions);
     }
-  }, [userCredentials]);
+  }, [userCredentials, patientEmail]);
+
+  // Effect to reset/refetch patient-specific state
+  useEffect(() => {
+    if (selectedPatient) {
+      // Clear current filesData to prevent flash of previous patient's data
+      setFilesData([]);
+      setProcessedCount(0);
+      setQueue(new Queue([]));
+      // Note: Actual data fetching is usually handled by components observing this state
+      // or by further effects. For now, clearing ensures isolation.
+    }
+  }, [patientEmail]);
 
   const value: FileContextType = {
     files,

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { updateGlobalTargetUserEmail } from '../API/Index';
+import { updateGlobalTargetUserEmail, updateGlobalPatientId } from '../API/Index';
 
 interface Patient {
   case_id: string;
@@ -18,10 +18,19 @@ interface PatientContextType {
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(() => {
+    const saved = localStorage.getItem('selectedPatient');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   useEffect(() => {
+    if (selectedPatient) {
+      localStorage.setItem('selectedPatient', JSON.stringify(selectedPatient));
+    } else {
+      localStorage.removeItem('selectedPatient');
+    }
     updateGlobalTargetUserEmail(selectedPatient?.email || null);
+    updateGlobalPatientId(selectedPatient?.case_id || null);
   }, [selectedPatient]);
 
   const isImpersonating = selectedPatient !== null;

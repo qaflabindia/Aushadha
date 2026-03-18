@@ -4,6 +4,7 @@ import Loader from '../../../utils/Loader';
 import { v4 as uuidv4 } from 'uuid';
 import { useCredentials } from '../../../context/UserCredentials';
 import { useFileContext } from '../../../context/UsersFiles';
+import { usePatientContext } from '../../../context/PatientContext';
 import { CustomFile, CustomFileBase } from '../../../types';
 import { buttonCaptions, chunkSize } from '../../../utils/Constants';
 import { InformationCircleIconOutline } from '@neo4j-ndl/react/icons';
@@ -14,6 +15,8 @@ import { useTranslate } from '../../../context/TranslationContext';
 
 const DropZone: FunctionComponent = () => {
   const { filesData, setFilesData, model } = useFileContext();
+  const { selectedPatient } = usePatientContext();
+  const patientEmail = selectedPatient?.case_id || 'global';
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isClicked, setIsClicked] = useState<boolean>(false);
   const { userCredentials } = useCredentials();
@@ -118,7 +121,7 @@ const DropZone: FunctionComponent = () => {
           })
         );
         try {
-          const apiResponse = await uploadAPI(chunk, model, chunkNumber, totalChunks, file.name);
+          const apiResponse = await uploadAPI(chunk, model, chunkNumber, totalChunks, file.name, patientEmail);
           if (apiResponse?.status === 'Failed') {
             throw new Error(`message:${apiResponse.data.message},fileName:${apiResponse.data.file_name}`);
           } else {

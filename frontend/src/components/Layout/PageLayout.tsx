@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import clsx from 'clsx';
 import DrawerDropzone from './DrawerDropzone';
 import ResearchDrawer from './ResearchDrawer';
 import DrawerChatbot from './DrawerChatbot';
@@ -27,18 +28,19 @@ import { SKIP_AUTH } from '../../utils/Constants';
 import { useNavigate } from 'react-router';
 import { deduplicateByFullPattern, deduplicateNodeByValue } from '../../utils/Utils';
 import DataImporterSchemaDialog from '../Popups/GraphEnhancementDialog/EnitityExtraction/DataImporter';
+import { useTranslate } from '../../context/TranslationContext';
 const GCSModal = lazy(() => import('../DataSources/GCS/GCSModal'));
 const S3Modal = lazy(() => import('../DataSources/AWS/S3Modal'));
 const GenericModal = lazy(() => import('../WebSources/GenericSourceModal'));
 const ConnectionModal = lazy(() => import('../Popups/ConnectionModal/ConnectionModal'));
 
-const spotlightsforunauthenticated = [
+const getSpotlightsForUnauthenticated = (t: (s: string) => string) => [
   {
     target: 'loginbutton',
     children: (
       <>
-        <Spotlight.Header>Login with DB</Spotlight.Header>
-        <Spotlight.Body>Using Google Account or Email Address</Spotlight.Body>
+        <Spotlight.Header>{t('Login with Database')}</Spotlight.Header>
+        <Spotlight.Body>{t('Using Google Account or Email Address')}</Spotlight.Body>
       </>
     ),
   },
@@ -46,8 +48,8 @@ const spotlightsforunauthenticated = [
     target: 'connectbutton',
     children: (
       <>
-        <Spotlight.Header>Connect To DB Database</Spotlight.Header>
-        <Spotlight.Body>Fill out the DB credentials and click on connect</Spotlight.Body>
+        <Spotlight.Header>{t('Connect To Database')}</Spotlight.Header>
+        <Spotlight.Body>{t('Fill out the database credentials and click on connect')}</Spotlight.Body>
       </>
     ),
   },
@@ -55,8 +57,8 @@ const spotlightsforunauthenticated = [
     target: 'dropzone',
     children: (
       <>
-        <Spotlight.Header>Upload documents </Spotlight.Header>
-        <Spotlight.Body>Upload any unstructured files</Spotlight.Body>
+        <Spotlight.Header>{t('Upload Documents')}</Spotlight.Header>
+        <Spotlight.Body>{t('Upload any unstructured files')}</Spotlight.Body>
       </>
     ),
   },
@@ -64,7 +66,7 @@ const spotlightsforunauthenticated = [
     target: 'llmdropdown',
     children: (
       <>
-        <Spotlight.Header>Choose The Desired LLM</Spotlight.Header>
+        <Spotlight.Header>{t('Choose The Desired LLM')}</Spotlight.Header>
       </>
     ),
   },
@@ -72,8 +74,8 @@ const spotlightsforunauthenticated = [
     target: 'generategraphbtn',
     children: (
       <>
-        <Spotlight.Header>Start The Extraction Process</Spotlight.Header>
-        <Spotlight.Body>Click On Generate Graph</Spotlight.Body>
+        <Spotlight.Header>{t('Start The Extraction Process')}</Spotlight.Header>
+        <Spotlight.Body>{t('Click On Generate Graph')}</Spotlight.Body>
       </>
     ),
   },
@@ -81,8 +83,10 @@ const spotlightsforunauthenticated = [
     target: 'visualizegraphbtn',
     children: (
       <>
-        <Spotlight.Header>Visualize The Knowledge Graph</Spotlight.Header>
-        <Spotlight.Body>Select At Least One or More Completed Files From The Table For Visualization</Spotlight.Body>
+        <Spotlight.Header>{t('Visualize The Knowledge Graph')}</Spotlight.Header>
+        <Spotlight.Body>
+          {t('Select At Least One or More Completed Files From The Table For Visualization')}
+        </Spotlight.Body>
       </>
     ),
   },
@@ -90,18 +94,19 @@ const spotlightsforunauthenticated = [
     target: 'chatbtn',
     children: (
       <>
-        <Spotlight.Header>Ask Questions Related To Documents</Spotlight.Header>
+        <Spotlight.Header>{t('Ask Questions Related To Documents')}</Spotlight.Header>
       </>
     ),
   },
 ];
-const spotlights = [
+
+const getSpotlights = (t: (s: string) => string) => [
   {
     target: 'connectbutton',
     children: (
       <>
-        <Spotlight.Header>Connect To DB Database</Spotlight.Header>
-        <Spotlight.Body>Fill out the DB credentials and click on connect</Spotlight.Body>
+        <Spotlight.Header>{t('Connect To Database')}</Spotlight.Header>
+        <Spotlight.Body>{t('Fill out the database credentials and click on connect')}</Spotlight.Body>
       </>
     ),
   },
@@ -109,8 +114,8 @@ const spotlights = [
     target: 'dropzone',
     children: (
       <>
-        <Spotlight.Header>Upload documents </Spotlight.Header>
-        <Spotlight.Body>Upload any unstructured files</Spotlight.Body>
+        <Spotlight.Header>{t('Upload Documents')}</Spotlight.Header>
+        <Spotlight.Body>{t('Upload any unstructured files')}</Spotlight.Body>
       </>
     ),
   },
@@ -118,7 +123,7 @@ const spotlights = [
     target: 'llmdropdown',
     children: (
       <>
-        <Spotlight.Header>Choose The Desired LLM</Spotlight.Header>
+        <Spotlight.Header>{t('Choose The Desired LLM')}</Spotlight.Header>
       </>
     ),
   },
@@ -126,8 +131,8 @@ const spotlights = [
     target: 'generategraphbtn',
     children: (
       <>
-        <Spotlight.Header>Start The Extraction Process</Spotlight.Header>
-        <Spotlight.Body>Click On Generate Graph</Spotlight.Body>
+        <Spotlight.Header>{t('Start The Extraction Process')}</Spotlight.Header>
+        <Spotlight.Body>{t('Click On Generate Graph')}</Spotlight.Body>
       </>
     ),
   },
@@ -135,8 +140,10 @@ const spotlights = [
     target: 'visualizegraphbtn',
     children: (
       <>
-        <Spotlight.Header>Visualize The Knowledge Graph</Spotlight.Header>
-        <Spotlight.Body>Select At Least One or More Completed Files From The Table For Visualization</Spotlight.Body>
+        <Spotlight.Header>{t('Visualize The Knowledge Graph')}</Spotlight.Header>
+        <Spotlight.Body>
+          {t('Select At Least One or More Completed Files From The Table For Visualization')}
+        </Spotlight.Body>
       </>
     ),
   },
@@ -144,13 +151,13 @@ const spotlights = [
     target: 'chatbtn',
     children: (
       <>
-        <Spotlight.Header>Ask Questions Related To Documents</Spotlight.Header>
+        <Spotlight.Header>{t('Ask Questions Related To Documents')}</Spotlight.Header>
       </>
     ),
   },
 ];
 const PageLayout: React.FC = () => {
-  console.log('PAGE LAYOUT ACTIVE');
+  const t = useTranslate();
   const [openConnection, setOpenConnection] = useState<connectionState>({
     openPopUp: false,
     chunksExists: false,
@@ -351,8 +358,9 @@ const PageLayout: React.FC = () => {
             id: 2,
             modes: {
               'graph+vector+fulltext': {
-                message:
-                  ' Welcome to the DB Knowledge Graph Chat. You can ask questions related to documents which have been completely processed.',
+                message: t(
+                  'Welcome to the Knowledge Graph Chat. You can ask questions related to documents which have been completely processed.'
+                ),
               },
             },
             user: 'chatbot',
@@ -541,7 +549,7 @@ const PageLayout: React.FC = () => {
     <>
       {!isAuthenticated && !SKIP_AUTH && isFirstTimeUser ? (
         <SpotlightTour
-          spotlights={spotlightsforunauthenticated}
+          spotlights={getSpotlightsForUnauthenticated(t)}
           onAction={(target, action) => {
             if (target == 'connectbutton' && action == 'next') {
               if (!isLeftExpanded) {
@@ -556,7 +564,7 @@ const PageLayout: React.FC = () => {
         />
       ) : (isAuthenticated || SKIP_AUTH) && isFirstTimeUser ? (
         <SpotlightTour
-          spotlights={spotlights}
+          spotlights={getSpotlights(t)}
           onAction={(target, action) => {
             if (target == 'connectbutton' && action == 'next') {
               if (!isLeftExpanded) {
@@ -648,7 +656,12 @@ const PageLayout: React.FC = () => {
       >
         <div className='flex-1 flex flex-col relative overflow-hidden'>
           {isLeftExpanded && (
-            <div className='absolute left-0 top-0 bottom-0 z-20 w-80 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl animate-slide-in-left'>
+            <div
+              className={clsx(
+                'absolute left-0 top-0 bottom-0 z-20 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl transition-all duration-300',
+                isChatFullScreen && leftDrawerMode === 'chat' ? 'w-[calc(100vw-72px)]' : 'w-80'
+              )}
+            >
               {leftDrawerMode === 'upload' ? (
                 <DrawerDropzone
                   shows3Modal={shows3Modal}
@@ -658,6 +671,16 @@ const PageLayout: React.FC = () => {
                   toggleGenericModal={toggleGenericModal}
                   toggleS3Modal={toggleS3Modal}
                   isExpanded={isLeftExpanded}
+                />
+              ) : leftDrawerMode === 'chat' ? (
+                <DrawerChatbot
+                  messages={messages}
+                  isExpanded={isLeftExpanded}
+                  clearHistoryData={clearHistoryData}
+                  connectionStatus={connectionStatus}
+                  isFullScreen={isChatFullScreen}
+                  toggleFullScreen={() => setIsChatFullScreen((prev) => !prev)}
+                  closeChatBot={toggleLeftDrawer}
                 />
               ) : (
                 <ResearchDrawer isExpanded={isLeftExpanded} toggleRightDrawer={toggleRightDrawer} />
@@ -696,22 +719,6 @@ const PageLayout: React.FC = () => {
               combinedRels={combinedRelsVal}
               setCombinedRels={setCombinedRelsVal}
             />
-          )}
-
-          {isRightExpanded && (
-            <div
-              className={`absolute right-0 top-0 bottom-0 z-20 ${isChatFullScreen ? 'w-[calc(100vw-72px)]' : 'w-96'} bg-black/60 backdrop-blur-3xl border-l border-white/5 animate-slide-in-right shadow-2xl transition-all duration-300`}
-            >
-              <DrawerChatbot
-                messages={messages}
-                isExpanded={isRightExpanded}
-                clearHistoryData={clearHistoryData}
-                connectionStatus={connectionStatus}
-                isFullScreen={isChatFullScreen}
-                toggleFullScreen={() => setIsChatFullScreen((prev) => !prev)}
-                closeChatBot={toggleRightDrawer}
-              />
-            </div>
           )}
         </div>
       </DashboardScaffold>

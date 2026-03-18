@@ -4,6 +4,7 @@ import { buttonCaptions, tooltips } from '../../../../utils/Constants';
 import { Flex, Typography, DropdownButton, Menu } from '@neo4j-ndl/react';
 import { useCredentials } from '../../../../context/UserCredentials';
 import { useFileContext } from '../../../../context/UsersFiles';
+import { usePatientContext } from '../../../../context/PatientContext';
 import { OptionType, TupleType } from '../../../../types';
 import { showNormalToast } from '../../../../utils/Toasts';
 import PatternContainer from './PatternContainer';
@@ -78,6 +79,8 @@ export default function NewEntityExtractionSetting({
     importerPattern,
   } = useFileContext();
   const { userCredentials } = useCredentials();
+  const { selectedPatient } = usePatientContext();
+  const patientEmail = selectedPatient?.case_id || 'global';
   const [openGraphView, setOpenGraphView] = useState<boolean>(false);
   const [viewPoint, setViewPoint] = useState<string>('tableView');
   const [tupleOptions, setTupleOptions] = useState<TupleType[]>([]);
@@ -124,9 +127,9 @@ export default function NewEntityExtractionSetting({
     setCombinedNodes([]);
     setCombinedRels([]);
     setTupleOptions([]);
-    updateLocalStorage(userCredentials!, 'selectedNodeLabels', []);
-    updateLocalStorage(userCredentials!, 'selectedRelationshipLabels', []);
-    updateLocalStorage(userCredentials!, 'selectedPattern', []);
+    updateLocalStorage(userCredentials!, 'selectedNodeLabels', [], patientEmail);
+    updateLocalStorage(userCredentials!, 'selectedRelationshipLabels', [], patientEmail);
+    updateLocalStorage(userCredentials!, 'selectedPattern', [], patientEmail);
     showNormalToast(`Successfully Removed the Schema settings`);
     // Importer clear
     setImporterNodes([]);
@@ -142,9 +145,9 @@ export default function NewEntityExtractionSetting({
     setAllPatterns(pattern);
     setSelectedNodes(nodeLables);
     setSelectedRels(relationshipLabels);
-    updateLocalStorage(userCredentials!, 'selectedNodeLabels', nodeLables);
-    updateLocalStorage(userCredentials!, 'selectedRelationshipLabels', relationshipLabels);
-    updateLocalStorage(userCredentials!, 'selectedPattern', pattern);
+    updateLocalStorage(userCredentials!, 'selectedNodeLabels', nodeLables, patientEmail);
+    updateLocalStorage(userCredentials!, 'selectedRelationshipLabels', relationshipLabels, patientEmail);
+    updateLocalStorage(userCredentials!, 'selectedPattern', pattern, patientEmail);
   };
 
   const handleSchemaView = () => {

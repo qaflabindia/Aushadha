@@ -9,11 +9,12 @@ export const uploadAPI = async (
   model: string,
   chunkNumber: number,
   totalChunks: number,
-  originalname: string
+  originalname: string,
+  patient_id?: string
 ): Promise<any> => {
   const urlUpload = `${url()}/upload`;
   const method: Method = 'post';
-  const additionalParams: UploadParams = { file, model, chunkNumber, totalChunks, originalname };
+  const additionalParams: UploadParams = { file, model, chunkNumber, totalChunks, originalname, patient_id };
   const response = await apiCall(urlUpload, method, additionalParams);
   return response;
 };
@@ -37,7 +38,8 @@ export const extractAPI = async (
   gcs_project_id?: string,
   language?: string,
   access_token?: string,
-  additional_instructions?: string
+  additional_instructions?: string,
+  patient_id?: string
 ): Promise<any> => {
   const urlExtract = `${url()}/extract`;
   const method: Method = 'post';
@@ -57,6 +59,7 @@ export const extractAPI = async (
       chunks_to_combine,
       retry_condition,
       additional_instructions,
+      patient_id,
     };
   } else if (source_type === 'Wikipedia') {
     additionalParams = {
@@ -72,6 +75,7 @@ export const extractAPI = async (
       language,
       retry_condition,
       additional_instructions,
+      patient_id,
     };
   } else if (source_type === 'gcs bucket') {
     additionalParams = {
@@ -90,6 +94,7 @@ export const extractAPI = async (
       access_token,
       retry_condition,
       additional_instructions,
+      patient_id,
     };
   } else if (source_type === 'youtube') {
     additionalParams = {
@@ -104,6 +109,7 @@ export const extractAPI = async (
       chunks_to_combine,
       retry_condition,
       additional_instructions,
+      patient_id,
     };
   } else if (source_type === 'web-url') {
     additionalParams = {
@@ -118,6 +124,7 @@ export const extractAPI = async (
       chunks_to_combine,
       retry_condition,
       additional_instructions,
+      patient_id,
     };
   } else {
     additionalParams = {
@@ -131,6 +138,7 @@ export const extractAPI = async (
       chunks_to_combine,
       retry_condition,
       additional_instructions,
+      patient_id,
     };
   }
   const response = await apiCall(urlExtract, method, additionalParams);

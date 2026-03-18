@@ -11,8 +11,10 @@ import { ChatProps, connectionState, Messages, UserCredentials } from '../../typ
 import { getIsLoading } from '../../utils/Utils';
 import ThemeWrapper from '../../context/ThemeWrapper';
 import { SpotlightProvider } from '@neo4j-ndl/react';
+import { useTranslate } from '../../context/TranslationContext';
 
 const ChatContent: React.FC<ChatProps> = ({ chatMessages }) => {
+  const t = useTranslate();
   const { clearHistoryData, messages, setMessages, setClearHistoryData, setIsDeleteChatLoading, isDeleteChatLoading } =
     useMessageContext();
   const { setUserCredentials, setConnectionStatus, connectionStatus, setShowDisconnectButton } = useCredentials();
@@ -105,8 +107,7 @@ const ChatContent: React.FC<ChatProps> = ({ chatMessages }) => {
           id: 2,
           modes: {
             'graph+vector+fulltext': {
-              message:
-                'Welcome to the DB Knowledge Graph Chat. You can ask questions related to documents which have been completely processed.',
+              message: t('dbWelcomeMessage'),
             },
           },
           user: 'chatbot',

@@ -1,8 +1,8 @@
 import { Flex, IconButton } from '@neo4j-ndl/react';
-import { ChevronLeftIconSolid, ChevronRightIconSolid } from '@neo4j-ndl/react/icons';
+import { RiArrowLeftSLine, RiArrowRightSLine } from 'react-icons/ri';
 import TipWrapper from '../UI/TipWrapper';
-import { capitalize, capitalizeWithPlus } from '../../utils/Utils';
 import { chatModeReadableLables } from '../../utils/Constants';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function ChatModesSwitch({
   switchToOtherMode,
@@ -17,9 +17,8 @@ export default function ChatModesSwitch({
   currentMode: string;
   isFullScreen: boolean;
 }) {
-  const chatmodetoshow = chatModeReadableLables[currentMode].includes('+')
-    ? capitalizeWithPlus(chatModeReadableLables[currentMode])
-    : capitalize(chatModeReadableLables[currentMode]);
+  const t = useTranslation();
+  const chatmodetoshow = t(chatModeReadableLables[currentMode] as any);
   return (
     <Flex flexDirection='row' gap='1' alignItems='center'>
       <IconButton
@@ -29,7 +28,7 @@ export default function ChatModesSwitch({
         onClick={() => switchToOtherMode(currentModeIndex - 1)}
         ariaLabel='left'
       >
-        <ChevronLeftIconSolid className='n-size-token-4' />
+        <RiArrowLeftSLine className='n-size-token-4' size={16} />
       </IconButton>
       <TipWrapper tooltip={chatmodetoshow} placement='top'>
         <div
@@ -45,7 +44,7 @@ export default function ChatModesSwitch({
         onClick={() => switchToOtherMode(currentModeIndex + 1)}
         ariaLabel='right'
       >
-        <ChevronRightIconSolid className='n-size-token-4' />
+        <RiArrowRightSLine className='n-size-token-4' size={16} />
       </IconButton>
     </Flex>
   );

@@ -4,6 +4,7 @@ Medical terminology and all translated terms are stored locally.
 Only NEW/unseen terms are sent to the Sarvam AI Cloud API.
 """
 import logging
+from typing import List, Optional, Dict
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, UniqueConstraint, func
 from sqlalchemy.orm import Session
@@ -33,6 +34,37 @@ def ensure_table():
     """Create the translation_cache table if it doesn't exist."""
     TranslationCache.__table__.create(bind=engine, checkfirst=True)
     logger.info("translation_cache table ensured.")
+
+
+def get_cached_batch(db: Session, source_texts: List[str], source_lang: str, target_lang: str) -> dict[str, Optional[str]]:
+    """
+    Look up multiple cached translations in a single query.
+    Returns a dictionary mapping sanitized source_text to translated_text.
+    """
+    if not source_texts:
+        return {}
+
+    sanitized_map = {t.lower().strip(): t for t in source_texts}
+    sanitized_keys = list(sanitized_map.keys())
+
+    rows = (
+        db.query(TranslationCache)
+        .filter(
+            func.lower(TranslationCache.source_text).in_(sanitized_keys),
+            TranslationCache.source_lang == source_lang,
+            TranslationCache.target_lang == target_lang,
+        )
+        .all()
+    )
+
+    result = {t: None for t in source_texts}
+    for row in rows:
+        original_key = sanitized_map.get(row.source_text.lower().strip())
+        if original_key:
+            result[original_key] = row.translated_text
+            # Optional: increment hit count in background or batch if needed
+    
+    return result
 
 
 def get_cached(db: Session, source_text: str, source_lang: str, target_lang: str):

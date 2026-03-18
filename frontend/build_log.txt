@@ -1,0 +1,22 @@
+yarn run v1.22.22
+$ tsc && vite build
+vite v4.5.3 building for production...
+transforming...
+✓ 13 modules transformed.
+✓ built in 192ms
+[vite:css] [postcss] postcss-import: /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/tailwindcss/lib/index.js:1:1: Unknown word "use strict"
+file: /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/src/index.css:1:1
+error during build:
+CssSyntaxError: [postcss] postcss-import: /Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/tailwindcss/lib/index.js:1:1: Unknown word "use strict"
+    at Input.error (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/input.js:113:16)
+    at Parser.unknownWord (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/parser.js:595:22)
+    at Parser.other (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/parser.js:437:12)
+    at Parser.parse (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/parser.js:472:16)
+    at parse (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/parse.js:11:12)
+    at get root (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/no-work-result.js:43:14)
+    at Result.get [as root] (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/no-work-result.js:77:21)
+    at file:///Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/dist/node/chunks/dep-8bc5a3be.js:874:45
+    at async Promise.all (index 0)
+    at async LazyResult.runAsync (/Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/frontend/node_modules/vite/node_modules/postcss/lib/lazy-result.js:293:11)
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

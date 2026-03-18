@@ -56,9 +56,9 @@ const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
   };
   return (
     <div className='flex min-h-[calc(-58px+100vh)] relative w-full'>
-      <Drawer isExpanded={isExpanded} isCloseable={false} position='right' type='push' className='pt-0!'>
+      <Drawer isExpanded={isExpanded} isCloseable={false} position='left' type='push' className='pt-0!'>
         <Drawer.Body className='overflow-hidden! pr-0!'>
-          <div className='flex flex-row-reverse w-full h-full p-2 gap-4'>
+          <div className='flex flex-row w-full h-full p-2 gap-4'>
             <ExpandedChatButtonContainer
               closeChatBot={closeChatBot || (() => {})}
               deleteOnClick={() => setMessages([])}
@@ -66,7 +66,7 @@ const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
               isFullScreen={isFullScreen}
               toggleFullScreen={toggleFullScreen}
             />
-            <div className='flex-1 w-full relative'>
+            <div className='flex-1 min-w-0 relative'>
               <Chatbot
                 isFullScreen={false}
                 messages={messages}

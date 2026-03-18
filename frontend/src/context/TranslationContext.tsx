@@ -29,11 +29,14 @@ const TranslationContext = createContext<TranslationContextType>({
 const BACKEND = import.meta.env.VITE_BACKEND_API_URL ?? '';
 
 async function batchFetch(texts: string[], lang: string): Promise<Record<string, string>> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s: generous timeout for LLM JSON batch generation
   try {
     const res = await fetch(`${BACKEND}/translate/ui/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texts, lang }),
+      signal: controller.signal,
     });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
@@ -44,6 +47,8 @@ async function batchFetch(texts: string[], lang: string): Promise<Record<string,
     // eslint-disable-next-line no-console
     console.warn('[TranslationContext] batch fetch failed, using English fallback', e);
     return {};
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -54,7 +59,7 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
   const cacheRef = useRef<Record<string, Record<string, string>>>({});
   const [knownStrings, setKnownStrings] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [, setTick] = useState(0); // force re-render after cache fill
+  const [cacheVersion, setCacheVersion] = useState(0); // force re-render after cache fill
 
   // 1. Fetch the master list of UI strings once on mount
   useEffect(() => {
@@ -73,28 +78,49 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const lang = language.code;
     if (lang === 'en' || knownStrings.length === 0) {
-      setTick((n) => n + 1);
+      setCacheVersion((n) => n + 1);
       return;
     }
 
-    // Already cached for this language
-    if (cacheRef.current[lang] && Object.keys(cacheRef.current[lang]).length > 0) {
-      setTick((n) => n + 1);
-      return;
+    // Check localStorage cache first
+    try {
+      const savedTrans = localStorage.getItem(`aushadha_ui_trans_v2_${lang}`);
+      if (savedTrans) {
+        cacheRef.current[lang] = JSON.parse(savedTrans);
+        setCacheVersion((n) => n + 1);
+        // We still fetch in background to refresh, but don't set isLoading if we have cache
+      }
+    } catch (e) {
+      console.warn('[TranslationContext] Failed to parse cached translations', e);
     }
 
-    setIsLoading(true);
-    const startTime = performance.now();
-    batchFetch(knownStrings, lang).then((translations) => {
-      const duration = performance.now() - startTime;
-      // eslint-disable-next-line no-console
-      console.log(
-        `[TranslationContext] Loaded ${Object.keys(translations).length} strings for '${lang}' in ${duration.toFixed(2)}ms`
-      );
-      cacheRef.current[lang] = translations;
-      setIsLoading(false);
-      setTick((n) => n + 1); // trigger re-render so components pick up translations
-    });
+    const fetchTranslations = async () => {
+      // For any language switch, we always fetch latest from DB so that any new English strings
+      // get translated immediately (JIT). We show the loading gate while this happens.
+      setIsLoading(true);
+
+      const startTime = performance.now();
+      try {
+        const translations = await batchFetch(knownStrings, lang);
+        if (Object.keys(translations).length > 0) {
+          cacheRef.current[lang] = translations;
+          localStorage.setItem(`aushadha_ui_trans_v2_${lang}`, JSON.stringify(translations));
+        }
+        const duration = performance.now() - startTime;
+        console.log(
+          `[TranslationContext] Loaded ${Object.keys(translations).length} strings for '${lang}' in ${duration.toFixed(2)}ms`
+        );
+      } catch (e) {
+        console.error(`[TranslationContext] Failed to fetch translations for ${lang}`, e);
+      } finally {
+        setIsLoading(false);
+        setCacheVersion((n) => n + 1);
+      }
+    };
+
+    fetchTranslations();
+
+    // Removed the background seed post request because batchFetch handles JIT auto-translation automatically on cache miss.
   }, [language.code, knownStrings]);
 
   const t = useCallback(
@@ -106,7 +132,7 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
       const translated = cacheRef.current[lang]?.[english];
       return translated || english; // English fallback
     },
-    [language.code]
+    [language.code, cacheVersion]
   );
 
   return <TranslationContext.Provider value={{ t, isLoading }}>{children}</TranslationContext.Provider>;

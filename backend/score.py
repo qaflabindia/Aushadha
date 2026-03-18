@@ -98,15 +98,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# SESSION_SECRET is now mandatory to avoid session invalidation on restart
+# SESSION_SECRET should be a stable value so sessions survive restarts.
+# In production (Cloud Run, etc.) inject it via Secret Manager or deployment env vars.
+import logging as _logging
 session_secret = os.getenv("SESSION_SECRET")
 if not session_secret:
+    session_secret = os.urandom(24).hex()
     if os.getenv("APP_ENV", "development").lower() == "production":
-        raise RuntimeError("CRITICAL: SESSION_SECRET must be set in production environments.")
+        _logging.critical(
+            "SESSION_SECRET is not set in a production environment. "
+            "A random key has been generated — all sessions will be invalidated on every restart. "
+            "Inject SESSION_SECRET via Secret Manager or deployment env vars immediately."
+        )
     else:
-        import logging
-        logging.warning("SESSION_SECRET not set, using temporary random key. Sessions will be lost on restart.")
-        session_secret = os.urandom(24).hex()
+        _logging.warning("SESSION_SECRET not set, using temporary random key. Sessions will be lost on restart.")
 
 app.add_middleware(SessionMiddleware, secret_key=session_secret)
 app.add_api_route("/health", health([healthy_condition, healthy]))
@@ -147,18 +152,7 @@ from src.database import SessionLocal
 @app.on_event("startup")
 async def on_startup():
     ensure_ui_table()
-    # Seed English keys (english_key = en column) for all known UI strings
-    from src.ui_translations import upsert_ui_translation
-    from src.routers.translation_router import KNOWN_UI_STRINGS
-    db = SessionLocal()
-    try:
-        for text in KNOWN_UI_STRINGS:
-            upsert_ui_translation(db, text, "en", text)
-    except Exception as e:
-        import logging
-        logging.warning(f"UI translation seed warning: {e}")
-    finally:
-        db.close()
+    # Dynamic system: strings are seeded/translated on-the-fly when encountered.
 
 
 if __name__ == "__main__":

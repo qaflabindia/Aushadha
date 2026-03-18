@@ -7,7 +7,7 @@ import type { Relationship } from '@neo4j-nvl/base';
 import { ShowAll } from '../UI/ShowAll';
 import { sortAlphabetically } from '../../utils/Utils';
 import { Dispatch, SetStateAction } from 'react';
-import { useTranslation } from '../../context/LanguageContext';
+import { useTranslate } from '../../context/TranslationContext';
 
 interface OverViewProps {
   nodes: ExtendedNode[];
@@ -27,7 +27,7 @@ const ResultOverview: React.FunctionComponent<OverViewProps> = ({
   setNodes,
   setRelationships,
 }) => {
-  const t = useTranslation();
+  const t = useTranslate();
   const nodeCount = (nodes: ExtendedNode[], label: string): number => {
     return [...new Set(nodes?.filter((n) => n.labels?.includes(label)).map((i) => i.id))].length;
   };

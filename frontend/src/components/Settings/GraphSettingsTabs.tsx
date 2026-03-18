@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Tabs, Flex, useMediaQuery } from '@neo4j-ndl/react';
 import { tokens } from '@neo4j-ndl/base';
-import { useTranslation } from '../../context/LanguageContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { useFileContext } from '../../context/UsersFiles';
 import NewEntityExtractionSetting from '../Popups/GraphEnhancementDialog/EnitityExtraction/NewEntityExtractionSetting';
 import AdditionalInstructionsText from '../Popups/GraphEnhancementDialog/AdditionalInstructions';

@@ -14,6 +14,7 @@ import { DrawerProps } from '../../types';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useFileContext } from '../../context/UsersFiles';
 import { useTranslate } from '../../context/TranslationContext';
+import { usePatientContext } from '../../context/PatientContext';
 const S3Modal = lazy(() => import('../DataSources/AWS/S3Modal'));
 const GCSModal = lazy(() => import('../DataSources/GCS/GCSModal'));
 const DrawerDropzone: React.FC<DrawerProps> = ({
@@ -30,6 +31,7 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
   const { loginWithRedirect } = useAuth0();
   const isLargeDesktop = useMediaQuery('(min-width:1440px)');
   const { filesData } = useFileContext();
+  const { selectedPatient } = usePatientContext();
   const t = useTranslate();
   const isAuthEnabled = import.meta.env.VITE_SKIP_AUTH !== 'true';
   const isYoutubeOnly = useMemo(
@@ -84,8 +86,18 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
                     </Typography>
                   </div>
                 )}
-                <div className={`${!connectionStatus ? 'cursor-not-allowed' : ''} h-full`}>
-                  <div className={`resource-sections ${!connectionStatus ? 'blur-sm pointer-events-none' : ''}`}>
+                {!selectedPatient && (
+                  <div className='mx-6 flex items-center justify-between pb-6'>
+                    <Typography variant='body-medium' className='flex items-center gap-2 text-orange-400 font-bold'>
+                      <StatusIndicator type='warning' />
+                      <span>{t('Please select a patient context in Settings to enable uploads')}</span>
+                    </Typography>
+                  </div>
+                )}
+                <div className={`${!connectionStatus || !selectedPatient ? 'cursor-not-allowed' : ''} h-full`}>
+                  <div
+                    className={`resource-sections ${!connectionStatus || !selectedPatient ? 'blur-sm pointer-events-none' : ''}`}
+                  >
                     <Flex gap='6' className='h-full source-container'>
                       {APP_SOURCES.includes('local') && (
                         <div className='px-6 outline-dashed outline-2 outline-offset-2 outline-gray-100 mt-3 imageBg'>

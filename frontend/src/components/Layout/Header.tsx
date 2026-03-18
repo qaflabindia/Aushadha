@@ -11,6 +11,7 @@ import { HeaderProp } from '../../types';
 import { Avatar } from '@neo4j-ndl/react';
 import TooltipWrapper from '../UI/TipWrapper';
 import { useTranslate } from '../../context/TranslationContext';
+import { usePatientContext } from '../../context/PatientContext';
 
 const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
@@ -20,6 +21,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
   const [showChatModeOption, setShowChatModeOption] = useState<boolean>(false);
   const t = useTranslate();
   const { user } = useGoogleAuth();
+  const { selectedPatient } = usePatientContext();
 
   return (
     <div className='flex items-center justify-between h-full px-6'>
@@ -36,7 +38,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
               'text-[#1A1A1A]': colorMode === 'light',
             })}
           >
-            AYUSHPRAGYA
+            {t('AYUSHPRAGYA')}
           </Typography>
           <Typography
             variant='body-small'
@@ -45,13 +47,38 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
               'text-gray-500': colorMode === 'light',
             })}
           >
-            Medical Intelligence
+            {t('Medical Intelligence')}
           </Typography>
         </div>
       </section>
 
       {/* ── Right Controls ── */}
       <section className='flex items-center gap-5'>
+        {/* Patient Context Display */}
+        {(user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
+          <div
+            className={clsx(
+              'flex items-center gap-2 px-3 py-1 rounded-full border transition-all glass-luxe text-[10px] font-bold tracking-tight',
+              {
+                'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.05)]':
+                  colorMode === 'dark' && selectedPatient,
+                'border-blue-200 text-blue-600 bg-blue-50': colorMode === 'light' && selectedPatient,
+                'border-white/5 text-white/30': colorMode === 'dark' && !selectedPatient,
+                'border-gray-100 text-gray-400': colorMode === 'light' && !selectedPatient,
+              }
+            )}
+          >
+            {selectedPatient ? (
+              <>
+                <span className='opacity-60 uppercase tracking-[0.1em]'>{t('Active Patient')}:</span>
+                <span className='text-[11px]'>{selectedPatient.case_id}</span>
+              </>
+            ) : (
+              <span className='italic opacity-40 italic'>{t('Context: Not Selected')}</span>
+            )}
+          </div>
+        )}
+
         {/* Intelligence Search / Chat Mode Trigger — non-Patients only */}
         {(user?.role === 'Doctor' || user?.role === 'Staff' || user?.role === 'Admin') && (
           <div
@@ -88,7 +115,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
         {/* Active User Avatar */}
         {user && (
           <TooltipWrapper
-            tooltip={`${user.name ?? user.email} · ${user.role ?? 'User'} — Open Settings for full profile`}
+            tooltip={`${user.name ?? user.email} · ${user.role ?? 'User'} — ${t('Open Settings for full profile')}`}
             placement='bottom'
           >
             <Avatar name={user.name ?? user.email} source={user.picture ?? undefined} size='small' />

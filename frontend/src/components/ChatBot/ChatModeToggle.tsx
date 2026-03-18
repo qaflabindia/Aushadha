@@ -2,12 +2,11 @@ import { StatusIndicator, Typography } from '@neo4j-ndl/react';
 import { useFileContext } from '../../context/UsersFiles';
 import CustomMenu from '../UI/CustomMenu';
 import { chatModeLables, chatModes as AvailableModes, chatModeReadableLables } from '../../utils/Constants';
-import { capitalize } from '@mui/material';
-import { capitalizeWithPlus } from '../../utils/Utils';
 import { useCredentials } from '../../context/UserCredentials';
 import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { JSXElementConstructor, ReactElement, ReactNode, ReactPortal, useContext, useMemo } from 'react';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function ChatModeToggle({
   menuAnchor,
@@ -31,6 +30,7 @@ export default function ChatModeToggle({
   const { isGdsActive } = useCredentials();
   const { colorMode } = useContext(ThemeWrapperContext);
   const { user } = useGoogleAuth();
+  const t = useTranslation();
 
   const textColor = colorMode === 'dark' ? '#D4AF37' : '#1A1A1A';
   const descriptionColor = colorMode === 'dark' ? 'rgba(212,175,55,0.7)' : '#555555';
@@ -100,18 +100,16 @@ export default function ChatModeToggle({
                       textTransform: 'uppercase' as const,
                     }}
                   >
-                    LIVE
+                    {t('LIVE')}
                   </span>
                 )}
                 <Typography variant='subheading-small' style={{ color: textColor }}>
-                  {chatModeReadableLables[m.mode].includes('+')
-                    ? capitalizeWithPlus(chatModeReadableLables[m.mode])
-                    : capitalize(chatModeReadableLables[m.mode])}
+                  {t(chatModeReadableLables[m.mode] as any)}
                 </Typography>
               </div>
               <div>
                 <Typography variant='body-small' style={{ color: descriptionColor }}>
-                  {m.description}
+                  {t(m.description as any)}
                 </Typography>
               </div>
             </div>
@@ -125,7 +123,7 @@ export default function ChatModeToggle({
             <span>
               {chatModes.includes(m.mode) && (
                 <>
-                  <StatusIndicator type='success' /> {chatModeLables.selected}
+                  <StatusIndicator type='success' /> {t('Selected')}
                 </>
               )}
             </span>
@@ -133,7 +131,7 @@ export default function ChatModeToggle({
         };
       }
     );
-  }, [chatModes, memoizedChatModes, textColor, descriptionColor, colorMode]);
+  }, [chatModes, memoizedChatModes, textColor, descriptionColor, colorMode, t]);
 
   return (
     <CustomMenu isRoot={isRoot} closeHandler={closeHandler} open={open} anchorOrigin={menuAnchor} items={menuItems} />

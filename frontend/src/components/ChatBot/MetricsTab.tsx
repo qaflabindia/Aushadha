@@ -8,10 +8,9 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
 } from '@tanstack/react-table';
-import { capitalize } from '../../utils/Utils';
+import { RiInformationLine } from 'react-icons/ri';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
-import { InformationCircleIconOutline } from '@neo4j-ndl/react/icons';
-import { metricsinfo } from '../../utils/Constants';
+import { useTranslate } from '../../context/TranslationContext';
 import NotAvailableMetric from './NotAvailableMetric';
 function MetricsTab({
   metricsLoading,
@@ -26,6 +25,7 @@ function MetricsTab({
     | undefined;
   error: string;
 }) {
+  const t = useTranslate();
   const columnHelper = createColumnHelper<{ metric: string; score: number | string }>();
   const tableRef = useRef(null);
   const { colorMode } = useContext(ThemeWrapperContext);
@@ -35,13 +35,8 @@ function MetricsTab({
       columnHelper.accessor((row) => row.metric, {
         id: 'Metric',
         cell: (info) => {
-          const metric = info.getValue();
-          const capitilizedMetric = metric.includes('_')
-            ? metric
-                .split('_')
-                .map((w) => capitalize(w))
-                .join(' ')
-            : capitalize(metric);
+          const { metric } = info.row.original;
+          const capitilizedMetric = t(metric);
           return (
             <Flex flexDirection='row' alignItems='center'>
               <div className='textellipsis'>
@@ -50,21 +45,22 @@ function MetricsTab({
               <Popover placement='top-middle-bottom-middle' hasAnchorPortal={true}>
                 <Popover.Trigger hasButtonWrapper>
                   <IconButton size='small' isClean ariaLabel='infoicon'>
-                    <InformationCircleIconOutline />
+                    <RiInformationLine size={20} />
                   </IconButton>
                 </Popover.Trigger>
                 <Popover.Content className='p-2'>
-                  <Typography variant='body-small'>{metricsinfo[metric]}</Typography>
+                  <Typography variant='body-small'>{t(`${metric}Tooltip`)}</Typography>
                 </Popover.Content>
               </Popover>
             </Flex>
           );
         },
-        header: () => <span>Metric</span>,
+        header: () => <span>{t('metric')}</span>,
         footer: (info) => info.column.id,
       }),
       columnHelper.accessor((row) => row.score as number, {
         id: 'Score',
+        header: () => <span>{t('score')}</span>,
         cell: (info) => {
           const value = isNaN(info.getValue()) ? 'N.A' : info.getValue()?.toFixed(2);
           if (value === 'N.A') {

@@ -1,14 +1,16 @@
 import { GraphLabel, Typography } from '@neo4j-ndl/react';
 import { GraphPropertiesTableProps } from '../../types';
+import { useTranslate } from '../../context/TranslationContext';
 
 const GraphPropertiesTable = ({ propertiesWithTypes }: GraphPropertiesTableProps): JSX.Element => {
+  const t = useTranslate();
   return (
     <div className='flex w-full flex-col break-all px-4 text-sm' data-testid='viz-details-pane-properties-table'>
       <div className='mb-1 flex! flex-row pl-2'>
         <Typography variant='body-medium' className='basis-1/3'>
-          Key
+          {t('key')}
         </Typography>
-        <Typography variant='body-medium'>Value</Typography>
+        <Typography variant='body-medium'>{t('value')}</Typography>
       </div>
       {propertiesWithTypes
         .filter(({ value }) => value !== undefined && value !== null && value !== '' && !Array.isArray(value))

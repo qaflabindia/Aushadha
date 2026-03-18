@@ -31,5 +31,4 @@ class sourceNode:
     access_token:str=None
     retry_condition:str=None
     token_usage:int=None
-    owner_email:str=None
-    patient_email:str=None
+    patient_id:str=None

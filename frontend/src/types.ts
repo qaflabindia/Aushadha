@@ -83,6 +83,7 @@ export type ExtractParams = Pick<CustomFile, 'wikiQuery' | 'model' | 'sourceUrl'
   gcs_project_id?: string;
   retry_condition: string;
   additional_instructions?: string;
+  patient_id?: string;
 } & { [key: string]: any };
 
 export type UploadParams = {
@@ -91,6 +92,7 @@ export type UploadParams = {
   chunkNumber: number;
   totalChunks: number;
   originalname: string;
+  patient_id?: string;
 } & { [key: string]: any };
 
 export type FormDataParams = ExtractParams | UploadParams;
@@ -118,7 +120,7 @@ export interface GCSModalProps extends Omit<S3ModalProps, ''> {
   openGCSModal: () => void;
 }
 
-export type DrawerMode = 'upload' | 'research' | 'admin' | 'settings';
+export type DrawerMode = 'upload' | 'research' | 'admin' | 'settings' | 'chat';
 
 export interface SideNavProps {
   toggleLeftDrawer: () => void;

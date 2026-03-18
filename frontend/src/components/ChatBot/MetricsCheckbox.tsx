@@ -1,4 +1,5 @@
 import { Checkbox } from '@neo4j-ndl/react';
+import { useTranslate } from '../../context/TranslationContext';
 
 function MetricsCheckbox({
   enableReference,
@@ -9,10 +10,11 @@ function MetricsCheckbox({
   toggleReferenceVisibility: React.DispatchWithoutAction;
   isDisabled?: boolean;
 }) {
+  const t = useTranslate();
   return (
     <Checkbox
       isDisabled={isDisabled}
-      label={'Get More Metrics by providing reference answer'}
+      label={t('getMoreMetrics')}
       isChecked={enableReference}
       onChange={toggleReferenceVisibility}
     />

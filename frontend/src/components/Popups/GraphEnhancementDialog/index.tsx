@@ -10,7 +10,7 @@ import { tokens } from '@neo4j-ndl/base';
 import PostProcessingCheckList from './PostProcessingCheckList';
 import AdditionalInstructionsText from './AdditionalInstructions';
 import { OptionType } from '../../../types';
-import { useTranslation } from '../../../context/LanguageContext';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 export default function GraphEnhancementDialog({
   open,

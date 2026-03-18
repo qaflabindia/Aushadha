@@ -11,14 +11,30 @@ const api = axios.create({
 let globalCredentials: UserCredentials | null = null;
 
 export const updateGlobalTargetUserEmail = (email: string | null) => {
-  if (globalCredentials) {
-    globalCredentials.target_user_email = email || undefined;
+  if (!globalCredentials) {
+    globalCredentials = { uri: '', userName: '', password: '', database: '', email: '' };
   }
+  globalCredentials.target_user_email = email || undefined;
+};
+
+export const updateGlobalPatientId = (id: string | null) => {
+  if (!globalCredentials) {
+    globalCredentials = { uri: '', userName: '', password: '', database: '', email: '' };
+  }
+  globalCredentials.patient_id = id || undefined;
 };
 
 export const createDefaultFormData = (userCredentials: UserCredentials) => {
-  // Store credentials for interceptor use
-  globalCredentials = { ...userCredentials };
+  // Preserve patient_id and target_user_email that were set independently via
+  // updateGlobalPatientId / updateGlobalTargetUserEmail. Spreading userCredentials
+  // alone would wipe them on any credential refresh / reconnect.
+  const preservedPatientId = globalCredentials?.patient_id;
+  const preservedTargetEmail = globalCredentials?.target_user_email;
+  globalCredentials = {
+    ...userCredentials,
+    patient_id: userCredentials.patient_id ?? preservedPatientId,
+    target_user_email: userCredentials.target_user_email ?? preservedTargetEmail,
+  };
 
   // Clear existing interceptors to avoid duplicates
   api.interceptors.request.clear();
@@ -54,12 +70,7 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
         if (globalCredentials.email && !config.data.has('email')) {
           config.data.append('email', globalCredentials.email);
         }
-        if (globalCredentials.target_user_email && !config.data.has('target_user_email')) {
-          config.data.append('target_user_email', globalCredentials.target_user_email);
-          config.data.append('patient_email', globalCredentials.target_user_email);
-        }
 
-        // Grab user_role from local storage to explicitly pass role
         const savedUserResponse = localStorage.getItem('aushadha_auth_user');
         if (savedUserResponse) {
           try {
@@ -70,6 +81,12 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
           } catch (e) {
             console.error(e);
           }
+        }
+
+        if (globalCredentials.patient_id && !config.data.has('patient_id')) {
+          config.data.append('patient_id', globalCredentials.patient_id);
+        } else if (globalCredentials.target_user_email && !config.data.has('target_user_email')) {
+          config.data.append('target_user_email', globalCredentials.target_user_email);
         }
       } else if (globalCredentials && !(config.data instanceof FormData)) {
         // Convert plain object to FormData and add credentials
@@ -94,21 +111,26 @@ export const createDefaultFormData = (userCredentials: UserCredentials) => {
         if (globalCredentials.email) {
           formData.append('email', globalCredentials.email);
         }
-        if (globalCredentials.target_user_email) {
-          formData.append('target_user_email', globalCredentials.target_user_email);
-          formData.append('patient_email', globalCredentials.target_user_email);
-        }
-
         const savedUserResponseJ = localStorage.getItem('aushadha_auth_user');
+        let currentUserRoleJ = '';
         if (savedUserResponseJ) {
           try {
             const usr = JSON.parse(savedUserResponseJ);
+            currentUserRoleJ = usr.role || '';
             if (usr.role) {
               formData.append('user_role', usr.role);
             }
           } catch (e) {
             console.error(e);
           }
+        }
+
+        if (globalCredentials.patient_id) {
+          formData.append('patient_id', globalCredentials.patient_id);
+        } else if (globalCredentials.target_user_email) {
+          formData.append('target_user_email', globalCredentials.target_user_email);
+        } else if (currentUserRoleJ === 'Patient' && globalCredentials.email) {
+          // Fallback
         }
 
         // Add other data fields

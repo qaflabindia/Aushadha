@@ -23,7 +23,7 @@ class SourceScanExtractParams(BaseModel):
     language: Optional[str] = Field(None, description="Language")
     retry_condition: Optional[str] = Field(None, description="Retry condition")
     additional_instructions: Optional[str] = Field(None, description="Additional instructions")
-    patient_email: Optional[str] = Field(None, description="Patient email context for strict data isolation")
+    patient_id: Optional[str] = Field(None, description="Patient ID context for strict data isolation")
 
 
 
@@ -48,7 +48,7 @@ def get_source_scan_extract_params(
     language: Optional[str] = Form(None),
     retry_condition: Optional[str] = Form(None),
     additional_instructions: Optional[str] = Form(None),
-    patient_email: Optional[str] = Form(None),
+    patient_id: Optional[str] = Form(None),
 ) -> SourceScanExtractParams:
     return SourceScanExtractParams(
         source_url=source_url,
@@ -71,5 +71,5 @@ def get_source_scan_extract_params(
         language=language,
         retry_condition=retry_condition,
         additional_instructions=additional_instructions,
-        patient_email=patient_email,
+        patient_id=patient_id,
     )

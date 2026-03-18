@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 import clsx from 'clsx';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { RiArrowDownSLine, RiCheckLine } from 'react-icons/ri';
+import { useTranslate } from '../../context/TranslationContext';
 
 export interface DropdownOption {
   label: string;
@@ -32,10 +33,25 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
   width = '100%',
 }) => {
   const { colorMode } = useContext(ThemeWrapperContext);
+  const t = useTranslate();
   const [isOpen, setIsOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
+
+  React.useLayoutEffect(() => {
+    if (isOpen && menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      // If the dropdown is in the bottom 40% of the screen, drop up
+      if (rect.bottom > viewportHeight * 0.6) {
+        setDropUp(true);
+      } else {
+        setDropUp(false);
+      }
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -58,12 +74,12 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
           {
             'opacity-50 cursor-not-allowed': disabled,
             // Dark Mode Glass
-            'bg-black/40 border-white/10 text-white hover:border-[#D4AF37]/50 hover:shadow-[0_0_20px_rgba(212,175,55,0.1)]':
+            '!bg-black/70 !backdrop-blur-2xl border-white/20 text-white hover:border-[#D4AF37]/50 hover:shadow-[0_0_20px_rgba(212,175,55,0.1)]':
               colorMode === 'dark' && !disabled,
             'border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.15)]': colorMode === 'dark' && isOpen,
 
             // Light Mode Glass
-            'bg-white/80 border-gray-200 text-gray-900 hover:border-blue-400 hover:shadow-sm backdrop-blur-md':
+            '!bg-white/70 !backdrop-blur-2xl border-gray-200 text-gray-900 hover:border-blue-400 shadow-md':
               colorMode === 'light' && !disabled,
             'border-blue-500 ring-2 ring-blue-500/20': colorMode === 'light' && isOpen,
           }
@@ -86,7 +102,7 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
               'text-gray-400': !selectedOption && colorMode === 'light',
             })}
           >
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption ? selectedOption.label : t(placeholder)}
           </span>
         </div>
 
@@ -102,10 +118,11 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
       {isOpen && (
         <div
           className={clsx(
-            'absolute z-[1100] w-full mt-2 rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] origin-top animate-inc-scale overflow-hidden',
+            'absolute z-[1100] w-full rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-inc-scale overflow-hidden',
+            dropUp ? 'bottom-full mb-2 origin-bottom' : 'top-full mt-2 origin-top',
             {
-              '!bg-[#0F1014] border-white/10': colorMode === 'dark',
-              '!bg-white border-gray-100 shadow-xl': colorMode === 'light',
+              '!bg-black/70 !backdrop-blur-2xl border-white/20': colorMode === 'dark',
+              '!bg-white/70 !backdrop-blur-2xl border-gray-200 shadow-2xl': colorMode === 'light',
             }
           )}
         >

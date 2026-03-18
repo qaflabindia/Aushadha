@@ -40,6 +40,9 @@ APP_ENV = os.getenv("APP_ENV", "development").lower()
 STAGING_SKIP_AUTH = os.getenv("BACKEND_STAGING_SKIP_AUTH", "false").strip().lower() == "true"
 SKIP_AUTH = STAGING_SKIP_AUTH and APP_ENV != "production"
 
+# Logger must be initialized before any module-level code that uses it
+logger = logging.getLogger(__name__)
+
 if STAGING_SKIP_AUTH and APP_ENV == "production":
     logger.error("CRITICAL: BACKEND_STAGING_SKIP_AUTH is enabled in a production environment. Bypassing this flag for safety.")
 
@@ -51,7 +54,6 @@ LOCAL_RSA_PUBLIC_KEY_PATH = Path(os.getenv("RSA_PUBLIC_KEY_PATH", "/code/.auth_r
 LOCAL_TOKEN_EXPIRY_HOURS = int(os.getenv("LOCAL_TOKEN_EXPIRY_HOURS", "8"))  # default: 8 hours
 LOCAL_TOKEN_ISSUER = "aushadha-local"
 
-logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 

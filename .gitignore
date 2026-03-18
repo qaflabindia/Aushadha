@@ -140,11 +140,14 @@ ENV/
 env.bak/
 venv.bak/
 
-# Secret Vault (Fernet AES)
+# Secret Vault (AES-256-GCM - new, and legacy Fernet)
 .vault.key
+.vault.key.new
 .secrets.json.enc
+.secrets.vault
 *.key
 *.enc
+*.vault
 
 # RSA / JWT auth keys
 .auth_rsa_private.pem
@@ -238,3 +241,5 @@ startupfrontend.sh
 /data/mmlu-indic/frontend.zip
 frontend.zip
 
+backend/.secrets.vault
+backend/.vault.key

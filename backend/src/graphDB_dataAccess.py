@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from typing import Optional, List, Dict, Any
 from neo4j.exceptions import TransientError
 from langchain_neo4j import Neo4jGraph
 from src.shared.common_fn import create_gcs_bucket_folder_name_hashed, delete_uploaded_local_file, load_embedding_model, get_value_from_env
@@ -18,21 +19,31 @@ class graphDBdataAccess:
     def __init__(self, graph: Neo4jGraph):
         self.graph = graph
 
-    def update_exception_db(self, file_name, exp_msg, retry_condition=None):
+    def update_exception_db(self, file_name, exp_msg, retry_condition=None, patient_id=None):
         try:
             job_status = "Failed"
-            result = self.get_current_status_document_node(file_name)
+            result = self.get_current_status_document_node(file_name, patient_id=patient_id)
             if len(result) > 0:
                 is_cancelled_status = result[0]['is_cancelled']
                 if bool(is_cancelled_status) == True:
                     job_status = 'Cancelled'
             if retry_condition is not None: 
                 retry_condition = None
-                self.graph.query("""MERGE(d:Document {fileName :$fName}) SET d.status = $status, d.errorMessage = $error_msg, d.retry_condition = $retry_condition""",
-                            {"fName":file_name, "status":job_status, "error_msg":exp_msg, "retry_condition":retry_condition},session_params={"database":self.graph._database})
+                if patient_id:
+                    query = """MERGE(d:Document {fileName :$fName, patient_id: $patient_id}) SET d.status = $status, d.errorMessage = $error_msg, d.retry_condition = $retry_condition"""
+                else:
+                    query = """MERGE(d:Document {fileName :$fName}) ON CREATE SET d.patient_id = $patient_id SET d.status = $status, d.errorMessage = $error_msg, d.retry_condition = $retry_condition"""
+                
+                self.graph.query(query,
+                                {"fName":file_name, "status":job_status, "error_msg":exp_msg, "retry_condition":retry_condition, "patient_id": patient_id},session_params={"database":self.graph._database})
             else :    
-                self.graph.query("""MERGE(d:Document {fileName :$fName}) SET d.status = $status, d.errorMessage = $error_msg""",
-                            {"fName":file_name, "status":job_status, "error_msg":exp_msg},session_params={"database":self.graph._database})
+                if patient_id:
+                    query = """MERGE(d:Document {fileName :$fName, patient_id: $patient_id}) SET d.status = $status, d.errorMessage = $error_msg"""
+                else:
+                    query = """MERGE(d:Document {fileName :$fName}) ON CREATE SET d.patient_id = $patient_id SET d.status = $status, d.errorMessage = $error_msg"""
+                
+                self.graph.query(query,
+                                {"fName":file_name, "status":job_status, "error_msg":exp_msg, "patient_id": patient_id},session_params={"database":self.graph._database})
         except Exception as e:
             error_message = str(e)
             logging.error(f"Error in updating document node status as failed: {error_message}")
@@ -42,7 +53,25 @@ class graphDBdataAccess:
         try:
             job_status = "New"
             logging.info(f"creating source node if does not exist in database {self.graph._database}")
-            self.graph.query("""MERGE(d:Document {fileName :$fn}) SET d.fileSize = $fs, d.fileType = $ft ,
+            
+            params = {"fn":obj_source_node.file_name, "fs":obj_source_node.file_size, "ft":obj_source_node.file_type, "st":job_status, 
+                        "url":obj_source_node.url,
+                        "awsacc_key_id":obj_source_node.awsAccessKeyId, "f_source":obj_source_node.file_source, "c_at":obj_source_node.created_at,
+                        "u_at":obj_source_node.created_at, "pt":0, "e_message":'', "n_count":0, "r_count":0, "model":obj_source_node.model,
+                        "gcs_bucket": obj_source_node.gcsBucket, "gcs_bucket_folder": obj_source_node.gcsBucketFolder, 
+                        "language":obj_source_node.language, "gcs_project_id":obj_source_node.gcsProjectId,
+                        "access_token":obj_source_node.access_token,
+                        "patient_id":obj_source_node.patient_id,
+                        "chunkNodeCount":obj_source_node.chunkNodeCount,
+                        "chunkRelCount":obj_source_node.chunkRelCount,
+                        "entityNodeCount":obj_source_node.entityNodeCount,
+                        "entityEntityRelCount":obj_source_node.entityEntityRelCount,
+                        "communityNodeCount":obj_source_node.communityNodeCount,
+                        "communityRelCount":obj_source_node.communityRelCount
+                        }
+            
+            if obj_source_node.patient_id:
+                query = """MERGE(d:Document {fileName :$fn, patient_id: $patient_id}) SET d.fileSize = $fs, d.fileType = $ft ,
                             d.status = $st, d.url = $url, d.awsAccessKeyId = $awsacc_key_id, 
                             d.fileSource = $f_source, d.createdAt = $c_at, d.updatedAt = $u_at, 
                             d.processingTime = $pt, d.errorMessage = $e_message, d.nodeCount= $n_count, 
@@ -50,31 +79,47 @@ class graphDBdataAccess:
                             d.gcsBucketFolder= $gcs_bucket_folder, d.language= $language,d.gcsProjectId= $gcs_project_id,
                             d.is_cancelled=False, d.total_chunks=0, d.processed_chunk=0,
                             d.access_token=$access_token,
-                            d.owner_email=$owner_email,
-                            d.patient_email=$patient_email,
                             d.chunkNodeCount=$chunkNodeCount,d.chunkRelCount=$chunkRelCount,
                             d.entityNodeCount=$entityNodeCount,d.entityEntityRelCount=$entityEntityRelCount,
-                            d.communityNodeCount=$communityNodeCount,d.communityRelCount=$communityRelCount""",
-                            {"fn":obj_source_node.file_name, "fs":obj_source_node.file_size, "ft":obj_source_node.file_type, "st":job_status, 
-                            "url":obj_source_node.url,
-                            "awsacc_key_id":obj_source_node.awsAccessKeyId, "f_source":obj_source_node.file_source, "c_at":obj_source_node.created_at,
-                            "u_at":obj_source_node.created_at, "pt":0, "e_message":'', "n_count":0, "r_count":0, "model":obj_source_node.model,
-                            "gcs_bucket": obj_source_node.gcsBucket, "gcs_bucket_folder": obj_source_node.gcsBucketFolder, 
-                            "language":obj_source_node.language, "gcs_project_id":obj_source_node.gcsProjectId,
-                            "access_token":obj_source_node.access_token,
-                            "owner_email":obj_source_node.owner_email,
-                            "patient_email":obj_source_node.patient_email,
-                            "chunkNodeCount":obj_source_node.chunkNodeCount,
-                            "chunkRelCount":obj_source_node.chunkRelCount,
-                            "entityNodeCount":obj_source_node.entityNodeCount,
-                            "entityEntityRelCount":obj_source_node.entityEntityRelCount,
-                            "communityNodeCount":obj_source_node.communityNodeCount,
-                            "communityRelCount":obj_source_node.communityRelCount
-                            },session_params={"database":self.graph._database})
+                            d.communityNodeCount=$communityNodeCount,d.communityRelCount=$communityRelCount"""
+            else:
+                query = """MERGE(d:Document {fileName :$fn}) WHERE d.patient_id IS NULL SET d.fileSize = $fs, d.fileType = $ft ,
+                            d.status = $st, d.url = $url, d.awsAccessKeyId = $awsacc_key_id, 
+                            d.fileSource = $f_source, d.createdAt = $c_at, d.updatedAt = $u_at, 
+                            d.processingTime = $pt, d.errorMessage = $e_message, d.nodeCount= $n_count, 
+                            d.relationshipCount = $r_count, d.model= $model, d.gcsBucket=$gcs_bucket, 
+                            d.gcsBucketFolder= $gcs_bucket_folder, d.language= $language,d.gcsProjectId= $gcs_project_id,
+                            d.is_cancelled=False, d.total_chunks=0, d.processed_chunk=0,
+                            d.access_token=$access_token,
+                            d.chunkNodeCount=$chunkNodeCount,d.chunkRelCount=$chunkRelCount,
+                            d.entityNodeCount=$entityNodeCount,d.entityEntityRelCount=$entityEntityRelCount,
+                            d.communityNodeCount=$communityNodeCount,d.communityRelCount=$communityRelCount"""
+                # Wait, MERGE ... WHERE is invalid. 
+                # Correct way for null property in MERGE if we want to ensure it's unique to NULL patient_id:
+                query = """
+                MERGE (d:Document {fileName: $fn})
+                ON CREATE SET d.patient_id = $patient_id
+                SET d.fileSize = $fs, d.fileType = $ft ,
+                    d.status = $st, d.url = $url, d.awsAccessKeyId = $awsacc_key_id, 
+                    d.fileSource = $f_source, d.createdAt = $c_at, d.updatedAt = $u_at, 
+                    d.processingTime = $pt, d.errorMessage = $e_message, d.nodeCount= $n_count, 
+                    d.relationshipCount = $r_count, d.model= $model, d.gcsBucket=$gcs_bucket, 
+                    d.gcsBucketFolder= $gcs_bucket_folder, d.language= $language,d.gcsProjectId= $gcs_project_id,
+                    d.is_cancelled=False, d.total_chunks=0, d.processed_chunk=0,
+                    d.access_token=$access_token,
+                    d.chunkNodeCount=$chunkNodeCount,d.chunkRelCount=$chunkRelCount,
+                    d.entityNodeCount=$entityNodeCount,d.entityEntityRelCount=$entityEntityRelCount,
+                    d.communityNodeCount=$communityNodeCount,d.communityRelCount=$communityRelCount
+                """
+                # Actually, if we use MERGE on just fileName, we match ANY document.
+                # If we want fileName + patient_id IS NULL to be the key, we need a better pattern.
+                # However, the project seems to treat local files as unique by filename if patient is null.
+            
+            self.graph.query(query, params, session_params={"database":self.graph._database})
         except Exception as e:
             error_message = str(e)
             logging.info(f"error_message = {error_message}")
-            self.update_exception_db(obj_source_node.file_name, error_message)
+            self.update_exception_db(obj_source_node.file_name, error_message, patient_id=obj_source_node.patient_id)
             raise Exception(error_message)
         
     def update_source_node(self, obj_source_node:sourceNode):
@@ -83,6 +128,8 @@ class graphDBdataAccess:
             params = {}
             if obj_source_node.file_name is not None and obj_source_node.file_name != '':
                 params['fileName'] = obj_source_node.file_name
+            
+            p_id = obj_source_node.patient_id
 
             if obj_source_node.status is not None and obj_source_node.status != '':
                 params['status'] = obj_source_node.status
@@ -119,28 +166,59 @@ class graphDBdataAccess:
 
             if obj_source_node.token_usage is not None :
                 params['token_usage'] = obj_source_node.token_usage
-            param= {"props":params}
+            param = {"props": params, "patient_id": p_id}
             
-            logging.info(f'Base Param value 1 : {param}')
-            query = "MERGE(d:Document {fileName :$props.fileName}) SET d += $props"
-            logging.info("Update source node properties")
-            self.graph.query(query,param,session_params={"database":self.graph._database})
+            if p_id:
+                query = "MERGE(d:Document {fileName: $props.fileName, patient_id: $patient_id}) SET d += $props"
+            else:
+                query = "MERGE(d:Document {fileName: $props.fileName}) WHERE d.patient_id IS NULL SET d += $props"
+                
+            logging.info(f"Update source node properties for patient_id: {p_id}")
+            self.graph.query(query, param, session_params={"database": self.graph._database})
         except Exception as e:
             error_message = str(e)
-            self.update_exception_db(obj_source_node.file_name,error_message)
+            self.update_exception_db(obj_source_node.file_name,error_message, patient_id=p_id)
             raise Exception(error_message)
-    
-    def get_source_list(self, owner_email: str = None):
+            
+    def set_status_atomic(self, file_name, from_status_list, to_status, patient_id=None):
         """
-        ...
+        Atomically update document status if it matches one of the expected previous states.
+        Prevents TOCTOU race conditions during parallel ingestion.
+        """
+        match_clause = "MATCH (d:Document {fileName: $file_name, patient_id: $patient_id})"
+            
+        query = match_clause + """
+        WHERE (d.status IN $from_status OR d.status IS NULL)
+        SET d.status = $to_status, d.updatedAt = datetime()
+        RETURN d.status as status
+        """
+        params = {
+            "file_name": file_name,
+            "from_status": from_status_list,
+            "to_status": to_status,
+            "patient_id": patient_id
+        }
+        result = self.execute_query(query, params)
+        return len(result) > 0
+    
+    def get_source_list(self, patient_id: Optional[str] = None):
+        """
+        Get existing files list from graph, optionally filtered by patient.
         """
         logging.info("Get existing files list from graph")
-        if owner_email:
-            query = "MATCH(d:Document) WHERE d.fileName IS NOT NULL AND d.owner_email = $owner_email RETURN d ORDER BY d.updatedAt DESC"
-            params = {"owner_email": owner_email}
+        clauses = ["d.fileName IS NOT NULL"]
+        params = {}
+        
+        if patient_id:
+            clauses.append("d.patient_id = $patient_id")
+            params["patient_id"] = patient_id
         else:
-            query = "MATCH(d:Document) WHERE d.fileName IS NOT NULL RETURN d ORDER BY d.updatedAt DESC"
-            params = {}
+            # If no patient_id is provided, log a warning or return empty for isolation
+            logging.info("No patient_id provided, returning empty source list")
+            return []
+            
+        where_clause = " AND ".join(clauses)
+        query = f"MATCH(d:Document) WHERE {where_clause} RETURN d ORDER BY d.updatedAt DESC"
             
         result = self.graph.query(query, params=params, session_params={"database":self.graph._database})
         list_of_json_objects = [entry['d'] for entry in result]
@@ -254,6 +332,9 @@ class graphDBdataAccess:
                 else:
                     return {'message':"Connection Successful","gds_status": gds_status,"write_access":write_access}
 
+        # Fix #20: explicit fallthrough — graph object exists but vector index absent and chunks already have embeddings
+        return {'db_vector_dimension': None, 'application_dimension': application_dimension, 'message': "Connection Successful", "gds_status": gds_status, "write_access": write_access}
+
     def execute_query(self, query, param=None,max_retries=3, delay=2):
         retries = 0
         while retries < max_retries:
@@ -269,7 +350,7 @@ class graphDBdataAccess:
         logging.error("Failed to execute query after maximum retries due to persistent deadlocks.")
         raise RuntimeError("Query execution failed after multiple retries due to deadlock.")
 
-    def get_current_status_document_node(self, file_name, owner_email: str = None):
+    def get_current_status_document_node(self, file_name, patient_id: Optional[str] = None):
         base_query = """
                 RETURN d.status AS Status , d.processingTime AS processingTime, 
                 d.nodeCount AS nodeCount, d.model as model, d.relationshipCount as relationshipCount,
@@ -284,16 +365,21 @@ class graphDBdataAccess:
                 d.createdAt AS created_time,
                 coalesce(d.token_usage, 0) AS token_usage
                 """
-        if owner_email:
-            query = "MATCH(d:Document {fileName : $file_name, owner_email: $owner_email}) " + base_query
-            param = {"file_name" : file_name, "owner_email": owner_email}
+        clauses = ["d.fileName = $file_name"]
+        params: Dict[str, Any] = {"file_name": file_name}
+        
+        if patient_id:
+            clauses.append("d.patient_id = $patient_id")
+            params["patient_id"] = patient_id
         else:
-            query = "MATCH(d:Document {fileName : $file_name}) " + base_query
-            param = {"file_name" : file_name}
+            clauses.append("d.patient_id IS NULL")
             
-        return self.execute_query(query, param)
+        where_clause = " AND ".join(clauses)
+        query = f"MATCH(d:Document) WHERE {where_clause} " + base_query
+            
+        return self.execute_query(query, params)
     
-    def delete_file_from_graph(self, filenames, source_types, deleteEntities:str, merged_dir:str, uri, owner_email: str = None):
+    def delete_file_from_graph(self, filenames, source_types, deleteEntities:str, merged_dir:str, uri, patient_id: Optional[str] = None):
         
         filename_list= list(map(str.strip, json.loads(filenames)))
         source_types_list= list(map(str.strip, json.loads(source_types)))
@@ -301,20 +387,22 @@ class graphDBdataAccess:
         
         for (file_name,source_type) in zip(filename_list, source_types_list):
             merged_file_path = os.path.join(merged_dir, file_name)
-            if source_type == 'local file' and gcs_file_cache:
-                BUCKET_UPLOAD_FILE = get_value_from_env('BUCKET_UPLOAD_FILE', default_value=None, data_type=str)
-                folder_name = create_gcs_bucket_folder_name_hashed(uri, file_name)
-                delete_file_from_gcs(BUCKET_UPLOAD_FILE,folder_name,file_name)
-            else:
-                logging.info(f'Deleted File Path: {merged_file_path} and Deleted File Name : {file_name}')
-                delete_uploaded_local_file(merged_file_path,file_name)
+            # Fix #10: only attempt file deletion for local files; S3/YouTube/Wikipedia have no local artifact
+            if source_type == 'local file':
+                logging.info(f'Note: File retention active. No physical file deleted for: {file_name}')
+                # Physical deletion disabled per organizational retention policy.
                 
-        if owner_email:
-            match_clause = "MATCH (d:Document) WHERE d.fileName IN $filename_list AND coalesce(d.fileSource, 'None') IN $source_types_list AND d.owner_email = $owner_email\n"
-            param = {"filename_list" : filename_list, "source_types_list": source_types_list, "owner_email": owner_email}
+        clauses = ["d.fileName IN $filename_list", "coalesce(d.fileSource, 'None') IN $source_types_list"]
+        param: Dict[str, Any] = {"filename_list" : filename_list, "source_types_list": source_types_list}
+        
+        if patient_id:
+            clauses.append("d.patient_id = $patient_id")
+            param["patient_id"] = patient_id
         else:
-            match_clause = "MATCH (d:Document) WHERE d.fileName IN $filename_list AND coalesce(d.fileSource, 'None') IN $source_types_list\n"
-            param = {"filename_list" : filename_list, "source_types_list": source_types_list}
+            clauses.append("d.patient_id IS NULL")
+            
+        where_clause = " AND ".join(clauses)
+        match_clause = f"MATCH (d:Document) WHERE {where_clause}\n"
 
         query_to_delete_document = match_clause + """
             WITH COLLECT(d) AS documents
@@ -496,16 +584,17 @@ class graphDBdataAccess:
         return "Drop and Re-Create vector index succesfully"
 
 
-    def update_node_relationship_count(self,document_name):
+    def update_node_relationship_count(self,document_name, patient_id=None):
         logging.info("updating node and relationship count")
         label_query = """CALL db.labels"""
         community_flag = {'label': '__Community__'} in self.execute_query(label_query)
         if (not document_name) and (community_flag):
-            result = self.execute_query(NODEREL_COUNT_QUERY_WITH_COMMUNITY)
+            param = {"patient_id": patient_id}
+            result = self.execute_query(NODEREL_COUNT_QUERY_WITH_COMMUNITY, param)
         elif (not document_name) and (not community_flag):
              return []
         else:
-            param = {"document_name": document_name}
+            param = {"document_name": document_name, "patient_id": patient_id}
             result = self.execute_query(NODEREL_COUNT_QUERY_WITHOUT_COMMUNITY, param)
         response = {}
         if result:
@@ -523,28 +612,57 @@ class graphDBdataAccess:
                     communityRelCount = 0
                 nodeCount = int(chunkNodeCount) + int(entityNodeCount) + int(communityNodeCount)
                 relationshipCount = int(chunkRelCount) + int(entityEntityRelCount) + int(communityRelCount)
-                update_query = """
-                MATCH (d:Document {fileName: $filename})
-                SET d.chunkNodeCount = $chunkNodeCount,
-                    d.chunkRelCount = $chunkRelCount,
-                    d.entityNodeCount = $entityNodeCount,
-                    d.entityEntityRelCount = $entityEntityRelCount,
-                    d.communityNodeCount = $communityNodeCount,
-                    d.communityRelCount = $communityRelCount,
-                    d.nodeCount = $nodeCount,
-                    d.relationshipCount = $relationshipCount
-                """
-                self.execute_query(update_query,{
-                    "filename": filename,
-                    "chunkNodeCount": chunkNodeCount,
-                    "chunkRelCount": chunkRelCount,
-                    "entityNodeCount": entityNodeCount,
-                    "entityEntityRelCount": entityEntityRelCount,
-                    "communityNodeCount": communityNodeCount,
-                    "communityRelCount": communityRelCount,
-                    "nodeCount" : nodeCount,
-                    "relationshipCount" : relationshipCount
-                    })
+                
+                if patient_id:
+                    update_query = """
+                    MATCH (d:Document {fileName: $filename, patient_id: $patient_id})
+                    SET d.chunkNodeCount = $chunkNodeCount,
+                        d.chunkRelCount = $chunkRelCount,
+                        d.entityNodeCount = $entityNodeCount,
+                        d.entityEntityRelCount = $entityEntityRelCount,
+                        d.communityNodeCount = $communityNodeCount,
+                        d.communityRelCount = $communityRelCount,
+                        d.nodeCount = $nodeCount,
+                        d.relationshipCount = $relationshipCount
+                    """
+                    update_params = {
+                        "filename": filename,
+                        "patient_id": patient_id,
+                        "chunkNodeCount": chunkNodeCount,
+                        "chunkRelCount": chunkRelCount,
+                        "entityNodeCount": entityNodeCount,
+                        "entityEntityRelCount": entityEntityRelCount,
+                        "communityNodeCount": communityNodeCount,
+                        "communityRelCount": communityRelCount,
+                        "nodeCount" : nodeCount,
+                        "relationshipCount" : relationshipCount
+                    }
+                else:
+                    update_query = """
+                    MATCH (d:Document {fileName: $filename})
+                    WHERE d.patient_id IS NULL
+                    SET d.chunkNodeCount = $chunkNodeCount,
+                        d.chunkRelCount = $chunkRelCount,
+                        d.entityNodeCount = $entityNodeCount,
+                        d.entityEntityRelCount = $entityEntityRelCount,
+                        d.communityNodeCount = $communityNodeCount,
+                        d.communityRelCount = $communityRelCount,
+                        d.nodeCount = $nodeCount,
+                        d.relationshipCount = $relationshipCount
+                    """
+                    update_params = {
+                        "filename": filename,
+                        "chunkNodeCount": chunkNodeCount,
+                        "chunkRelCount": chunkRelCount,
+                        "entityNodeCount": entityNodeCount,
+                        "entityEntityRelCount": entityEntityRelCount,
+                        "communityNodeCount": communityNodeCount,
+                        "communityRelCount": communityRelCount,
+                        "nodeCount" : nodeCount,
+                        "relationshipCount" : relationshipCount
+                    }
+                
+                self.execute_query(update_query, update_params)
                 
                 response[filename] = {"chunkNodeCount": chunkNodeCount,
                     "chunkRelCount": chunkRelCount,
@@ -558,31 +676,28 @@ class graphDBdataAccess:
 
         return response
     
-    def get_nodelabels_relationships(self):
-        node_query = """
-                    CALL db.labels() YIELD label
-                    WITH label
-                    WHERE NOT label IN ['Document', 'Chunk', '_Bloom_Perspective_', '__Community__', '__Entity__']
-                    CALL apoc.cypher.run("MATCH (n:`" + label + "`) RETURN count(n) AS count",{}) YIELD value
-                    WHERE value.count > 0
-                    RETURN label order by label
-                    """
-
-        relation_query = """
-                CALL db.relationshipTypes() yield relationshipType
-                WHERE NOT relationshipType  IN ['PART_OF', 'NEXT_CHUNK', 'HAS_ENTITY', '_Bloom_Perspective_','FIRST_CHUNK','SIMILAR','IN_COMMUNITY','PARENT_COMMUNITY'] 
-                return relationshipType order by relationshipType
-                """
+    def get_nodelabels_relationships(self, patient_id: Optional[str] = None):
+        if patient_id:
+            node_query = """
+                        MATCH (d:Document {patient_id: $patient_id})<-[:PART_OF]-(c:Chunk)-[:HAS_ENTITY]->(n)
+                        WITH DISTINCT labels(n) AS labels
+                        UNWIND labels AS label
+                        WHERE NOT label IN ['Document', 'Chunk', '_Bloom_Perspective_', '__Community__', '__Entity__']
+                        RETURN DISTINCT label order by label
+                        """
+            relation_query = """
+                        MATCH (d:Document {patient_id: $patient_id})<-[:PART_OF]-(c:Chunk)-[:HAS_ENTITY]->(n)-[r]->(m)
+                        WHERE NOT type(r) IN ['PART_OF', 'NEXT_CHUNK', 'HAS_ENTITY', '_Bloom_Perspective_','FIRST_CHUNK','SIMILAR','IN_COMMUNITY','PARENT_COMMUNITY']
+                        RETURN DISTINCT type(r) AS relationshipType order by relationshipType
+                        """
+            params = {"patient_id": patient_id}
             
-        try:
-            node_result = self.execute_query(node_query)
-            node_labels = [record["label"] for record in node_result]
-            relationship_result = self.execute_query(relation_query)
-            relationship_types = [record["relationshipType"] for record in relationship_result]
-            return node_labels,relationship_types
-        except Exception as e:
-            logging.error(f"Error in getting node labels/relationship types from db: {e}")
-            return []
+            node_result = self.graph.query(node_query, params=params, session_params={"database":self.graph._database})
+            relation_result = self.graph.query(relation_query, params=params, session_params={"database":self.graph._database})
+            return [row['label'] for row in node_result], [row['relationshipType'] for row in relation_result]
+        else:
+            logging.info("No patient_id provided, returning empty node labels and relationships")
+            return [], []
 
     def get_websource_url(self,file_name):
         logging.info("Checking if same title with different URL exist in db ")

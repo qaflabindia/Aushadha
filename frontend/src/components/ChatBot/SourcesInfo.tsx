@@ -1,7 +1,7 @@
 import { FC, useContext } from 'react';
 import { Chunk, SourcesProps } from '../../types';
 import { LoadingSpinner, TextLink, Typography } from '@neo4j-ndl/react';
-import { DocumentTextIconOutline, GlobeAltIconOutline } from '@neo4j-ndl/react/icons';
+import { RiFileTextLine, RiGlobalLine } from 'react-icons/ri';
 import { getLogo, isAllowedHost, youtubeLinkValidation } from '../../utils/Utils';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import HoverableLink from '../UI/HoverableLink';
@@ -9,6 +9,7 @@ import wikipedialogo from '../../assets/images/wikipedia.svg';
 import youtubelogo from '../../assets/images/youtube.svg';
 import gcslogo from '../../assets/images/gcs.webp';
 import s3logo from '../../assets/images/s3logo.png';
+import { useTranslate } from '../../context/TranslationContext';
 
 const filterUniqueChunks = (chunks: Chunk[]) => {
   const chunkSource = new Set();
@@ -24,6 +25,7 @@ const filterUniqueChunks = (chunks: Chunk[]) => {
 
 const SourcesInfo: FC<SourcesProps> = ({ loading, mode, chunks, sources }) => {
   const themeUtils = useContext(ThemeWrapperContext);
+  const t = useTranslate();
   const uniqueChunks = chunks ? filterUniqueChunks(chunks) : [];
   return (
     <>
@@ -40,7 +42,7 @@ const SourcesInfo: FC<SourcesProps> = ({ loading, mode, chunks, sources }) => {
                 <li key={index} className='flex! flex-row justify-between items-center p-2'>
                   <div className='flex! flex-row  justify-between items-center'>
                     {s.fileSource === 'local file' ? (
-                      <DocumentTextIconOutline className='n-size-token-7 mr-2' />
+                      <RiFileTextLine className='n-size-token-7 mr-2' size={28} />
                     ) : (
                       <img
                         src={getLogo(themeUtils.colorMode)[s.fileSource]}
@@ -126,7 +128,7 @@ const SourcesInfo: FC<SourcesProps> = ({ loading, mode, chunks, sources }) => {
                     {!link?.startsWith('s3://') &&
                       !isAllowedHost(link, ['storage.googleapis.com', 'wikipedia.org', 'www.youtube.com']) && (
                         <div className='flex! flex-row justify-between items-center'>
-                          <GlobeAltIconOutline className='n-size-token-7' />
+                          <RiGlobalLine className='n-size-token-7' size={28} />
                           <TextLink
                             href={link}
                             type='external'
@@ -151,7 +153,7 @@ const SourcesInfo: FC<SourcesProps> = ({ loading, mode, chunks, sources }) => {
                   </div>
                 ) : (
                   <div className='flex! flex-row justify-between items-center'>
-                    <DocumentTextIconOutline className='n-size-token-7 mr-2' />
+                    <RiFileTextLine className='n-size-token-7 mr-2' />
                     <Typography
                       variant='body-medium'
                       className='text-ellipsis whitespace-nowrap overflow-hidden max-w-lg'
@@ -165,7 +167,7 @@ const SourcesInfo: FC<SourcesProps> = ({ loading, mode, chunks, sources }) => {
           })}
         </ul>
       ) : (
-        <span className='h6 text-center'>No Sources Found</span>
+        <span className='h6 text-center'>{t('noSourcesFound')}</span>
       )}
     </>
   );

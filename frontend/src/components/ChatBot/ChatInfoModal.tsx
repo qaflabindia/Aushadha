@@ -11,7 +11,7 @@ import {
   TextArea,
   IconButton,
 } from '@neo4j-ndl/react';
-import { DocumentDuplicateIconOutline, ClipboardDocumentCheckIconOutline } from '@neo4j-ndl/react/icons';
+import { RiFileCopyLine, RiCheckLine } from 'react-icons/ri';
 import '../../styling/info.css';
 import Neo4jRetrievalLogo from '../../assets/images/Neo4jRetrievalLogo.png';
 import { ExtendedNode, chatInfoMessage } from '../../types';
@@ -33,6 +33,7 @@ import MultiModeMetrics from './MultiModeMetrics';
 import getAdditionalMetrics from '../../services/AdditionalMetrics';
 import { withVisibility } from '../../HOC/WithVisibility';
 import MetricsCheckbox from './MetricsCheckbox';
+import { useTranslate } from '../../context/TranslationContext';
 
 const ChatInfoModal: React.FC<chatInfoMessage> = ({
   sources,
@@ -81,6 +82,7 @@ const ChatInfoModal: React.FC<chatInfoMessage> = ({
           ? 4
           : 3
   );
+  const t = useTranslate();
   const [, copy] = useCopyToClipboard();
   const [copiedText, setcopiedText] = useState<boolean>(false);
   const [showMetricsTable, setShowMetricsTable] = useState<boolean>(Boolean(metricDetails));
@@ -110,9 +112,9 @@ const ChatInfoModal: React.FC<chatInfoMessage> = ({
         children: (
           <>
             {copiedText ? (
-              <ClipboardDocumentCheckIconOutline className='n-size-token-7' />
+              <RiCheckLine className='n-size-token-7' size={28} />
             ) : (
-              <DocumentDuplicateIconOutline className='text-palette-neutral-text-icon n-size-token-7' />
+              <RiFileCopyLine className='text-palette-neutral-text-icon n-size-token-7' size={28} />
             )}
           </>
         ),
@@ -318,10 +320,13 @@ const ChatInfoModal: React.FC<chatInfoMessage> = ({
           alt='Retrieval-logo'
         />
         <div className='flex! flex-col'>
-          <Typography variant='h2'>Retrieval information</Typography>
+          <Typography variant='h2'>{t('retrievalInformation')}</Typography>
           <Typography variant='body-medium' className='mb-2'>
-            To generate this response, the process took <span className='font-bold'>{response_time} seconds,</span>
-            utilizing <span className='font-bold'>{total_tokens}</span> tokens with the model{' '}
+            {t('toGenerateThisResponse')}{' '}
+            <span className='font-bold'>
+              {response_time} {t('seconds')}
+            </span>
+            {t('utilizing')} <span className='font-bold'>{total_tokens}</span> {t('tokensWithTheModel')}{' '}
             <span className='font-bold'>{model}</span> in{' '}
             <span className='font-bold'>
               {chatModeReadableLables[mode] !== 'vector'
@@ -339,30 +344,30 @@ const ChatInfoModal: React.FC<chatInfoMessage> = ({
       ) : (
         <Tabs size='large' fill='underline' onChange={onChangeTabs} value={activeTab}>
           {mode === chatModeLables['global search+vector+fulltext'] ? (
-            <Tabs.Tab tabId={7}>Communities</Tabs.Tab>
+            <Tabs.Tab tabId={7}>{t('communities')}</Tabs.Tab>
           ) : (
             <>
-              {mode != chatModeLables.graph ? <Tabs.Tab tabId={3}>Sources used</Tabs.Tab> : <></>}
-              {mode != chatModeLables.graph ? <Tabs.Tab tabId={5}>Chunks</Tabs.Tab> : <></>}
+              {mode != chatModeLables.graph ? <Tabs.Tab tabId={3}>{t('sourcesUsed')}</Tabs.Tab> : <></>}
+              {mode != chatModeLables.graph ? <Tabs.Tab tabId={5}>{t('chunks')}</Tabs.Tab> : <></>}
               {mode === chatModeLables['graph+vector'] ||
               mode === chatModeLables.graph ||
               mode === chatModeLables['graph+vector+fulltext'] ||
               mode === chatModeLables['entity search+vector'] ? (
-                <Tabs.Tab tabId={4}>Top Entities used</Tabs.Tab>
+                <Tabs.Tab tabId={4}>{t('topEntitiesUsed')}</Tabs.Tab>
               ) : (
                 <></>
               )}
               {mode === chatModeLables.graph && cypher_query?.trim()?.length ? (
-                <Tabs.Tab tabId={6}>Generated Cypher Query</Tabs.Tab>
+                <Tabs.Tab tabId={6}>{t('generatedCypherQuery')}</Tabs.Tab>
               ) : (
                 <></>
               )}
               {mode === chatModeLables['entity search+vector'] && communities.length ? (
-                <Tabs.Tab tabId={7}>Communities</Tabs.Tab>
+                <Tabs.Tab tabId={7}>{t('communities')}</Tabs.Tab>
               ) : (
                 <></>
               )}
-              <Tabs.Tab tabId={8}>Evaluation Metrics</Tabs.Tab>
+              <Tabs.Tab tabId={8}>{t('evaluationMetrics')}</Tabs.Tab>
             </>
           )}
         </Tabs>
