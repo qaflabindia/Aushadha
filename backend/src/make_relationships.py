@@ -12,7 +12,7 @@ logging.basicConfig(format='%(asctime)s - %(message)s',level='INFO')
 
 EMBEDDING_MODEL = get_value_from_env("EMBEDDING_MODEL", "sentence_transformer")
 
-def merge_relationship_between_chunk_and_entites(graph: Neo4jGraph, graph_documents_chunk_chunk_Id : list):
+def merge_relationship_between_chunk_and_entites(graph: Neo4jGraph, graph_documents_chunk_chunk_Id : list, patient_id: str = None):
     batch_data = []
     logging.info("Create HAS_ENTITY relationship between chunks and entities")
     
@@ -21,21 +21,25 @@ def merge_relationship_between_chunk_and_entites(graph: Neo4jGraph, graph_docume
             query_data={
                 'chunk_id': graph_doc_chunk_id['chunk_id'],
                 'node_type': node.type,
-                'node_id': node.id
+                'node_id': node.id,
+                'node_name': node.properties.get('name', node.id)
             }
             batch_data.append(query_data)
           
     if batch_data:
+        # Sort batch data by node_id to ensure consistent lock acquisition order and prevent deadlocks
+        batch_data.sort(key=lambda x: str(x['node_id']))
         unwind_query = """
                     UNWIND $batch_data AS data
-                    MATCH (c:Chunk {id: data.chunk_id})
-                    CALL apoc.merge.node([data.node_type], {id: data.node_id}) YIELD node AS n
+                    MATCH (c:Chunk {id: data.chunk_id, patient_id: $patient_id})
+                    CALL apoc.merge.node([data.node_type], {id: data.node_id, patient_id: $patient_id}) YIELD node AS n
+                    SET n.name = data.node_name
                     MERGE (c)-[:HAS_ENTITY]->(n)
                 """
-        execute_graph_query(graph,unwind_query, params={"batch_data": batch_data})
+        execute_graph_query(graph,unwind_query, params={"batch_data": batch_data, "patient_id": patient_id})
 
     
-def create_chunk_embeddings(graph, chunkId_chunkDoc_list, file_name, owner_email: str = None):
+def create_chunk_embeddings(graph, chunkId_chunkDoc_list, file_name, owner_email: str = None, patient_id: str = None):
     isEmbedding= get_value_from_env("IS_EMBEDDING", "True" ,"bool")
     
     embeddings, dimension = load_embedding_model(EMBEDDING_MODEL)
@@ -53,14 +57,14 @@ def create_chunk_embeddings(graph, chunkId_chunkDoc_list, file_name, owner_email
     
     query_to_create_embedding = """
         UNWIND $data AS row
-        MATCH (d:Document {fileName: $fileName})
-        MERGE (c:Chunk {id: row.chunkId})
+        MATCH (d:Document {fileName: $fileName, patient_id: $patient_id})
+        MERGE (c:Chunk {id: row.chunkId, patient_id: $patient_id})
         SET c.embedding = row.embeddings, c.owner_email = $owner_email
         MERGE (c)-[:PART_OF]->(d)
     """       
-    execute_graph_query(graph,query_to_create_embedding, params={"fileName":file_name, "data":data_for_query, "owner_email": owner_email})
+    execute_graph_query(graph,query_to_create_embedding, params={"fileName":file_name, "data":data_for_query, "owner_email": owner_email, "patient_id": patient_id})
     
-def create_relation_between_chunks(graph, file_name, chunks: List[Document], owner_email: str = None)->list:
+def create_relation_between_chunks(graph, file_name, chunks: List[Document], owner_email: str = None, patient_id: str = None)->list:
     logging.info("creating FIRST_CHUNK and NEXT_CHUNK relationships between chunks")
     current_chunk_id = ""
     lst_chunks_including_hash = []
@@ -68,7 +72,7 @@ def create_relation_between_chunks(graph, file_name, chunks: List[Document], own
     relationships = []
     offset=0
     for i, chunk in enumerate(chunks):
-        page_content_sha1 = hashlib.sha1(chunk.page_content.encode())
+        page_content_sha1 = hashlib.sha1(f"{patient_id}_{chunk.page_content}".encode())
         previous_chunk_id = current_chunk_id
         current_chunk_id = page_content_sha1.hexdigest()
         position = i + 1 
@@ -116,36 +120,36 @@ def create_relation_between_chunks(graph, file_name, chunks: List[Document], own
           
     query_to_create_chunk_and_PART_OF_relation = """
         UNWIND $batch_data AS data
-        MERGE (c:Chunk {id: data.id})
+        MERGE (c:Chunk {id: data.id, patient_id: $patient_id})
         SET c.text = data.pg_content, c.position = data.position, c.length = data.length, c.fileName=data.f_name, c.content_offset=data.content_offset, c.owner_email=$owner_email
         WITH data, c
         SET c.page_number = CASE WHEN data.page_number IS NOT NULL THEN data.page_number END,
             c.start_time = CASE WHEN data.start_time IS NOT NULL THEN data.start_time END,
             c.end_time = CASE WHEN data.end_time IS NOT NULL THEN data.end_time END
         WITH data, c
-        MATCH (d:Document {fileName: data.f_name})
+        MATCH (d:Document {fileName: data.f_name, patient_id: $patient_id})
         MERGE (c)-[:PART_OF]->(d)
     """
-    execute_graph_query(graph,query_to_create_chunk_and_PART_OF_relation, params={"batch_data": batch_data, "owner_email": owner_email})
+    execute_graph_query(graph,query_to_create_chunk_and_PART_OF_relation, params={"batch_data": batch_data, "owner_email": owner_email, "patient_id": patient_id})
     
     query_to_create_FIRST_relation = """ 
         UNWIND $relationships AS relationship
-        MATCH (d:Document {fileName: $f_name})
-        MATCH (c:Chunk {id: relationship.chunk_id})
+        MATCH (d:Document {fileName: $f_name, patient_id: $patient_id})
+        MATCH (c:Chunk {id: relationship.chunk_id, patient_id: $patient_id})
         FOREACH(r IN CASE WHEN relationship.type = 'FIRST_CHUNK' THEN [1] ELSE [] END |
                 MERGE (d)-[:FIRST_CHUNK]->(c))
         """
-    execute_graph_query(graph,query_to_create_FIRST_relation, params={"f_name": file_name, "relationships": relationships})
+    execute_graph_query(graph,query_to_create_FIRST_relation, params={"f_name": file_name, "relationships": relationships, "patient_id": patient_id})
     
     query_to_create_NEXT_CHUNK_relation = """ 
         UNWIND $relationships AS relationship
-        MATCH (c:Chunk {id: relationship.current_chunk_id})
+        MATCH (c:Chunk {id: relationship.current_chunk_id, patient_id: $patient_id})
         WITH c, relationship
-        MATCH (pc:Chunk {id: relationship.previous_chunk_id})
+        MATCH (pc:Chunk {id: relationship.previous_chunk_id, patient_id: $patient_id})
         FOREACH(r IN CASE WHEN relationship.type = 'NEXT_CHUNK' THEN [1] ELSE [] END |
                 MERGE (c)<-[:NEXT_CHUNK]-(pc))
         """  
-    execute_graph_query(graph,query_to_create_NEXT_CHUNK_relation, params={"relationships": relationships})
+    execute_graph_query(graph,query_to_create_NEXT_CHUNK_relation, params={"relationships": relationships, "patient_id": patient_id})
     return lst_chunks_including_hash
 
 
