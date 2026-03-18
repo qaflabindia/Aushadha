@@ -144,7 +144,15 @@ def load_embedding_model(embedding_model_name: str):
         logging.info(f"Embedding: Using Langchain HuggingFaceEmbeddings , Dimension:{dimension}")
     return embeddings, dimension
 
-def save_graphDocuments_in_neo4j(graph: Neo4jGraph, graph_document_list: List[GraphDocument], max_retries=3, delay=1):
+def save_graphDocuments_in_neo4j(graph: Neo4jGraph, graph_document_list: List[GraphDocument], max_retries=5, base_delay=1, patient_id=None):
+   for graph_doc in graph_document_list:
+       for node in graph_doc.nodes:
+           if patient_id:
+               node.properties['patient_id'] = patient_id
+       for rel in graph_doc.relationships:
+           if patient_id:
+               rel.properties['patient_id'] = patient_id
+           
    retries = 0
    while retries < max_retries:
        try:
@@ -153,8 +161,10 @@ def save_graphDocuments_in_neo4j(graph: Neo4jGraph, graph_document_list: List[Gr
        except TransientError as e:
            if "DeadlockDetected" in str(e):
                retries += 1
-               logging.info(f"Deadlock detected. Retrying {retries}/{max_retries} in {delay} seconds...")
-               time.sleep(delay)  # Wait before retrying
+               # Exponential backoff with jitter
+               delay = (base_delay * (2 ** retries)) + (time.time() % 1)
+               logging.info(f"Deadlock detected. Retrying {retries}/{max_retries} in {delay:.2f} seconds...")
+               time.sleep(delay)
            else:
                raise
    logging.error("Failed to execute query after maximum retries due to persistent deadlocks.")
@@ -167,20 +177,23 @@ def handle_backticks_nodes_relationship_id_type(graph_document_list:List[GraphDo
     for node in graph_document.nodes:
       if node.type.strip() and node.id.strip():
         node.type = node.type.replace('`', '')
+        node.id = node.id.replace('`', '')  # Fix #17: strip backticks from node IDs too
         cleaned_nodes.append(node)
     # Clean relationship id types and source/target node id and types
     cleaned_relationships = []
     for rel in graph_document.relationships:
       if rel.type.strip() and rel.source.id.strip() and rel.source.type.strip() and rel.target.id.strip() and rel.target.type.strip():
         rel.type = rel.type.replace('`', '')
+        rel.source.id = rel.source.id.replace('`', '')  # Fix #17: strip backticks from relationship node IDs
         rel.source.type = rel.source.type.replace('`', '')
+        rel.target.id = rel.target.id.replace('`', '')
         rel.target.type = rel.target.type.replace('`', '')
         cleaned_relationships.append(rel)
     graph_document.relationships = cleaned_relationships
     graph_document.nodes = cleaned_nodes
   return graph_document_list
 
-def execute_graph_query(graph: Neo4jGraph, query, params=None, max_retries=3, delay=2):
+def execute_graph_query(graph: Neo4jGraph, query, params=None, max_retries=5, base_delay=1):
    retries = 0
    while retries < max_retries:
        try:
@@ -188,8 +201,10 @@ def execute_graph_query(graph: Neo4jGraph, query, params=None, max_retries=3, de
        except TransientError as e:
            if "DeadlockDetected" in str(e):
                retries += 1
-               logging.info(f"Deadlock detected. Retrying {retries}/{max_retries} in {delay} seconds...")
-               time.sleep(delay)  # Wait before retrying
+               # Exponential backoff with jitter
+               delay = (base_delay * (2 ** retries)) + (time.time() % 1)
+               logging.info(f"Deadlock detected. Retrying {retries}/{max_retries} in {delay:.2f} seconds...")
+               time.sleep(delay)
            else:
                raise 
    logging.error("Failed to execute query after maximum retries due to persistent deadlocks.")
@@ -204,7 +219,7 @@ def delete_uploaded_local_file(merged_file_path, file_name):
 def close_db_connection(graph, api_name):
   if not graph._driver._closed:
       logging.info(f"closing connection for {api_name} api")
-      # graph._driver.close()   
+      graph._driver.close()  # Fix #18: was commented out; connections were never released
   
 def create_gcs_bucket_folder_name_hashed(uri, file_name):
   folder_name = uri + file_name
@@ -309,15 +324,16 @@ def track_token_usage(
         if not normalized_email and not normalized_db_url:
             raise ValueError("Either email or db_url must be provided for token tracking.")
 
-        uri = get_value_from_env("TOKEN_TRACKER_DB_URI") or get_value_from_env("NEO4J_URI")
+        # Fix #12: use a distinct variable so the caller's `uri` (captured in normalized_db_url) is not shadowed
+        tracker_uri = get_value_from_env("TOKEN_TRACKER_DB_URI") or get_value_from_env("NEO4J_URI")
         user = get_value_from_env("TOKEN_TRACKER_DB_USERNAME") or get_value_from_env("NEO4J_USERNAME")
         password = get_value_from_env("TOKEN_TRACKER_DB_PASSWORD") or get_value_from_env("NEO4J_PASSWORD")
         database = get_value_from_env("TOKEN_TRACKER_DB_DATABASE") or get_value_from_env("NEO4J_DATABASE") or "neo4j"
-        if not all([uri, user, password]):
+        if not all([tracker_uri, user, password]):
             logging.warning("Neo4j credentials are not set. Skipping token usage tracking.")
             return 0
-            
-        credentials = Neo4jCredentials(uri=uri, userName=user, password=password, database=database)
+
+        credentials = Neo4jCredentials(uri=tracker_uri, userName=user, password=password, database=database)
         graph = create_graph_database_connection(credentials)
         daily_tokens_limit = get_value_from_env("DAILY_TOKENS_LIMIT", "250000", "int")
         monthly_tokens_limit = get_value_from_env("MONTHLY_TOKENS_LIMIT", "1000000", "int")
