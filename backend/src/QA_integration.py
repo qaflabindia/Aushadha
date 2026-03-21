@@ -36,7 +36,7 @@ from src.shared.common_fn import load_embedding_model, track_token_usage,get_val
 from src.shared.constants import (
     CHAT_SYSTEM_TEMPLATE, CHAT_TOKEN_CUT_OFF, CHAT_ENTITY_VECTOR_MODE,
     CHAT_GLOBAL_VECTOR_FULLTEXT_MODE, CHAT_SEARCH_KWARG_SCORE_THRESHOLD,CHAT_MODE_CONFIG_MAP, CHAT_DEFAULT_MODE, CHAT_GRAPH_MODE,CHAT_EMBEDDING_FILTER_SCORE_THRESHOLD, CHAT_DOC_SPLIT_SIZE, QUESTION_TRANSFORM_TEMPLATE,
-    CHAT_AYUSH_MODE, AYUSH_MASTER_PROMPT
+    CHAT_AYUSH_MODE, AYUSH_MASTER_PROMPT, CHAT_VECTOR_MODE, CHAT_FULLTEXT_MODE
 )
 from src.shared.localization import translate_metadata
 load_dotenv() 
@@ -193,7 +193,8 @@ def format_documents(documents, model,chat_mode_settings):
         logging.warning(f"[format_documents] Model '{model}' not found in CHAT_TOKEN_CUT_OFF — defaulting to 10.")
         prompt_token_cutoff = 10
 
-    sorted_documents = sorted(documents, key=lambda doc: doc.state.get("query_similarity_score", 0), reverse=True)
+    # Fix: Safely access doc.state as it might be missing if EmbeddingsFilter is bypassed.
+    sorted_documents = sorted(documents, key=lambda doc: getattr(doc, 'state', {}).get("query_similarity_score", 0), reverse=True)
     sorted_documents = sorted_documents[:prompt_token_cutoff]
 
     formatted_docs = list()
@@ -299,7 +300,7 @@ def retrieve_documents(doc_retriever, messages):
     
     return docs,transformed_question
 
-def create_document_retriever_chain(llm, retriever):
+def create_document_retriever_chain(llm, retriever, mode=None):
     try:
         logging.info("Starting to create document retriever chain")
 
@@ -314,13 +315,21 @@ def create_document_retriever_chain(llm, retriever):
 
         splitter = TokenTextSplitter(chunk_size=CHAT_DOC_SPLIT_SIZE, chunk_overlap=0)
         EMBEDDING_FUNCTION , _ = load_embedding_model(EMBEDDING_MODEL) 
-        embeddings_filter = EmbeddingsFilter(
-            embeddings=EMBEDDING_FUNCTION,
-            similarity_threshold=CHAT_EMBEDDING_FILTER_SCORE_THRESHOLD
-        )
+        # Fix: Only apply EmbeddingsFilter for simple vector/fulltext modes. 
+        # Aggregated modes (graph, entity, global) return complex text that fails fixed thresholding.
+        use_filter = mode in [CHAT_VECTOR_MODE, CHAT_FULLTEXT_MODE]
+        
+        if use_filter:
+            embeddings_filter = EmbeddingsFilter(
+                embeddings=EMBEDDING_FUNCTION,
+                similarity_threshold=CHAT_EMBEDDING_FILTER_SCORE_THRESHOLD
+            )
+            pipeline_transformers = [splitter, embeddings_filter]
+        else:
+            pipeline_transformers = [splitter]
 
         pipeline_compressor = DocumentCompressorPipeline(
-            transformers=[splitter, embeddings_filter]
+            transformers=pipeline_transformers
         )
 
         compression_retriever = ContextualCompressionRetriever(
@@ -350,11 +359,17 @@ def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
         node_label = chat_mode_settings.get("node_label")
         embedding_node_property = chat_mode_settings.get("embedding_node_property")
         text_node_properties = chat_mode_settings.get("text_node_properties")
-        query_params = {"patient_id": patient_id} if patient_id else {}
 
 
         if not retrieval_query or not index_name:
             raise ValueError("Required settings 'retrieval_query' or 'index_name' are missing.")
+        
+        # Inject patient_id into retrieval_query directly to avoid 'params' error in search
+        if patient_id:
+            retrieval_query = retrieval_query.replace('$patient_id', f"'{patient_id}'")
+        else:
+            retrieval_query = retrieval_query.replace('$patient_id', "NULL")
+
         EMBEDDING_FUNCTION , _ = load_embedding_model(EMBEDDING_MODEL) 
         if keyword_index:
             neo_db = Neo4jVector.from_existing_graph(
@@ -366,8 +381,7 @@ def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
                 node_label=node_label,
                 embedding_node_property=embedding_node_property,
                 text_node_properties=text_node_properties,
-                keyword_index_name=keyword_index,
-                params=query_params
+                keyword_index_name=keyword_index
             )
             logging.info(f"Successfully retrieved Neo4jVector Fulltext index '{index_name}' and keyword index '{keyword_index}'")
         else:
@@ -378,8 +392,7 @@ def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
                 graph=graph,
                 node_label=node_label,
                 embedding_node_property=embedding_node_property,
-                text_node_properties=text_node_properties,
-                params=query_params
+                text_node_properties=text_node_properties
             )
             logging.info(f"Successfully retrieved Neo4jVector index '{index_name}'")
     except Exception as e:
@@ -388,24 +401,27 @@ def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
         raise
     return neo_db
 
-def create_retriever(neo_db, document_names, chat_mode_settings,search_k, score_threshold,ef_ratio):
+def create_retriever(neo_db, document_names, chat_mode_settings, search_k, score_threshold, ef_ratio, patient_id=None):
+    search_kwargs = {
+        'k': search_k,
+        'effective_search_ratio': ef_ratio,
+        'score_threshold': score_threshold
+    }
+    
     if document_names and chat_mode_settings["document_filter"]:
-        retriever = neo_db.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={
-                'top_k': search_k,
-                'effective_search_ratio': ef_ratio,
-                'score_threshold': score_threshold,
-                'filter': {'fileName': {'$in': document_names}}
-            }
-        )
-        logging.info(f"Successfully created retriever with search_k={search_k}, score_threshold={score_threshold} for documents {document_names}")
+        search_kwargs['filter'] = {'fileName': {'$in': document_names}}
+        log_msg = f"Successfully created retriever with k={search_k}, score_threshold={score_threshold} for documents {document_names}"
     else:
-        retriever = neo_db.as_retriever(
-            search_type="similarity_score_threshold",
-            search_kwargs={'top_k': search_k,'effective_search_ratio': ef_ratio, 'score_threshold': score_threshold}
-        )
-        logging.info(f"Successfully created retriever with search_k={search_k}, score_threshold={score_threshold}")
+        log_msg = f"Successfully created retriever with k={search_k}, score_threshold={score_threshold}"
+
+    # search_kwargs['params'] = {'patient_id': patient_id}
+    if patient_id:
+        log_msg += f" (patient_id: {patient_id})"
+
+    retriever = neo_db.as_retriever(
+        search_kwargs=search_kwargs
+    )
+    logging.info(log_msg)
     return retriever
 
 def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD, patient_id=None):
@@ -415,7 +431,7 @@ def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshol
         # document_names= list(map(str.strip, json.loads(document_names)))
         search_k = chat_mode_settings["top_k"]
         ef_ratio = get_value_from_env("EFFECTIVE_SEARCH_RATIO", 5, "int")
-        retriever = create_retriever(neo_db, document_names,chat_mode_settings, search_k, score_threshold,ef_ratio)
+        retriever = create_retriever(neo_db, document_names, chat_mode_settings, search_k, score_threshold, ef_ratio, patient_id=patient_id)
         return retriever
     except Exception as e:
         index_name = chat_mode_settings.get("index_name")
@@ -433,7 +449,8 @@ def setup_chat(model, graph, document_names, chat_mode_settings, patient_id=None
         logging.info(f"Model called in chat: {model} (version: {model_name})")
 
         retriever = get_neo4j_retriever(graph=graph, chat_mode_settings=chat_mode_settings, document_names=document_names, patient_id=patient_id)
-        doc_retriever = create_document_retriever_chain(llm, retriever)
+        mode = chat_mode_settings.get("mode")
+        doc_retriever = create_document_retriever_chain(llm, retriever, mode=mode)
         
         chat_setup_time = time.time() - start_time
         logging.info(f"Chat setup completed in {chat_setup_time:.2f} seconds")
@@ -657,7 +674,7 @@ async def process_graph_response(model, graph, question, messages, history, lang
             "user": "chatbot"
         }
 
-async def process_ayush_response(model: str, graph, document_names: str, question: str, messages: list, history, session_id: str, language: str = "en") -> dict:
+async def process_ayush_response(model: str, graph, document_names: list, question: str, messages: list, history, session_id: str, language: str = "en", patient_id: str = None) -> dict:
     """
     Handle the `ayush_clinical` chat mode.
     1. Get LLM (uses the secret vault for the API key).
@@ -689,7 +706,8 @@ async def process_ayush_response(model: str, graph, document_names: str, questio
                 graph=graph,
                 document_names=doc_names_list,
                 chat_mode_settings=vector_fulltext_settings,
-                score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD
+                score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD,
+                patient_id=patient_id # Propagate patient_id
             )
             doc_retriever_chain = create_document_retriever_chain(llm, retriever)
             docs, _ = retrieve_documents(doc_retriever_chain, messages)
@@ -845,10 +863,14 @@ async def QA_RAG(graph, model, question, document_names, session_id, mode, write
         # always receives a list, never a raw JSON string
         if document_names and isinstance(document_names, str):
             document_names = list(map(str.strip, json.loads(document_names)))
-        result = await process_ayush_response(model, graph, document_names, question, messages, history, session_id, language=language)
+        result = await process_ayush_response(model, graph, document_names, question, messages, history, session_id, language=language, patient_id=patient_id)
     else:
         chat_mode_settings = get_chat_mode_settings(mode=mode)
-        document_names= list(map(str.strip, json.loads(document_names)))
+        if document_names and isinstance(document_names, str):
+            document_names = list(map(str.strip, json.loads(document_names)))
+        else:
+            document_names = []
+        
         if document_names and not chat_mode_settings["document_filter"]:
             result =  {
                 "session_id": "",  
