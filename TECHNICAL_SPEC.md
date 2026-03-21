@@ -10,11 +10,44 @@ The application follows a decoupled microservices architecture, containerized vi
 
 ### 2.1 Component Diagram
 
-- **Frontend**: React (TypeScript) application built with Vite and Neo4j Design Library (NDL). Handles file uploads, visualization (Bloom), and chat interfaces.
-- **Backend**: FastAPI (Python) service. Orchestrates the ingestion pipeline, interacts with LLMs, and manages Neo4j transactions.
-- **Database**: Neo4j Graph Database (Aura or Enterprise). Stores the extracted Knowledge Graph and vector embeddings.
-- **Relational Database**: Postgres. Stores structured Electronic Health Records (EHR) and patient metadata.
-- **LLM/AI Services**: Integrates with OpenAI, Google Vertex AI, Diffbot, Anthropic, Bedrock, Sarvam AI, and local models (Ollama, Mistral, Sarvam-2B).
+```mermaid
+graph TD
+    subgraph Frontend ["Frontend (React/Vite)"]
+        UI["UI (NDL Components)"]
+        State["State Management"]
+        ChatUI["Chat Interface"]
+    end
+
+    subgraph Backend ["Backend (FastAPI)"]
+        Router["API Routers (Graph, Chat, Clinical, Admin, Auth)"]
+        Orchestrator["LangChain Orchestrator"]
+        LLMFac["LLM Model Factory (get_llm)"]
+        Vault["Secret Vault (AES-256)"]
+    end
+
+    subgraph Database ["Data & Storage Layer"]
+        Neo4j["Neo4j (Knowledge Graph + Vector Index)"]
+        Postgres["PostgreSQL (EHR + Patient Registry)"]
+        FS["Filesystem (Chunks, Merged Files)"]
+        Cloud["Cloud Storage (S3/GCS)"]
+    end
+
+    subgraph LLM ["AI Engines"]
+        CloudLLM["Cloud LLMs (OpenAI, Vertex AI, Anthropic, Bedrock)"]
+        LocalLLM["Local LLMs (Ollama, Sarvam-2B)"]
+    end
+
+    UI <--> Router
+    Router <--> Orchestrator
+    Orchestrator <--> LLMFac
+    LLMFac <--> CloudLLM
+    LLMFac <--> LocalLLM
+    Orchestrator <--> Neo4j
+    Router <--> Postgres
+    Router <--> FS
+    Router <--> Cloud
+    Router <--> Vault
+```
 
 ## 3. Core Workflows
 
@@ -25,16 +58,25 @@ The application follows a decoupled microservices architecture, containerized vi
     - *Configurable parameters*: Chunk size, overlap, and token limits.
 3. **Storage**: Chunks are stored as `Chunk` nodes in Neo4j, linked sequentially (`NEXT_CHUNK`) and to their source `Document`.
 
-### 3.2 Graph Extraction Pipeline
+### 3.2 Graph Extraction Pipeline (Program Flow)
 
-The core logic resides in `backend/src/llm.py` and `backend/score.py`.
+```mermaid
+sequenceDiagram
+    participant User
+    participant API as Backend (FastAPI)
+    participant FS as Storage (Local/S3/GCS)
+    participant LLM as AI Engine (LangChain)
+    participant DB as Neo4j Graph
 
-1. **Model Selection**: User selects an LLM (e.g., `gpt-4o`, `diffbot`).
-2. **Extraction**:
-    - **Diffbot**: Uses the Diffbot NLP API to extract entities and facts directly.
-    - **LLM (OpenAI/Generic)**: Uses `LLMGraphTransformer` (LangChain) with prompt engineering to extract nodes and relationships based on a defined (or inferred) schema.
-3. **Graph Construction**: The backend executes Cypher queries to merge extracted nodes/relationships into the Neo4j database.
-4. **Vector Embedding**: (Optional) Generates vector embeddings for chunks and/or entities to enable hybrid search.
+    User->>API: Upload File / Provide URL
+    API->>FS: Persist Source & Create Source Node
+    API->>API: Chunk Content (TokenTextSplitter)
+    API->>LLM: extract_graph_from_chunks (LLMGraphTransformer)
+    LLM->>API: Extracted Entities & Relationships
+    API->>DB: Merge Entities & Link to Source Documents
+    API->>DB: Create Vector Embeddings & KNN Similarities
+    API-->>User: Success Response
+```
 
 ### 3.3 Clinical Intelligence Engine
 
@@ -44,14 +86,26 @@ The application includes a specialized pipeline for medical data, primarily for 
 2. **Structured Extraction**: Maps clinical text to a [Generalized EHR Schema](file:///Users/lakshminarasimhan.santhanamgigkri.com/Aushadha/GENERALIZED_EHR_SCHEMA.json).
 3. **Indic Language Support**: Leverages **Sarvam AI** (remote or local 2B model) for high-performance processing of Indian regional languages.
 
-### 3.4 Retrieval Augmented Generation (RAG)
+### 3.4 Retrieval Augmented Generation (Data Flow)
 
-1. **Query Analysis**: The chatbot analyzes the user's question.
-2. **Retrieval Modes**:
-    - **Vector Search**: Finds relevant chunks using similarity search.
-    - **Graph Search**: Traverses relationships to find connected context.
-    - **Hybrid**: Combines both for maximum context_entity_recall.
-3. **Generation**: The LLM generates a response based on the retrieved graph/text context.
+```mermaid
+flowchart LR
+    User([User Query]) --> API[FastAPI /chat_bot]
+    API --> Retriever[Doc Retriever Chain]
+    
+    subgraph Retrieval ["Knowledge Retrieval"]
+        Retriever --> Vector[Neo4j Vector Search]
+        Retriever --> Graph[Neo4j Graph Traversal]
+        Vector --> Context[Combined Context]
+        Graph --> Context
+    end
+
+    Context --> LLM[LLM /ayush_clinical_mode]
+    LLM --> Response([AI Generated Response])
+    Response --> History[(Neo4j Chat History)]
+    API -.-> Isolation[Patient Data Isolation Layer]
+    Isolation --> Retrieval
+```
 
 ## 4. Security Architecture
 
@@ -60,16 +114,24 @@ The application includes a specialized pipeline for medical data, primarily for 
 - **Auth0**: Supports integration for user authentication (optional via `VITE_SKIP_AUTH`).
 - **Neo4j Utils**: Direct database authentication handling via `neo4j-driver`.
 
-### 4.2 Credential Management (Secret Vault)
+### 4.3 Secure Design Visualized
 
-To avoid hardcoding sensitive keys, the application implements a local **Secret Vault**:
+```mermaid
+graph TD
+    Auth[OAuth2 / RBAC Middleware] --> Router[API Router Layer]
+    
+    subgraph Security ["Security Framework"]
+        Router --> Vault[Secret Vault - AES-256-GCM]
+        Vault --> Keys[(Encrypted API Keys)]
+        Router --> Access[Access Service - verify_patient_access]
+        Access --> Registry[(Postgres Patient Registry)]
+    end
 
-- **Encryption**: API keys (OpenAI, Diffbot, etc.) are encrypted using a locally generated key (`.vault.key`).
-- **Storage**: Encrypted secrets are stored in `.secrets.json.enc` within the Docker volume.
-- **Fallback Logic**: The `get_llm` factory intelligently checks:
-    1. Environment Variables
-    2. Secret Vault (Runtime detection)
-    3. Graceful degradation if keys are missing.
+    Router --> Business[Business Logic]
+    Business --> IsolatedDB[(Neo4j - Isolated by patient_id)]
+    
+    style Security fill:#f9f,stroke:#333,stroke-width:2px
+```
 
 ## 5. Technology Stack
 
