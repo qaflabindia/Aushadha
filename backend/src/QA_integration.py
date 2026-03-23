@@ -4,6 +4,7 @@ import time
 import logging
 
 import threading
+import re
 from datetime import datetime
 from typing import Any
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ from langchain_text_splitters import TokenTextSplitter
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_community.chat_message_histories import ChatMessageHistory 
 from langchain_core.callbacks import StdOutCallbackHandler, BaseCallbackHandler
+from langchain_community.tools import DuckDuckGoSearchRun
 from src.shared.llm_graph_builder_exception import LLMGraphBuilderException
 # LangChain chat models
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
@@ -40,6 +42,81 @@ from src.shared.constants import (
 )
 from src.shared.localization import translate_metadata
 load_dotenv() 
+
+# ── AYUSH Web Research Helper ──────────────────────────────────────────
+def conduct_ayush_research(disease_name):
+    """Perform live web research on AYUSH clinical findings using LLM-based search (Gemini/Google Grounding)."""
+    try:
+        logging.info(f"Conducting live LLM AYUSH research for: {disease_name}")
+        
+        # We explicitly use Gemini for research as it has built-in Google Search grounding
+        from src.llm import get_llm
+        from langchain_core.messages import HumanMessage
+        
+        # Ensure grounding is enabled in environment for this call
+        os.environ["ENABLE_GOOGLE_SEARCH_GROUNDING"] = "True"
+        llm, model_name, _ = get_llm("GEMINI-PRO")
+        
+        search_prompt = (
+            f"Search for clinical research findings, standard doses, and side effects (ADR) "
+            f"for {disease_name} in AYUSH systems (Ayurveda, Yoga, Unani, Siddha, Homeopathy). "
+            f"Focus on evidence from ayush.gov.in and ncbi.nlm.nih.gov."
+        )
+        
+        response = llm.invoke([HumanMessage(content=search_prompt)])
+        results = response.content
+        
+        if results:
+            logging.info(f"Research successful: {len(results)} characters retrieved")
+            return f"### Live AYUSH Web Research Findings:\n{results}"
+        return "No specific online research findings identified for this condition."
+    except Exception as e:
+        logging.error(f"AYUSH Web Research failed: {e}")
+        return f"AYUSH Web Research encountered an error: {str(e)}"
+
+def extract_disease_from_history(messages, llm):
+    """Use LLM to identify the primary disease/condition discussed in the chat history."""
+    try:
+        if not messages or len(messages) <= 1:
+            return None
+            
+        extraction_prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a medical assistant. Identify the primary disease or medical condition being discussed in the following conversation history. Respond ONLY with the name of the condition (e.g., 'Diabetes', 'Hypertension'). If no specific condition is identified, respond with 'None'."),
+            MessagesPlaceholder(variable_name="history")
+        ])
+        extraction_chain = extraction_prompt | llm
+        response = extraction_chain.invoke({"history": messages})
+        condition = response.content.strip().strip("'\"")
+        return condition if condition.lower() != "none" else None
+    except Exception as e:
+        logging.error(f"Failed to extract disease from history: {e}")
+        return None
+
+def fetch_patient_severity_context(graph, patient_id):
+    """Retrieve measurements and symptoms for a patient to provide severity context."""
+    if not patient_id:
+        return ""
+    try:
+        # Query for measurements and symptoms associated with the patient
+        query = """
+        MATCH (e:__Entity__)
+        WHERE e.patient_id = $pid AND (labels(e) CONTAINS 'Measurement' OR labels(e) CONTAINS 'Symptom')
+        RETURN labels(e)[1] as type, e.id as detail, e.description as description
+        """
+        results = graph.query(query, {"pid": patient_id})
+        if not results:
+            return ""
+            
+        context_parts = ["### Patient Severity & Clinical Data:"]
+        for res in results:
+            detail = res['detail'].split('_')[-1] if '_' in res['detail'] else res['detail']
+            desc = f" ({res['description']})" if res['description'] else ""
+            context_parts.append(f"- {res['type']}: {detail}{desc}")
+            
+        return "\n".join(context_parts)
+    except Exception as e:
+        logging.warning(f"Failed to fetch severity context: {e}")
+        return ""
 
 EMBEDDING_MODEL = get_value_from_env("EMBEDDING_MODEL", "sentence_transformer")
 
@@ -237,6 +314,13 @@ def format_documents(documents, model,chat_mode_settings):
 
 def process_documents(docs, question, messages, llm, model,chat_mode_settings):
     start_time = time.time()
+    logging.info(f"Processing {len(docs)} documents")
+    for i, doc in enumerate(docs):
+        score = getattr(doc, 'state', {}).get("query_similarity_score")
+        if score is None:
+            # Try to get from metadata if it's there (sometimes it's in metadata.score or similar)
+            score = doc.metadata.get("score")
+        logging.info(f"Doc {i}: score={score}, source={doc.metadata.get('source')}, content_preview='{doc.page_content[:100]}...'")
     
     try:
         formatted_docs, sources, entitydetails, communities = format_documents(docs, model,chat_mode_settings)
@@ -285,6 +369,10 @@ def retrieve_documents(doc_retriever, messages):
     try:
         handler = CustomCallback()
         docs = doc_retriever.invoke({"messages": messages},{"callbacks":[handler]})
+        if docs:
+            logging.info(f"Successfully retrieved {len(docs)} documents")
+        else:
+            logging.info("No documents retrieved from doc_retriever.invoke")
         transformed_question = handler.transformed_question
         if transformed_question:
             logging.info(f"Transformed question : {transformed_question}")
@@ -292,8 +380,8 @@ def retrieve_documents(doc_retriever, messages):
         logging.info(f"Documents retrieved in {doc_retrieval_time:.2f} seconds")
         
     except Exception as e:
-        error_message = f"Error retrieving documents: {str(e)}"
-        logging.error(error_message)
+        error_message = f"Error during document retrieval: {type(e).__name__}: {str(e)}"
+        logging.error(error_message, exc_info=True)
         docs = None
         transformed_question = None
 
@@ -351,7 +439,7 @@ def create_document_retriever_chain(llm, retriever, mode=None):
         logging.error(f"Error creating document retriever chain: {e}", exc_info=True)
         raise
 
-def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
+def initialize_neo4j_vector(graph, chat_mode_settings, document_names=None, patient_id=None):
     try:
         retrieval_query = chat_mode_settings.get("retrieval_query")
         index_name = chat_mode_settings.get("index_name")
@@ -369,6 +457,14 @@ def initialize_neo4j_vector(graph, chat_mode_settings, patient_id=None):
             retrieval_query = retrieval_query.replace('$patient_id', f"'{patient_id}'")
         else:
             retrieval_query = retrieval_query.replace('$patient_id', "NULL")
+
+        # Inject document_names into retrieval_query directly (similar to patient_id)
+        if document_names:
+            # Format list for Cypher: ['file1.pdf', 'file2.pdf']
+            doc_names_cypher = json.dumps(document_names)
+            retrieval_query = retrieval_query.replace('$document_names', doc_names_cypher)
+        else:
+            retrieval_query = retrieval_query.replace('$document_names', "[]")
 
         EMBEDDING_FUNCTION , _ = load_embedding_model(EMBEDDING_MODEL) 
         if keyword_index:
@@ -427,7 +523,7 @@ def create_retriever(neo_db, document_names, chat_mode_settings, search_k, score
 def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD, patient_id=None):
     try:
 
-        neo_db = initialize_neo4j_vector(graph, chat_mode_settings, patient_id=patient_id)
+        neo_db = initialize_neo4j_vector(graph, chat_mode_settings, document_names=document_names, patient_id=patient_id)
         # document_names= list(map(str.strip, json.loads(document_names)))
         search_k = chat_mode_settings["top_k"]
         ef_ratio = get_value_from_env("EFFECTIVE_SEARCH_RATIO", 5, "int")
@@ -574,21 +670,18 @@ def create_graph_chain(model, graph):
     try:
         logging.info(f"Graph QA Chain using LLM model: {model}")
 
-        cypher_llm,model_name, _ = get_llm(model)
-        qa_llm,model_name, _ = get_llm(model)
+        llm,model_name, _ = get_llm(model) 
         graph_chain = GraphCypherQAChain.from_llm(
-            cypher_llm=cypher_llm,
-            qa_llm=qa_llm,
-            validate_cypher= True,
+            llm=llm,
             graph=graph,
-            # verbose=True, 
-            allow_dangerous_requests=False,
-            return_intermediate_steps = True,
-            top_k=3
+            verbose=True,
+            return_intermediate_steps=True,
+            validate_cypher=True,
+            allow_dangerous_requests=True
         )
 
         logging.info("GraphCypherQAChain instance created successfully.")
-        return graph_chain,qa_llm,model_name
+        return graph_chain,llm,model_name
 
     except Exception as e:
         logging.error(f"An error occurred while creating the GraphCypherQAChain instance. : {e}")
@@ -623,7 +716,7 @@ async def process_graph_response(model, graph, question, messages, history, lang
     try:
         if patient_id:
             question = f"For patient with ID '{patient_id}': {question}"
-        graph_chain, qa_llm, model_version = create_graph_chain(model, graph)
+        graph_chain, llm, model_version = create_graph_chain(model, graph)
 
         graph_response = get_graph_response(graph_chain, question)
 
@@ -631,7 +724,7 @@ async def process_graph_response(model, graph, question, messages, history, lang
         ai_response = AIMessage(content=ai_response_content)
 
         messages.append(ai_response)
-        summarization_thread = threading.Thread(target=summarize_and_log, args=(history, messages, qa_llm))
+        summarization_thread = threading.Thread(target=summarize_and_log, args=(history, messages, llm))
         summarization_thread.start()
         logging.info("Summarization thread started.")
 
@@ -694,6 +787,45 @@ async def process_ayush_response(model: str, graph, document_names: list, questi
         llm, model_version, _ = get_llm(model=model)
         logging.info(f"AYUSH mode: LLM connection verified — model={model_version}")
 
+        # ── Extract Disease for Research/Prompt Early ───────────────────────
+        disease_name = "Unknown Condition"
+        icd_code = "N/A"
+        # Improve extraction: look for "report for X", "research on X", etc. Handling ambiguous queries.
+        disease_match = re.search(r"(?:for|about|on|of|intelligence|report|on|of)\b\s*([a-zA-Z\s]*)(?:$|\?)", question, re.I)
+        
+        extracted_name = disease_match.group(1).strip() if disease_match and disease_match.group(1).strip() else ""
+        if extracted_name:
+            disease_name = extracted_name
+        else:
+            # Step A: Try to infer from chat history
+            inferred_history_name = extract_disease_from_history(messages[:-1], llm)
+            if inferred_history_name:
+                disease_name = inferred_history_name
+                logging.info(f"Inferred disease name from history: {disease_name}")
+            elif patient_id:
+                # Step B: Fallback to patient's primary condition in Neo4j
+                try:
+                    logging.info(f"Question ambiguous, fetching condition for patient {patient_id} from graph")
+                    # Fix: Search for Condition nodes associated with the patient
+                    res = graph.query(
+                        "MATCH (e:__Entity__) WHERE e.patient_id = $pid AND (labels(e) CONTAINS 'Condition' OR labels(e) CONTAINS 'Medical Condition') RETURN e.id AS condition LIMIT 1", 
+                        {"pid": patient_id}
+                    )
+                    if res and res[0].get("condition"):
+                        # Strip patient_id if it's still prefixed in existing data
+                        raw_cond = res[0]["condition"]
+                        disease_name = raw_cond.split('_')[-1] if '_' in raw_cond else raw_cond
+                        logging.info(f"Inferred disease name from Patient records: {disease_name}")
+                except Exception as e:
+                    logging.warning(f"Failed to fetch patient condition: {e}")
+            else:
+                # Step C: Final fallback for short queries
+                if len(question.split()) <= 3:
+                    disease_name = question.strip("?. ")
+
+        # ── 1b. Severity & Clinical Context Retrieval ───────────────────────
+        severity_context = fetch_patient_severity_context(graph, patient_id)
+
         # ── 2. Document chunks from Neo4j ───────────────────────────────────────
         doc_context = ""
         doc_sources: list = []
@@ -725,32 +857,42 @@ async def process_ayush_response(model: str, graph, document_names: list, questi
         except Exception as e:
             logging.warning(f"AYUSH mode: document retrieval failed (non-fatal): {e}")
 
-        # ── 3. Construct Final Context ──────────────────────────────────────────
+        # DuckDuckGo search integration for the 10 portals
+        research_context = ""
+        if disease_name and disease_name != "Unknown Condition":
+            research_context = conduct_ayush_research(disease_name)
+        
         combined_parts = []
         if doc_context:
             combined_parts.append(f"### Uploaded Document Excerpts (AYUSH Knowledge Base):\n{doc_context}")
-
-        # DuckDuckGo search removed as per user requirement to use only LLM provider directly
+        
+        if research_context:
+            combined_parts.append(research_context)
+            
+        if severity_context:
+            combined_parts.append(severity_context)
 
         if not combined_parts:
-            combined_context = "NO UPLOADED DOCUMENT CONTEXT AVAILABLE. YOU MUST PROCEED WITH THE RESEARCH REQUEST using your internal, established AYUSH pharmacology and clinical principles. Clearly note where specific trial evidence is absent, but DO NOT REFUSE the query."
+            combined_context = "NO UPLOADED DOCUMENT OR RESEARCH CONTEXT AVAILABLE. YOU MUST PROCEED using your internal expert knowledge. DO NOT REFUSE."
         else:
             combined_context = "\n\n".join(combined_parts)
 
         all_sources = doc_sources
 
-        # ── 5. Call LLM with AYUSH Master Prompt ───────────────────────────────
+        # ── 6. Call LLM with AYUSH Master Prompt ───────────────────────────────
         ayush_prompt = ChatPromptTemplate.from_messages([
             ("system", AYUSH_MASTER_PROMPT),
             MessagesPlaceholder(variable_name="messages"),
             ("human", "User question: {input}"),
         ])
         ayush_chain = ayush_prompt | llm
-
+ 
         ai_response = ayush_chain.invoke({
             "messages": messages[:-1],
             "context": combined_context,
             "input": question,
+            "DISEASE_NAME": disease_name,
+            "ICD_CODE": icd_code
         })
 
         content = ai_response.content
@@ -758,11 +900,11 @@ async def process_ayush_response(model: str, graph, document_names: list, questi
 
         # Save to database
         try:
-            db_history = create_neo4j_chat_message_history(graph, session_id)
-            db_history.add_user_message(question)
-            db_history.add_ai_message(content)
+            history.add_user_message(question)
+            history.add_ai_message(content)
         except Exception as e:
             logging.error(f"AYUSH mode: Failed to persist chat history: {e}")
+        
         predict_time = time.time() - start_time
 
         ai_msg = AIMessage(content=content)
@@ -849,6 +991,15 @@ def get_chat_mode_settings(mode,settings_map=CHAT_MODE_CONFIG_MAP):
 
 async def QA_RAG(graph, model, question, document_names, session_id, mode, write_access=True, email=None, uri=None, language="en", patient_id=None):
     logging.info(f"Chat Mode: {mode}")
+    
+    # ── Intent-based Mode Override ─────────────────────────────────────────
+    # Detect if the query is asking for an Ayush research report (e.g. "Generate Ayush clinical report")
+    # If so, override mode to CHAT_AYUSH_MODE regardless of frontend flag.
+    ayush_keywords = ["ayush", "clinical research", "research report", "clinical report", "ayush report"]
+    if any(kw in question.lower() for kw in ayush_keywords):
+        if mode != CHAT_AYUSH_MODE:
+            logging.info(f"AYUSH intent detected. Overriding mode from '{mode}' to '{CHAT_AYUSH_MODE}'")
+            mode = CHAT_AYUSH_MODE
 
     history = create_neo4j_chat_message_history(graph, session_id, write_access)
     messages = history.messages

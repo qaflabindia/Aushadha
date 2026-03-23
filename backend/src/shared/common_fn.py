@@ -149,13 +149,9 @@ def save_graphDocuments_in_neo4j(graph: Neo4jGraph, graph_document_list: List[Gr
        for node in graph_doc.nodes:
            if patient_id:
                node.properties['patient_id'] = patient_id
-               node.properties['name'] = node.id
-               node.id = f"{patient_id}_{node.id}"
        for rel in graph_doc.relationships:
            if patient_id:
                rel.properties['patient_id'] = patient_id
-               rel.source.id = f"{patient_id}_{rel.source.id}"
-               rel.target.id = f"{patient_id}_{rel.target.id}"
            
    retries = 0
    while retries < max_retries:
