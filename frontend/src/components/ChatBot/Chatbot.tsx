@@ -39,6 +39,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useAlertContext } from '../../context/Alert';
 import { RiRobotLine, RiUserLine, RiMicLine, RiMicFill, RiChatSettingsLine } from 'react-icons/ri';
 import ChatModeToggle from './ChatModeToggle';
+import { useGoogleAuth } from '../../context/GoogleAuthContext';
 
 const InfoModal = lazy(() => import('./ChatInfoModal'));
 // ... (rest of imports should remain)
@@ -59,6 +60,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const { model, chatModes, selectedRows, filesData, selectedVoice } = useFileContext();
   const { userCredentials } = useCredentials();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const historyViewportRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
   const [sourcesModal, setSourcesModal] = useState<string[]>([]);
@@ -85,9 +87,15 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   const [activeChat, setActiveChat] = useState<Messages | null>(null);
   const [multiModelMetrics, setMultiModelMetrics] = useState<multimodelmetric[]>([]);
   const [showChatModeOption, setShowChatModeOption] = useState<boolean>(false);
+  const [historyScrollbar, setHistoryScrollbar] = useState({
+    thumbHeight: 0,
+    thumbOffset: 0,
+    isScrollable: false,
+  });
   const chatAnchor = useRef<HTMLButtonElement>(null);
 
   const { language } = useLanguage();
+  const { user } = useGoogleAuth();
   const [translationCache, setTranslationCache] = useState<Record<string, string>>({});
   const { transcript, isListening, startListening, stopListening, isSupported, isTranscribing } = useSpeechRecognition({
     language: language.speechCode,
@@ -118,6 +126,74 @@ const Chatbot: FC<ChatbotProps> = (props) => {
   });
 
   const [_, copy] = useCopyToClipboard();
+
+  const updateHistoryScrollbar = useCallback(() => {
+    const viewport = historyViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const viewportHeight = viewport.clientHeight;
+    const {scrollHeight} = viewport;
+    const {scrollTop} = viewport;
+    const trackHeight = Math.max(viewportHeight - 24, 0);
+    const isScrollable = scrollHeight > viewportHeight + 1;
+
+    if (!isScrollable || trackHeight <= 0) {
+      setHistoryScrollbar({
+        thumbHeight: Math.max(trackHeight, 24),
+        thumbOffset: 0,
+        isScrollable: false,
+      });
+      return;
+    }
+
+    const thumbHeight = Math.max((viewportHeight / scrollHeight) * trackHeight, 48);
+    const maxThumbOffset = Math.max(trackHeight - thumbHeight, 0);
+    const maxScrollTop = Math.max(scrollHeight - viewportHeight, 1);
+    const thumbOffset = (scrollTop / maxScrollTop) * maxThumbOffset;
+
+    setHistoryScrollbar({
+      thumbHeight,
+      thumbOffset,
+      isScrollable: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    const viewport = historyViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const handleScroll = () => updateHistoryScrollbar();
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => updateHistoryScrollbar());
+      resizeObserver.observe(viewport);
+      if (viewport.firstElementChild) {
+        resizeObserver.observe(viewport.firstElementChild);
+      }
+    }
+
+    const frame = window.requestAnimationFrame(() => updateHistoryScrollbar());
+    window.addEventListener('resize', updateHistoryScrollbar);
+
+    return () => {
+      viewport.removeEventListener('scroll', handleScroll);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateHistoryScrollbar);
+      window.cancelAnimationFrame(frame);
+    };
+  }, [updateHistoryScrollbar, listMessages.length, isFullScreen]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => updateHistoryScrollbar());
+    return () => window.cancelAnimationFrame(frame);
+  }, [updateHistoryScrollbar, listMessages]);
+
   const handleCopy = (message: string, id: number) => {
     copy(message);
     setListMessages((msgs) =>
@@ -464,23 +540,18 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     setListMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, currentMode: newMode } : msg)));
   };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [listMessages]);
+  const userDisplayName = user?.name?.trim() || user?.email?.trim() || t('User');
 
   return (
     <div
-      className={clsx(
-        'flex! flex-col justify-between min-h-full max-h-full overflow-hidden relative transition-all duration-700 glass-luxe',
-        {
-          'bg-[#080808]/40': colorMode === 'dark',
-          'bg-white/40': colorMode === 'light',
-        }
-      )}
+      className={clsx('flex h-full min-h-0 flex-col overflow-hidden relative transition-all duration-700 glass-luxe', {
+        'bg-[#080808]/40': colorMode === 'dark',
+        'bg-white/40': colorMode === 'light',
+      })}
     >
       {/* Sticky Chat Header */}
       <div
-        className={clsx('sticky top-0 z-20 px-8 py-5 border-b backdrop-blur-3xl flex items-center justify-between', {
+        className={clsx('z-20 shrink-0 px-8 py-5 border-b backdrop-blur-3xl flex items-center justify-between', {
           'bg-black/60 border-white/5 shadow-2xl': colorMode === 'dark',
           'bg-white/60 border-gray-100': colorMode === 'light',
         })}
@@ -516,233 +587,266 @@ const Chatbot: FC<ChatbotProps> = (props) => {
         </div>
       )}
 
-      {/* Signature Message Stream */}
-      <div className='flex-grow overflow-y-auto overflow-x-hidden p-6 pt-28 gap-8 flex flex-col custom-scrollbar'>
-        {listMessages.length > 0 &&
-          listMessages.map((chat, index) => {
-            const messagechatModes = Object.keys(chat.modes);
-            return (
-              <div
-                key={chat.id + index}
-                className={clsx('flex flex-col gap-3 w-full animate-fade-in-up', {
-                  'items-start': chat.user === 'chatbot',
-                  'items-end': chat.user !== 'chatbot',
-                })}
-              >
-                {/* Precision Persona Badge */}
-                <div className='flex items-center gap-3 px-2'>
-                  {chat.user === 'chatbot' ? (
-                    <>
-                      <div className='w-7 h-7 rounded-full border border-[#D4AF37]/30 flex items-center justify-center bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.1)]'>
-                        <RiRobotLine className='text-[#D4AF37] w-3.5 h-3.5' />
-                      </div>
-                      <span
-                        className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
-                          'text-[#D4AF37]/60': colorMode === 'dark',
-                          'text-[#D4AF37]': colorMode === 'light',
-                        })}
-                      >
-                        {t('Concierge Intelligence')}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span
-                        className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
-                          'text-white/30': colorMode === 'dark',
-                          'text-black/40': colorMode === 'light',
-                        })}
-                      >
-                        {t('Authorized Terminal')}
-                      </span>
-                      <div
-                        className={clsx('w-7 h-7 rounded-full border flex items-center justify-center', {
-                          'border-white/10 bg-white/5': colorMode === 'dark',
-                          'border-gray-200 bg-gray-50': colorMode === 'light',
-                        })}
-                      >
-                        <RiUserLine
-                          className={clsx('w-3.5 h-3.5', {
-                            'text-white/40': colorMode === 'dark',
-                            'text-black/40': colorMode === 'light',
-                          })}
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Glass Concierge Card */}
-                <div
-                  className={clsx(
-                    `p-6 rounded-[24px] border-grad-gs glass-luxe transition-all duration-700`,
-                    {
-                      'shadow-2xl': chat.user === 'chatbot',
-                      'bg-[#D4AF37]/5': chat.user !== 'chatbot' && colorMode === 'dark',
-                      'bg-blue-50/50': chat.user !== 'chatbot' && colorMode === 'light',
-                    },
-                    isFullScreen ? 'max-w-[75%]' : 'max-w-[95%]'
-                  )}
-                >
+      <div className='flex-1 min-h-0 flex flex-col gap-4 p-6'>
+        {/* Dedicated conversation viewport */}
+        <div
+          className={clsx('relative flex-1 min-h-0 overflow-hidden rounded-[28px] border glass-luxe', {
+            'border-white/5 bg-black/10': colorMode === 'dark',
+            'border-gray-200 bg-white/70': colorMode === 'light',
+          })}
+        >
+          <div
+            ref={historyViewportRef}
+            className='chat-history-scroll flex h-full min-h-0 flex-col gap-8 overflow-y-scroll overflow-x-hidden overscroll-contain p-6 pr-10'
+          >
+            {listMessages.length > 0 &&
+              listMessages.map((chat, index) => {
+                const messagechatModes = Object.keys(chat.modes);
+                return (
                   <div
+                    key={chat.id + index}
+                    className={clsx('flex flex-col gap-3 w-full animate-fade-in-up', {
+                      'items-start': chat.user === 'chatbot',
+                      'items-end': chat.user !== 'chatbot',
+                    })}
+                  >
+                    <div className='flex items-center gap-3 px-2'>
+                      {chat.user === 'chatbot' ? (
+                        <>
+                          <div className='w-7 h-7 rounded-full border border-[#D4AF37]/30 flex items-center justify-center bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.1)]'>
+                            <RiRobotLine className='text-[#D4AF37] w-3.5 h-3.5' />
+                          </div>
+                          <span
+                            className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
+                              'text-[#D4AF37]/60': colorMode === 'dark',
+                              'text-[#D4AF37]': colorMode === 'light',
+                            })}
+                          >
+                            {t('Concierge Intelligence')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
+                              'text-white/30': colorMode === 'dark',
+                              'text-black/40': colorMode === 'light',
+                            })}
+                          >
+                            {userDisplayName}
+                          </span>
+                          <div
+                            className={clsx('w-7 h-7 rounded-full border flex items-center justify-center', {
+                              'border-white/10 bg-white/5': colorMode === 'dark',
+                              'border-gray-200 bg-gray-50': colorMode === 'light',
+                            })}
+                          >
+                            <RiUserLine
+                              className={clsx('w-3.5 h-3.5', {
+                                'text-white/40': colorMode === 'dark',
+                                'text-black/40': colorMode === 'light',
+                              })}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div
+                      className={clsx(
+                        `p-6 rounded-[24px] border-grad-gs glass-luxe transition-all duration-700`,
+                        {
+                          'shadow-2xl': chat.user === 'chatbot',
+                          'bg-[#D4AF37]/5': chat.user !== 'chatbot' && colorMode === 'dark',
+                          'bg-blue-50/50': chat.user !== 'chatbot' && colorMode === 'light',
+                        },
+                        isFullScreen ? 'max-w-[75%]' : 'max-w-[95%]'
+                      )}
+                    >
+                      <div
+                        className={clsx(
+                          'prose prose-sm max-w-none [&_*]:!text-inherit [&_a]:!text-[#D4AF37] [&_code]:!text-[#D4AF37]',
+                          {
+                            'prose-invert': colorMode === 'dark',
+                          }
+                        )}
+                      >
+                        <div
+                          className={clsx('leading-relaxed font-normal antialiased', {
+                            'text-white/95': chat.user === 'chatbot' && colorMode === 'dark',
+                            'text-[#D4AF37] font-semibold': chat.user !== 'chatbot' && colorMode === 'dark',
+                            'text-[#1A1A1A]': chat.user === 'chatbot' && colorMode === 'light',
+                            'text-blue-700 font-semibold': chat.user !== 'chatbot' && colorMode === 'light',
+                          })}
+                          style={{
+                            color:
+                              chat.user === 'chatbot' && colorMode === 'dark'
+                                ? 'rgba(255,255,255,0.95)'
+                                : chat.user !== 'chatbot' && colorMode === 'dark'
+                                  ? '#D4AF37'
+                                  : '#1A1A1A',
+                          }}
+                        >
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {chat.id === 2 && chat.user === 'chatbot' && index === 0
+                              ? t(
+                                  'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.'
+                                )
+                              : chat.modes[chat.currentMode]?.message || ''}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+
+                      {chat.user === 'chatbot' && !chat.isLoading && !chat.isTyping && (
+                        <div className='mt-5 flex items-center justify-between border-t border-white/5 pt-4'>
+                          <CommonActions
+                            chat={chat}
+                            copyHandler={handleCopy}
+                            detailsHandler={detailsHandler}
+                            listMessages={listMessages}
+                            speechHandler={speechHandler}
+                            activeChat={activeChat}
+                          />
+                          {messagechatModes.length > 1 && (
+                            <ChatModesSwitch
+                              currentMode={chat.currentMode}
+                              switchToOtherMode={(idx: number) => handleSwitchMode(chat.id, messagechatModes[idx])}
+                              isFullScreen={isFullScreen ?? false}
+                              currentModeIndex={messagechatModes.indexOf(chat.currentMode)}
+                              modescount={messagechatModes.length}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            <div ref={messagesEndRef} />
+          </div>
+          <div
+            className={clsx(
+              'pointer-events-none absolute bottom-3 right-3 top-3 w-[10px] rounded-full border chat-history-rail',
+              {
+                'opacity-100': historyScrollbar.isScrollable,
+                'opacity-80': !historyScrollbar.isScrollable,
+              }
+            )}
+          >
+            <div
+              className='absolute left-1/2 w-[6px] -translate-x-1/2 rounded-full chat-history-thumb'
+              style={{
+                height: `${historyScrollbar.thumbHeight}px`,
+                transform: `translate(-50%, ${historyScrollbar.thumbOffset}px)`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Dedicated composer pane */}
+        <div
+          className={clsx('shrink-0 rounded-[24px] border glass-luxe', {
+            'border-white/5 bg-black/20': colorMode === 'dark',
+            'border-gray-200 bg-white/80': colorMode === 'light',
+          })}
+        >
+          <div
+            className={clsx('p-6 transition-all duration-500', {
+              'shadow-[0_-20px_50px_rgba(0,0,0,0.3)]': colorMode === 'dark',
+            })}
+          >
+            <form onSubmit={handleSubmit} className='flex gap-4 items-center w-full'>
+              <div className='flex-1 relative group w-full'>
+                <TextInput
+                  isDisabled={isLoading}
+                  value={inputMessage}
+                  onChange={handleInputChange}
+                  isFluid
+                  placeholder={t('Inquire Vault')}
+                  className={clsx('focus:border-[#D4AF37]/50 py-4 px-12 rounded-2xl w-full', {
+                    'text-white shadow-inner': colorMode === 'dark',
+                    'text-black': colorMode === 'light',
+                  })}
+                  aria-label='chatbot-input'
+                />
+                <button
+                  type='button'
+                  ref={chatAnchor}
+                  onClick={() => setShowChatModeOption(true)}
+                  className={clsx(
+                    'absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 hover:bg-[#D4AF37]/10',
+                    {
+                      'text-[#D4AF37]': colorMode === 'dark',
+                      'text-gray-500': colorMode === 'light',
+                    }
+                  )}
+                  title={t('Intelligence Search Mode')}
+                >
+                  <RiChatSettingsLine size={18} />
+                </button>
+
+                {isSupported && (
+                  <button
+                    type='button'
+                    onClick={handleMicClick}
+                    disabled={isTranscribing}
                     className={clsx(
-                      'prose prose-sm max-w-none [&_*]:!text-inherit [&_a]:!text-[#D4AF37] [&_code]:!text-[#D4AF37]',
+                      'absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300',
                       {
-                        'prose-invert': colorMode === 'dark',
+                        'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
+                        'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
+                        'text-gray-400 hover:text-gray-600': !isListening && colorMode === 'light',
+                        'opacity-50 cursor-not-allowed': isTranscribing,
                       }
                     )}
                   >
-                    <div
-                      className={clsx('leading-relaxed font-normal antialiased', {
-                        'text-white/95': chat.user === 'chatbot' && colorMode === 'dark',
-                        'text-[#D4AF37] font-semibold': chat.user !== 'chatbot' && colorMode === 'dark',
-                        'text-[#1A1A1A]': chat.user === 'chatbot' && colorMode === 'light',
-                        'text-blue-700 font-semibold': chat.user !== 'chatbot' && colorMode === 'light',
-                      })}
-                      style={{
-                        color:
-                          chat.user === 'chatbot' && colorMode === 'dark'
-                            ? 'rgba(255,255,255,0.95)'
-                            : chat.user !== 'chatbot' && colorMode === 'dark'
-                              ? '#D4AF37'
-                              : '#1A1A1A',
-                      }}
-                    >
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {chat.id === 2 && chat.user === 'chatbot' && index === 0
-                          ? t(
-                              'Welcome to Concierge Intelligence. You can ask questions related to documents which have been completely processed.'
-                            )
-                          : chat.modes[chat.currentMode]?.message || ''}
-                      </ReactMarkdown>
-                    </div>
-                  </div>
-
-                  {chat.user === 'chatbot' && !chat.isLoading && !chat.isTyping && (
-                    <div className='mt-5 flex items-center justify-between border-t border-white/5 pt-4'>
-                      <CommonActions
-                        chat={chat}
-                        copyHandler={handleCopy}
-                        detailsHandler={detailsHandler}
-                        listMessages={listMessages}
-                        speechHandler={speechHandler}
-                        activeChat={activeChat}
-                      />
-                      {messagechatModes.length > 1 && (
-                        <ChatModesSwitch
-                          currentMode={chat.currentMode}
-                          switchToOtherMode={(idx: number) => handleSwitchMode(chat.id, messagechatModes[idx])}
-                          isFullScreen={isFullScreen ?? false}
-                          currentModeIndex={messagechatModes.indexOf(chat.currentMode)}
-                          modescount={messagechatModes.length}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
+                    {isListening ? (
+                      <RiMicFill size={20} className='animate-pulse' />
+                    ) : isTranscribing ? (
+                      <div className='w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin' />
+                    ) : (
+                      <RiMicLine size={20} />
+                    )}
+                  </button>
+                )}
               </div>
-            );
-          })}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Precision Signature Input Area */}
-      <div
-        className={clsx('p-8 border-t transition-all duration-500 glass-luxe', {
-          'border-white/5 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]': colorMode === 'dark',
-          'border-gray-100': colorMode === 'light',
-        })}
-      >
-        <form onSubmit={handleSubmit} className='flex gap-4 items-center w-full'>
-          <div className='flex-1 relative group w-full'>
-            <TextInput
-              isDisabled={isLoading}
-              value={inputMessage}
-              onChange={handleInputChange}
-              isFluid
-              placeholder={t('Inquire Vault')}
-              className={clsx('focus:border-[#D4AF37]/50 py-4 px-12 rounded-2xl w-full', {
-                'text-white shadow-inner': colorMode === 'dark',
-                'text-black': colorMode === 'light',
-              })}
-              aria-label='chatbot-input'
-            />
-            <button
-              type='button'
-              ref={chatAnchor}
-              onClick={() => setShowChatModeOption(true)}
-              className={clsx(
-                'absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 hover:bg-[#D4AF37]/10',
-                {
-                  'text-[#D4AF37]': colorMode === 'dark',
-                  'text-gray-500': colorMode === 'light',
-                }
-              )}
-              title={t('Intelligence Search Mode')}
-            >
-              <RiChatSettingsLine size={18} />
-            </button>
-
-            {isSupported && (
-              <button
-                type='button'
-                onClick={handleMicClick}
-                disabled={isTranscribing}
-                className={clsx(
-                  'absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300',
-                  {
-                    'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
-                    'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
-                    'text-gray-400 hover:text-gray-600': !isListening && colorMode === 'light',
-                    'opacity-50 cursor-not-allowed': isTranscribing,
-                  }
-                )}
-              >
-                {isListening ? (
-                  <RiMicFill size={20} className='animate-pulse' />
-                ) : isTranscribing ? (
-                  <div className='w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin' />
+              <SpotlightTarget id='chatbtn' hasPulse={true} indicatorVariant='border'>
+                {isLoading ? (
+                  <button
+                    type='button'
+                    onClick={handleCancel}
+                    className={clsx(
+                      'h-[54px] px-8 rounded-2xl flex items-center justify-center transition-all duration-500 translate-y-[-1px]',
+                      {
+                        'bg-red-900/40 text-red-500 font-extrabold uppercase tracking-[0.15em] text-[10px] border border-red-500/30 hover:bg-red-900/60':
+                          colorMode === 'dark',
+                        'bg-red-100 text-red-600 font-bold uppercase tracking-widest text-[10px] hover:bg-red-200':
+                          colorMode === 'light',
+                      }
+                    )}
+                  >
+                    {t('Cancel')}
+                  </button>
                 ) : (
-                  <RiMicLine size={20} />
+                  <button
+                    type='submit'
+                    disabled={isLoading || !inputMessage.trim()}
+                    className={clsx(
+                      'h-[54px] px-10 rounded-2xl flex items-center justify-center transition-all duration-500 disabled:opacity-20 translate-y-[-1px]',
+                      {
+                        'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]':
+                          colorMode === 'dark',
+                        'bg-blue-600 text-white font-bold uppercase tracking-widest text-[10px]': colorMode === 'light',
+                      }
+                    )}
+                  >
+                    {t('Ask')}
+                  </button>
                 )}
-              </button>
-            )}
+              </SpotlightTarget>
+            </form>
           </div>
-          <SpotlightTarget id='chatbtn' hasPulse={true} indicatorVariant='border'>
-            {isLoading ? (
-              <button
-                type='button'
-                onClick={handleCancel}
-                className={clsx(
-                  'h-[54px] px-8 rounded-2xl flex items-center justify-center transition-all duration-500 translate-y-[-1px]',
-                  {
-                    'bg-red-900/40 text-red-500 font-extrabold uppercase tracking-[0.15em] text-[10px] border border-red-500/30 hover:bg-red-900/60':
-                      colorMode === 'dark',
-                    'bg-red-100 text-red-600 font-bold uppercase tracking-widest text-[10px] hover:bg-red-200':
-                      colorMode === 'light',
-                  }
-                )}
-              >
-                {t('Cancel')}
-              </button>
-            ) : (
-              <button
-                type='submit'
-                disabled={isLoading || !inputMessage.trim()}
-                className={clsx(
-                  'h-[54px] px-10 rounded-2xl flex items-center justify-center transition-all duration-500 disabled:opacity-20 translate-y-[-1px]',
-                  {
-                    'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]':
-                      colorMode === 'dark',
-                    'bg-blue-600 text-white font-bold uppercase tracking-widest text-[10px]': colorMode === 'light',
-                  }
-                )}
-              >
-                {t('Ask')}
-              </button>
-            )}
-          </SpotlightTarget>
-        </form>
+        </div>
       </div>
 
       <Suspense fallback={<FallBackDialog />}>

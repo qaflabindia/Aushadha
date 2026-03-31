@@ -654,11 +654,11 @@ const PageLayout: React.FC = () => {
         activeDrawerMode={leftDrawerMode}
         setActiveDrawerMode={setLeftDrawerMode}
       >
-        <div className='flex-1 flex flex-col relative overflow-hidden'>
+        <div className='flex-1 flex flex-col relative overflow-hidden min-h-0'>
           {isLeftExpanded && (
             <div
               className={clsx(
-                'absolute left-0 top-0 bottom-0 z-20 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl transition-all duration-300',
+                'absolute left-0 top-0 bottom-0 z-20 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl transition-all duration-300 overflow-hidden',
                 isChatFullScreen && leftDrawerMode === 'chat' ? 'w-[calc(100vw-72px)]' : 'w-80'
               )}
             >

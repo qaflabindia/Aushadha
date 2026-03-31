@@ -1,4 +1,3 @@
-import { Drawer } from '@neo4j-ndl/react';
 import Chatbot from '../ChatBot/Chatbot';
 import { Messages } from '../../types';
 import ExpandedChatButtonContainer from '../ChatBot/ExpandedChatButtonContainer';
@@ -18,7 +17,7 @@ export interface DrawerChatbotProps {
 }
 
 const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
-  isExpanded,
+  isExpanded: _isExpanded,
   clearHistoryData,
   messages,
   connectionStatus,
@@ -54,32 +53,31 @@ const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
   const getIsLoading = (messages: Messages[]) => {
     return messages.length > 1 ? messages.some((msg) => msg.isTyping || msg.isLoading) : false;
   };
+
   return (
-    <div className='flex min-h-[calc(-58px+100vh)] relative w-full'>
-      <Drawer isExpanded={isExpanded} isCloseable={false} position='left' type='push' className='pt-0!'>
-        <Drawer.Body className='overflow-hidden! pr-0!'>
-          <div className='flex flex-row w-full h-full p-2 gap-4'>
-            <ExpandedChatButtonContainer
-              closeChatBot={closeChatBot || (() => {})}
-              deleteOnClick={() => setMessages([])}
-              messages={messages}
-              isFullScreen={isFullScreen}
-              toggleFullScreen={toggleFullScreen}
-            />
-            <div className='flex-1 min-w-0 relative'>
-              <Chatbot
-                isFullScreen={false}
-                messages={messages}
-                setMessages={setMessages}
-                clear={clearHistoryData}
-                isLoading={getIsLoading(messages)}
-                connectionStatus={connectionStatus}
-                isDeleteChatLoading={isDeleteChatLoading}
-              />
-            </div>
-          </div>
-        </Drawer.Body>
-      </Drawer>
+    <div className='flex w-full h-full min-h-0 overflow-hidden'>
+      <div className='flex flex-row w-full h-full min-h-0 p-2 gap-4 overflow-hidden'>
+        <div className='flex-shrink-0'>
+          <ExpandedChatButtonContainer
+            closeChatBot={closeChatBot || (() => {})}
+            deleteOnClick={() => setMessages([])}
+            messages={messages}
+            isFullScreen={isFullScreen}
+            toggleFullScreen={toggleFullScreen}
+          />
+        </div>
+        <div className='flex-1 min-w-0 min-h-0 relative overflow-hidden'>
+          <Chatbot
+            isFullScreen={false}
+            messages={messages}
+            setMessages={setMessages}
+            clear={clearHistoryData}
+            isLoading={getIsLoading(messages)}
+            connectionStatus={connectionStatus}
+            isDeleteChatLoading={isDeleteChatLoading}
+          />
+        </div>
+      </div>
     </div>
   );
 };
