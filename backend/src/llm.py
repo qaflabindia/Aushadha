@@ -45,6 +45,8 @@ def get_llm(model: str):
                 formatted_model = model.lower().replace("openai_", "").replace("_", "-")
                 if formatted_model == "gpt-3-5":
                     formatted_model = "gpt-3.5-turbo"
+                elif formatted_model == "gpt-5-2":
+                    formatted_model = "gpt-5.2"
                 env_value = f"{formatted_model},{api_key}"
             elif "AZURE" not in model: 
                  # Fallback for generic OPENAI key if specific config missing

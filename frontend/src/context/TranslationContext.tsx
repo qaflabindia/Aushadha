@@ -41,8 +41,8 @@ async function batchFetch(texts: string[], lang: string): Promise<Record<string,
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
-    const data = await res.json();
-    return data.translations as Record<string, string>;
+    const payload = await res.json();
+    return (payload?.data || payload?.translations || {}) as Record<string, string>;
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[TranslationContext] batch fetch failed, using English fallback', e);
