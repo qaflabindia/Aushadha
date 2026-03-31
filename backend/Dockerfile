@@ -44,4 +44,4 @@ COPY . /code
 # USER appuser
 
 # Set command
-CMD ["gunicorn", "score:app", "--workers", "8","--threads", "8", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300"]
+CMD ["gunicorn", "score:app", "--workers", "2", "--threads", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--timeout", "300"]

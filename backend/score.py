@@ -143,16 +143,32 @@ app.include_router(audio_router)
 
 
 # ---------------------------------------------------------------------------
-# Startup: ensure ui_translations table exists
+# Startup: ensure ui_translations table exists & verify Vault connections
 # ---------------------------------------------------------------------------
-from contextlib import asynccontextmanager
 from src.ui_translations import ensure_table as ensure_ui_table
-from src.database import SessionLocal
+from src.shared.env_utils import get_value_from_env
+from neo4j import GraphDatabase
+
+def verify_vault_connectivity():
+    """Verify that we can connect to core services using Vault-resolved keys."""
+    try:
+        uri = get_value_from_env("NEO4J_URI")
+        user = get_value_from_env("NEO4J_USERNAME")
+        pwd = get_value_from_env("NEO4J_PASSWORD")
+        if uri and user and pwd:
+            driver = GraphDatabase.driver(uri, auth=(user, pwd))
+            driver.verify_connectivity()
+            driver.close()
+            _logging.info("Vault-First Check: Neo4j connectivity verified.")
+        else:
+            _logging.warning("Vault-First Check: Neo4j credentials missing from Vault/Env.")
+    except Exception as e:
+        _logging.error(f"Vault-First Check: Neo4j connectivity failed: {e}")
 
 @app.on_event("startup")
 async def on_startup():
     ensure_ui_table()
-    # Dynamic system: strings are seeded/translated on-the-fly when encountered.
+    verify_vault_connectivity()
 
 
 if __name__ == "__main__":

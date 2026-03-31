@@ -83,152 +83,142 @@ def _clean_llm_response(content: str) -> str:
     return content.strip()
 
 
-async def _llm_translate(text: str, lang_code: str, model: Optional[str] = None) -> Optional[str]:
-    """Use the configured LLM to translate a UI string from English to lang_code."""
-    try:
-        from langchain_core.messages import HumanMessage, SystemMessage
-        llm, lang_name, context_hint = _get_translation_params(lang_code, model)
+async def _get_translation_params(lang_code: str, model: Optional[str]):
+    """Unified logic for LLM selection and medical context setup."""
+    from src.llm import get_llm, llm_semaphore
+    
+    INDIAN_LANGS = ["hi", "ta", "te", "kn", "ml", "mr", "gu", "bn", "or", "pa"]
+    if model:
+        llm = get_llm(model)
+    elif lang_code in INDIAN_LANGS:
+        llm = get_llm("sarvam")
+    else:
+        llm = get_llm("gpt-4o")
+    
+    lang_name = SUPPORTED_LANG_CODES.get(lang_code, lang_code)
+    return llm, lang_name
 
+
+async def _llm_translate(text: str, lang_code: str, model: Optional[str] = None):
+    """Internal: invoke LLM for a single string translation."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+    try:
+        llm, lang_name = _get_translation_params(lang_code, model)
         messages = [
             SystemMessage(content=(
-                f"You are a professional medical UI translator for an Indian healthcare platform. "
-                f"{context_hint} "
-                f"Translate the given English UI label to {lang_name}. "
-                f"Return ONLY the translated text — no quotes, no explanations, no notes."
+                f"You are a professional medical translator into {lang_name}. "
+                "Translate the provided text accurately. Keep medical terminology precise. "
+                "Output ONLY the translated text, no explanation."
             )),
             HumanMessage(content=f"Translate to {lang_name}:\n{text}"),
         ]
-        response = await llm.ainvoke(messages)
-        return _clean_llm_response(response.content)
+        async with llm_semaphore:
+            response = await llm.ainvoke(messages)
+            return _clean_llm_response(response.content)
     except Exception as e:
         logger.error(f"LLM translation critical failure for '{text}' → {lang_code}: {str(e)}", exc_info=True)
         return None
 
 
-async def _llm_translate_batch(texts: list[str], lang_code: str, model: Optional[str] = None) -> dict[str, str]:
-    """Use the configured LLM to translate a batch of UI strings from English to lang_code."""
-    if not texts: return {}
+async def _llm_translate_batch(texts: list[str], lang_code: str, model: Optional[str] = None):
+    """Internal: invoke LLM for batch translation of multiple strings."""
+    from langchain_core.messages import HumanMessage, SystemMessage
     try:
-        from langchain_core.messages import HumanMessage, SystemMessage
-        llm, lang_name, context_hint = _get_translation_params(lang_code, model)
-
+        if not texts:
+            return {}
+        llm, lang_name = _get_translation_params(lang_code, model)
         messages = [
             SystemMessage(content=(
-                f"You are a professional medical UI translator. {context_hint} "
-                f"Translate the following list of English UI strings to {lang_name}. "
-                f"Return ONLY a valid JSON object where the keys are the EXACT original English strings and the values are their {lang_name} translations. Do not include markdown formatting or quotes around the JSON text."
+                f"You are a professional medical translator into {lang_name}. "
+                "Translate the provided JSON list of strings. Maintain precision. "
+                "Return a JSON object: { \"original_string\": \"translated_string\" }. "
+                "NO extra text."
             )),
             HumanMessage(content=json.dumps(texts)),
         ]
-        response = await llm.ainvoke(messages)
-        return json.loads(_clean_llm_response(response.content))
+        async with llm_semaphore:
+            response = await llm.ainvoke(messages)
+            return json.loads(_clean_llm_response(response.content))
     except Exception as e:
         logger.error(f"LLM batch translation critical failure for {len(texts)} texts → {lang_code}: {str(e)}", exc_info=True)
         return {}
 
 
+# ─── DB Access Helpers ────────────────────────────────────────────────────────
 @router.get("/ui/strings")
 def get_known_ui_strings(db: Session = Depends(get_db)):
-    """Returns the master list of UI strings used for translation."""
+    """Return all distinct English UI keys present in the translation table."""
     db_strings = [r[0] for r in db.query(UITranslation.english_key).distinct().all()]
     return {"strings": sorted(db_strings)}
+
+
+@router.post("/ui/register")
+def register_ui_strings(texts: list[str], db: Session = Depends(get_db)):
+    """
+    Registers new English UI strings into the database if they don't exist.
+    This enables dynamic/incremental discovery from the frontend.
+    """
+    entries = [{"english_key": t, "lang_code": "en", "value": t} for t in texts]
+    count = bulk_upsert_ui_translations(db, entries)
+    return {"registered": count, "total": len(texts)}
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 @router.post("/ui")
 async def translate_ui_string(req: TranslateSingleRequest, db: Session = Depends(get_db)):
     """
-    Translate a single UI string.
-    Looks up the DB; auto-generates and stores via LLM on cache miss.
+    Translate a single UI string. Checks cache first.
+    If not cached, uses LLM (Sarvam for Indian langs, GPT for others) and saves.
     """
-    if req.lang not in SUPPORTED_LANG_CODES:
-        raise HTTPException(400, f"Unsupported language: {req.lang}")
+    source_text = req.text.strip()
+    if not source_text or req.lang == "en":
+        return create_api_response("Success", data={"translated": source_text})
 
-    # English → return as-is
-    if req.lang == "en":
-        return {"text": req.text, "translated": req.text, "lang": req.lang, "source": "passthrough"}
-
-    # DB lookup
-    cached = get_ui_translation(db, req.text, req.lang)
+    # 1. Check cache
+    cached = get_ui_translation(db, source_text, req.lang)
     if cached:
-        return {"text": req.text, "translated": cached, "lang": req.lang, "source": "cache"}
+        return create_api_response("Success", data={"translated": cached, "cached": True})
 
-    # LLM auto-generate
-    translated = await _llm_translate(req.text, req.lang, req.model)
-    if translated:
-        upsert_ui_translation(db, req.text, req.lang, translated)
-        return {"text": req.text, "translated": translated, "lang": req.lang, "source": "llm"}
-    else:
-        return {"text": req.text, "translated": req.text, "lang": req.lang, "source": "fallback"}
+    # 2. Translate via LLM
+    translated = await _llm_translate(source_text, req.lang)
+    if not translated:
+        return create_api_response("Failed", message="Translation failed")
+
+    # 3. Save to cache
+    from src.ui_translations import upsert_ui_translation
+    upsert_ui_translation(db, source_text, req.lang, translated)
+    return create_api_response("Success", data={"translated": translated, "cached": False})
 
 
 @router.post("/ui/batch")
 async def translate_ui_batch(req: TranslateBatchRequest, db: Session = Depends(get_db)):
     """
-    Batch translate UI strings.
-    Returns map of english_text → translated string.
-    Cache hits are instant; misses are auto-generated in parallel via LLM.
+    Efficient batch translation for UI strings. 
+    Returns a mapping of { 'english': 'target' }.
     """
-    if req.lang not in SUPPORTED_LANG_CODES:
-        raise HTTPException(400, f"Unsupported language: {req.lang}")
+    if not req.texts or req.lang == "en":
+        return create_api_response("Success", data={t: t for t in req.texts})
 
-    if req.lang == "en":
-        return {"lang": req.lang, "translations": {t: t for t in req.texts}}
-
-    # Batch DB lookup
-    cached_map = get_ui_translations_batch(db, req.texts, req.lang)
-
-    # Identfy cache misses
-    misses = [text for text, val in cached_map.items() if not val]
-
+    # 1. Batch retrieval from cache
+    translated_map = get_ui_translations_batch(db, req.texts, req.lang)
+    
+    # 2. Identify misses
+    misses = [t for t in req.texts if not translated_map.get(t)]
+    
     if misses:
-        logger.info(f"[TRANSLATE BATCH] {len(misses)} cache misses for lang={req.lang}, auto-generating with batch JSON...")
+        logger.info(f"Translating {len(misses)} UI strings via LLM to {req.lang}")
+        new_translations = await _llm_translate_batch(misses, req.lang)
         
-        chunk_size = 50
-        for i in range(0, len(misses), chunk_size):
-            chunk = misses[i:i + chunk_size]
-            results = await _llm_translate_batch(chunk, req.lang, req.model)
-            
-            for text in chunk:
-                translated = results.get(text)
-                if translated:
-                    cached_map[text] = translated
-                    upsert_ui_translation(db, text, req.lang, translated)
-                else:
-                    cached_map[text] = text # fallback for the UI
+        # 3. Save new ones to DB
+        if new_translations:
+            entries = [
+                {"english_key": k, "lang_code": req.lang, "value": v}
+                for k, v in new_translations.items()
+            ]
+            bulk_upsert_ui_translations(db, entries)
+            translated_map.update(new_translations)
 
-    return {"lang": req.lang, "translations": cached_map}
-
-
-@router.post("/dynamic/batch")
-async def translate_dynamic_batch(req: TranslateBatchRequest, db: Session = Depends(get_db)):
-    """
-    Batch translate dynamic graph tokens (node labels, relationship types).
-    Uses the same underlying cache and LLM logic as UI strings.
-    """
-    if req.lang not in SUPPORTED_LANG_CODES:
-        raise HTTPException(400, f"Unsupported language: {req.lang}")
-
-    if req.lang == "en":
-        return {"lang": req.lang, "translations": {t: t for t in req.texts}}
-
-    # Identify cache hits/misses
-    cached_map = get_ui_translations_batch(db, req.texts, req.lang)
-    misses = [text for text, val in cached_map.items() if not val]
-
-    if misses:
-        logger.info(f"[TRANSLATE DYNAMIC] {len(misses)} tokens missing for lang={req.lang}")
-        tasks = [_llm_translate(t, req.lang, req.model) for t in misses]
-        results = await asyncio.gather(*tasks)
-
-        for text, translated in zip(misses, results):
-            if translated:
-                cached_map[text] = translated
-                upsert_ui_translation(db, text, req.lang, translated)
-            else:
-                cached_map[text] = text
-
-    return {"lang": req.lang, "translations": cached_map}
+    return create_api_response("Success", data=translated_map)
 
 
 @router.get("/ui/stats")

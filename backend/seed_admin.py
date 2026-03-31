@@ -29,24 +29,26 @@ def seed_admin():
         else:
             print("'Admin' role already exists.")
 
-        # 2. Check if admin user already exists
-        admin_user = db.query(User).filter(User.email == "admin").first()
-        if not admin_user:
-            hashed_pw = hash_password("password")
-            admin_user = User(
-                email="admin",
-                hashed_password=hashed_pw,
-                role_id=admin_role.id
-            )
-            db.add(admin_user)
-            db.commit()
-            print("Provisioned default admin user: admin / password")
-        else:
-            # Update password just in case user wants to reset it
-            admin_user.hashed_password = hash_password("password")
-            admin_user.role_id = admin_role.id
-            db.commit()
-            print("Admin user already exists. Password reset to 'password'.")
+        # 2. Seed admin users
+        admin_emails = ["admin", "lakshminarasimhan.santhanam@gigkri.com"]
+        for email in admin_emails:
+            db_user = db.query(User).filter(User.email == email).first()
+            if not db_user:
+                hashed_pw = hash_password("password")
+                db_user = User(
+                    email=email,
+                    hashed_password=hashed_pw,
+                    role_id=admin_role.id
+                )
+                db.add(db_user)
+                print(f"Provisioned admin user: {email} / password")
+            else:
+                # Update role and password
+                db_user.role_id = admin_role.id
+                db_user.hashed_password = hash_password("password")
+                print(f"Admin user {email} updated/role ensured.")
+        
+        db.commit()
 
     except Exception as e:
         db.rollback()
