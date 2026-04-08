@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AYUSH Generalized EHR Schema",
+  "description": "A flexible schema for capturing clinical notes and generating AYUSH care plans for any condition.",
+  "type": "object",
+  "properties": {
+    "patient_context": {
+      "type": "object",
+      "properties": {
+        "case_id": { "type": "string" },
+        "visit_date": { "type": "string", "format": "date" },
+        "age_group": {
+          "type": "string",
+          "enum": ["0-17", "18-30", "31-45", "46-60", "60+", "Unknown"]
+        },
+        "sex": {
+          "type": "string",
+          "enum": ["Female", "Male", "Other", "Unknown"]
+        }
+      },
+      "required": ["case_id", "visit_date"]
+    },
+    "clinical_data": {
+      "type": "object",
+      "properties": {
+        "condition_name": { "type": "string" },
+        "chief_complaint": { "type": "string" },
+        "vitals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "number" },
+              "unit": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["Normal", "Elevated", "Critical", "Unknown"]
+              }
+            }
+          }
+        },
+        "symptoms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "status": {
+                "type": "string",
+                "enum": ["True", "False", "Unknown"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "risk_assessment": {
+      "type": "object",
+      "properties": {
+        "red_flag_any": { "type": "boolean" },
+        "red_flag_details": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

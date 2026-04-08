@@ -1,0 +1,366 @@
+import asyncio
+import gc
+import logging
+import os
+import time
+from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
+from sqlalchemy.orm import Session
+
+from src.api_response import create_api_response
+from src.database import get_db
+from src.entities.user_credential import Neo4jCredentials, get_neo4j_credentials
+from src.logger import CustomLogger
+from src.main import create_graph_database_connection
+from src.models import Patient, Visit, Vital, Symptom, LifestyleFactor, User
+from src.shared.common_fn import formatted_time, get_value_from_env
+from src.shared.google_auth import require_auth, AuthenticatedUser
+from src.services.access_service import verify_patient_access
+
+logger = CustomLogger()
+router = APIRouter(tags=["Clinical Intelligence"])
+
+
+@router.post("/clinical_extraction")
+async def extract_clinical_intelligence(
+    model: str = Form(...),
+    text: str = Form(...),
+    condition_profile: str = Form(None),
+    user: AuthenticatedUser = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Extract structured EHR data using profile-aware LLM and clinical validation."""
+    try:
+        from src.llm import extract_structured_ehr_data, validate_clinical_content
+
+        # 1. Source Gatekeeping
+        is_clinical = await validate_clinical_content(model, text)
+        if not is_clinical:
+            return create_api_response("Failed", message="Non-clinical content detected. This record cannot be processed by the intelligence engine.")
+
+        # 2. LLM Extraction & Intelligence Inference
+        result = await extract_structured_ehr_data(model, text, condition_profile)
+        if not result:
+            return create_api_response("Failed", message="LLM failed to extract/infer structured clinical data.")
+
+        ehr_dict = result.dict()
+        patient_id = ehr_dict.get('case_id')
+        if patient_id:
+            verify_patient_access(user.email, user.user_role, patient_id, db)
+
+        # 3. Persistence Hub (Ailment Agnostic)
+        try:
+            patient = db.query(Patient).filter(Patient.case_id == ehr_dict['case_id']).first()
+            if not patient:
+                patient = Patient(
+                    case_id=ehr_dict['case_id'],
+                    age_group=ehr_dict['age_group'],
+                    sex=ehr_dict['sex']
+                )
+                db.add(patient)
+                db.flush()
+
+            # Fix #7: deduplicate visits by (patient_id, visit_date, condition_name)
+            visit_date = datetime.now(timezone.utc).date()
+            existing_visit = db.query(Visit).filter(
+                Visit.patient_id == patient.id,
+                Visit.visit_date == visit_date,
+                Visit.condition_name == ehr_dict['condition_name']
+            ).first()
+
+            if existing_visit:
+                visit = existing_visit
+                logging.info(f"Reusing existing visit for patient {patient.id} on {visit_date}")
+            else:
+                visit = Visit(
+                    patient_id=patient.id,
+                    visit_date=visit_date,
+                    condition_name=ehr_dict['condition_name'],
+                    chief_complaint=ehr_dict['chief_complaint'],
+                    red_flag_any=ehr_dict['red_flag_any'],
+                    red_flag_details=ehr_dict['red_flag_list'],
+                    bp_category=ehr_dict.get('bp_category', 'Unknown')
+                )
+                db.add(visit)
+                db.flush()
+
+            for vit in ehr_dict['vitals']:
+                new_vital = Vital(
+                    visit_id=visit.id,
+                    name=vit['name'],
+                    value=vit['value'],
+                    unit=vit['unit'],
+                    status=vit['status']
+                )
+                db.add(new_vital)
+
+            for sym in ehr_dict['symptoms']:
+                new_sym = Symptom(
+                    visit_id=visit.id,
+                    name=sym['name'],
+                    status=sym['status']
+                )
+                db.add(new_sym)
+
+            for susp in ehr_dict.get('suspicions', []):
+                status_map = {"True": True, "False": False, "Unknown": None}
+                new_fact = LifestyleFactor(
+                    visit_id=visit.id,
+                    name=susp['factor'],
+                    status=status_map.get(str(susp['status']), None)
+                )
+                db.add(new_fact)
+
+            db.commit()
+            return create_api_response("Success", data=ehr_dict, message="Clinical record extracted and persisted")
+        except Exception as e:
+            db.rollback()
+            raise e
+    except Exception as e:
+        logging.exception("Clinical extraction failed:")
+        return create_api_response("Failed", error=str(e))
+
+
+@router.get("/ehr_data/all")
+async def get_all_ehr_data(
+    limit: int = 50,
+    offset: int = 0,
+    user: AuthenticatedUser = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Retrieve structured EHR data from PostgreSQL with pagination."""
+    try:
+        db_user = db.query(User).filter(User.email == user.email).first()
+        if not db_user or not db_user.role:
+            raise HTTPException(status_code=403, detail="Unregistered user or role missing")
+            
+        role = db_user.role.name.upper()
+        
+        base_query = db.query(Visit).join(Patient)
+        
+        if role == "PATIENT":
+            base_query = base_query.filter(Patient.user_id == db_user.id)
+        elif role in ["DOCTOR", "STAFF"]:
+            assigned_ids = [p.id for p in db_user.assigned_patients]
+            base_query = base_query.filter(Patient.id.in_(assigned_ids))
+        elif role != "ADMIN":
+            raise HTTPException(status_code=403, detail="Unknown role")
+            
+        # Apply pagination and sorting
+        total_count = base_query.count()
+        visits = base_query.order_by(Visit.visit_date.desc()).offset(offset).limit(limit).all()
+
+        data = []
+        for v in visits:
+            record = {
+                "case_id": v.patient.case_id,
+                "visit_date": str(v.visit_date),
+                "age_group": v.patient.age_group,
+                "sex": v.patient.sex,
+                "condition_name": v.condition_name,
+                "chief_complaint": v.chief_complaint,
+                "red_flag_any": v.red_flag_any,
+                "red_flag_details": v.red_flag_details or [],
+                "vitals": [{"name": vit.name, "value": vit.value, "unit": vit.unit, "status": vit.status} for vit in v.vitals],
+                "symptoms": [{"name": sym.name, "status": sym.status} for sym in v.symptoms],
+                "lifestyle_factors": [{"name": lf.name, "status": lf.status} for lf in v.lifestyle_factors]
+            }
+            data.append(record)
+
+        return create_api_response("Success", data={"records": data, "total": total_count, "limit": limit, "offset": offset})
+    except Exception as e:
+        return create_api_response("Failed", error=str(e))
+
+
+@router.get("/ehr_data/{file_name}")
+async def get_ehr_data(file_name: str, user: AuthenticatedUser = Depends(require_auth), db: Session = Depends(get_db)):
+    """Retrieve structured EHR data for a given file name from PostgreSQL."""
+    try:
+        verify_patient_access(user.email, user.user_role, file_name, db)
+        db_user = db.query(User).filter(User.email == user.email).first()
+        if not db_user or not db_user.role:
+            raise HTTPException(status_code=403, detail="Unregistered user or role missing")
+            
+        role = db_user.role.name.upper()
+        
+        base_query = db.query(Visit).join(Patient).filter(Patient.case_id == file_name)
+        
+        if role == "PATIENT":
+            base_query = base_query.filter(Patient.user_id == db_user.id)
+        elif role in ["DOCTOR", "STAFF"]:
+            assigned_ids = [p.id for p in db_user.assigned_patients]
+            base_query = base_query.filter(Patient.id.in_(assigned_ids))
+        elif role != "ADMIN":
+            raise HTTPException(status_code=403, detail="Unknown role")
+        
+        visits = base_query.order_by(Visit.visit_date.desc()).all()
+
+        data = []
+        for v in visits:
+            record = {
+                "case_id": v.patient.case_id,
+                "visit_date": str(v.visit_date),
+                "age_group": v.patient.age_group,
+                "sex": v.patient.sex,
+                "condition_name": v.condition_name,
+                "chief_complaint": v.chief_complaint,
+                "red_flag_any": v.red_flag_any,
+                "red_flag_details": v.red_flag_details or [],
+                "vitals": [{"name": vit.name, "value": vit.value, "unit": vit.unit, "status": vit.status} for vit in v.vitals],
+                "symptoms": [{"name": sym.name, "status": sym.status} for sym in v.symptoms],
+                "lifestyle_factors": [{"name": lf.name, "status": lf.status} for lf in v.lifestyle_factors]
+            }
+            data.append(record)
+
+        return create_api_response("Success", data=data)
+    except Exception as e:
+        return create_api_response("Failed", error=str(e))
+
+
+@router.put("/ehr_data/{case_id}")
+async def update_ehr_data(case_id: str, request: Request, user: AuthenticatedUser = Depends(require_auth), db: Session = Depends(get_db)):
+    """Update structured EHR data in PostgreSQL with automated re-validation."""
+    try:
+        verify_patient_access(user.email, user.user_role, case_id, db)
+        update_data = await request.json()
+        
+        db_user = db.query(User).filter(User.email == user.email).first()
+        if not db_user or not db_user.role:
+            raise HTTPException(status_code=403, detail="Role not assigned. Contact your administrator.")
+
+        role = db_user.role.name.upper()
+        patient = db.query(Patient).filter(Patient.case_id == case_id).first()
+        if not patient:
+            return create_api_response("Failed", message="Patient not found")
+
+        if role == "PATIENT":
+            if patient.user_id != db_user.id:
+                raise HTTPException(status_code=403, detail="Access denied: not your record")
+        elif role in ["DOCTOR", "STAFF"]:
+            assigned_ids = [p.id for p in db_user.assigned_patients]
+            if patient.id not in assigned_ids:
+                raise HTTPException(status_code=403, detail="Access denied: patient not assigned to you")
+        elif role != "ADMIN":
+            raise HTTPException(status_code=403, detail="Unknown role")
+
+        if "age_group" in update_data: patient.age_group = update_data["age_group"]
+        if "sex" in update_data: patient.sex = update_data["sex"]
+
+        visit = db.query(Visit).filter(Visit.patient_id == patient.id).order_by(Visit.visit_date.desc()).first()
+        if visit:
+            if "condition_name" in update_data: visit.condition_name = update_data["condition_name"]
+            if "chief_complaint" in update_data: visit.chief_complaint = update_data["chief_complaint"]
+
+            if "vitals" in update_data:
+                db.query(Vital).filter(Vital.visit_id == visit.id).delete()
+                for v in update_data["vitals"]:
+                    new_vital = Vital(visit_id=visit.id, name=v["name"], value=v["value"], unit=v["unit"], status=v.get("status", "Unknown"))
+                    db.add(new_vital)
+
+            if "symptoms" in update_data:
+                db.query(Symptom).filter(Symptom.visit_id == visit.id).delete()
+                for s in update_data["symptoms"]:
+                    new_symptom = Symptom(visit_id=visit.id, name=s["name"], status=s["status"])
+                    db.add(new_symptom)
+
+            if "lifestyle_factors" in update_data:
+                db.query(LifestyleFactor).filter(LifestyleFactor.visit_id == visit.id).delete()
+                status_map = {"True": True, "False": False, "Unknown": None}
+                for lf in update_data["lifestyle_factors"]:
+                    new_lf = LifestyleFactor(
+                        visit_id=visit.id, 
+                        name=lf["name"], 
+                        status=status_map.get(str(lf["status"]), None)
+                    )
+                    db.add(new_lf)
+
+            db.flush()
+            db.expire(visit)
+
+            # RE-VALIDATION
+            vitals_text = ", ".join([f"{v.name}: {v.value} {v.unit}" for v in visit.vitals])
+            symptoms_text = ", ".join([f"{s.name}: {s.status}" for s in visit.symptoms])
+            context_text = f"Condition: {visit.condition_name}. Vitals: {vitals_text}. Symptoms: {symptoms_text}."
+
+            from src.llm import extract_structured_ehr_data
+            _default_model = get_value_from_env("GRAPH_CLEANUP_MODEL", "openai_gpt_4o_mini")
+            model_name = update_data.get('model') or _default_model
+            inference_result = await extract_structured_ehr_data(model_name, context_text, visit.condition_name)
+
+            if inference_result:
+                visit.bp_category = inference_result.dict().get('bp_category', 'Unknown')
+                visit.red_flag_any = inference_result.red_flag_any
+                visit.red_flag_details = inference_result.red_flag_list
+                for v in visit.vitals:
+                    match = next((iv for iv in inference_result.vitals if iv.name == v.name), None)
+                    if match: v.status = match.status
+
+        db.commit()
+        return create_api_response("Success", message=f"Record {case_id} updated and re-validated via Intelligence Engine")
+    except Exception as e:
+        return create_api_response("Failed", error=str(e))
+
+
+@router.post("/ehr_data/sync_to_kg")
+async def sync_ehr_to_kg(
+    case_id: str = Form(...),
+    credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
+    user: AuthenticatedUser = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Sync specific clinical record from Postgres to Neo4j including Lifestyle Factors."""
+    try:
+        verify_patient_access(user.email, user.user_role, case_id, db)
+        patient = db.query(Patient).filter(Patient.case_id == case_id).first()
+        if not patient: return create_api_response("Failed", message="Patient not found in Postgres")
+
+        visit = db.query(Visit).filter(Visit.patient_id == patient.id).order_by(Visit.visit_date.desc()).first()
+        if not visit: return create_api_response("Failed", message="No visit found for this patient")
+
+        graph = create_graph_database_connection(credentials)
+
+        vitals_data = [{"name": vit.name, "value": vit.value, "unit": vit.unit, "status": vit.status} for vit in visit.vitals]
+        symptoms_data = [{"name": sym.name, "status": sym.status} for sym in visit.symptoms]
+        lifestyle_data = [{"name": lf.name, "status": lf.status} for lf in visit.lifestyle_factors]
+
+        cypher = """
+        MERGE (p:Patient {case_id: $case_id})
+        SET p.age_group = $age_group, p.sex = $sex
+        MERGE (v:Visit {case_id: $case_id, visit_date: $visit_date})
+        SET v.condition_name = $condition_name, v.chief_complaint = $chief_complaint,
+            v.red_flag_any = $red_flag_any, v.red_flag_details = $red_flag_details,
+            v.bp_category = $bp_category
+        MERGE (p)-[:HAS_VISIT]->(v)
+        WITH v
+        OPTIONAL MATCH (v)-[r:HAS_VITAL|HAS_SYMPTOM|HAS_LIFESTYLE]->(e)
+        DELETE r, e
+        WITH v
+        UNWIND $vitals AS vit
+        MERGE (vt:Vital {case_id: $case_id, visit_date: $visit_date, name: vit.name})
+        SET vt.value = vit.value, vt.unit = vit.unit, vt.status = vit.status
+        MERGE (v)-[:HAS_VITAL]->(vt)
+        WITH v
+        UNWIND $symptoms AS sym
+        MERGE (s:Symptom {case_id: $case_id, visit_date: $visit_date, name: sym.name})
+        SET s.status = sym.status
+        MERGE (v)-[:HAS_SYMPTOM]->(s)
+        WITH v
+        UNWIND $lifestyle_factors AS lf
+        MERGE (l:LifestyleFactor {case_id: $case_id, visit_date: $visit_date, name: lf.name})
+        SET l.status = lf.status
+        MERGE (v)-[:HAS_LIFESTYLE]->(l)
+        """
+        graph.query(cypher, params={
+            "case_id": patient.case_id, "age_group": patient.age_group, "sex": patient.sex,
+            "visit_date": str(visit.visit_date), "condition_name": visit.condition_name,
+            "chief_complaint": visit.chief_complaint, "red_flag_any": visit.red_flag_any,
+            "red_flag_details": visit.red_flag_details or [],
+            "bp_category": visit.bp_category or "Unknown",
+            "vitals": vitals_data, "symptoms": symptoms_data, "lifestyle_factors": lifestyle_data
+        })
+
+        return create_api_response("Success", message=f"Record {case_id} synchronized to Knowledge Graph")
+    except Exception as e:
+        return create_api_response("Failed", error=str(e))

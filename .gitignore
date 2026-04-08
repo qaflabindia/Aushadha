@@ -1,0 +1,55 @@
+# Large Files (>50MB)
+*.safetensors
+*.bin
+data/models/
+backend/local_model/
+
+# Secret Keys and APIs
+.env*
+*.env*
+*.key
+*vault*
+*secrets*
+client_secret_*.json
+.secrets.json.enc
+.vault.key
+
+# Personal / Private Data
+*.pdf*
+*.docx*
+*@gmail.com*
+experiments/
+POC_Documents/
+POC_Experiments/
+Annexure III- Section 2-Draft.docx
+PT-AP-SANTHO/
+sln2737@gmail.com/
+root.parent@gmail.com/
+
+# Logs & Temp Files
+*.log
+.DS_Store
+Thumbs.db
+
+# Dependencies & Build Artefacts
+node_modules/
+dist/
+build/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+.claude/
+.gemini/
+.antigravity/
+
+# Frontend Specific
+frontend/.env
+frontend/dist/
+frontend/node_modules/
+
+# Backend Specific
+backend/.env
+backend/venv/
+backend/__pycache__/

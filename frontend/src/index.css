@@ -1,0 +1,200 @@
+@import './theme-overrides.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Precision Palette */
+  --luxury-gold: #D4AF37;
+  --luxury-silver: #E5E4E2;
+  --luxury-dark: #050505;
+  --luxury-text-dark: #FFFFFF;
+  --luxury-text-light: #1A1A1A;
+  
+  /* Blended Gradient Border */
+  --grad-gs: linear-gradient(135deg, var(--luxury-gold) 0%, var(--luxury-silver) 100%);
+  --grad-gs-subtle: linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(229, 228, 226, 0.3) 100%);
+}
+
+@layer base {
+  .ndl-theme-dark body {
+    background-color: var(--luxury-dark) !important;
+    color: var(--luxury-text-dark) !important;
+    font-feature-settings: "ss01", "ss02", "cv01", "tnum", "case";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    margin: 0;
+    overflow: hidden;
+  }
+}
+
+/* --- Aushadha Signature Glass System --- */
+
+/* 1. Smoked Obsidian Glass (Dark) */
+.ndl-theme-dark .glass-luxe {
+  background: rgba(5, 5, 5, 0.6) !important;
+  backdrop-filter: blur(50px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(50px) saturate(200%) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.03) !important;
+  background-clip: padding-box !important;
+  position: relative;
+  box-shadow: 
+    inset 0 0 20px rgba(0, 0, 0, 0.4),
+    0 10px 40px rgba(0, 0, 0, 0.8) !important;
+}
+
+.ndl-theme-dark .glass-luxe::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 40%, transparent 60%, rgba(212, 175, 55, 0.03) 100%);
+  z-index: -1;
+}
+
+/* 2. Frosted Crystalline Glass (Light) */
+.ndl-theme-light .glass-luxe {
+  background: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(32px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(120%) !important;
+  border: 0.5px solid rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.03);
+}
+
+/* 3. Blended Metallic Gradient Border Utility */
+.border-grad-gs {
+  position: relative;
+  border: none !important;
+}
+
+.border-grad-gs::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 0.5px; /* Precision Line Weight */
+  background: var(--grad-gs-subtle);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* --- Global NDL Overrides (Vault 2.0) --- */
+
+.ndl-theme-dark .ndl-dialog, 
+.ndl-theme-dark .ndl-modal, 
+.ndl-theme-dark .ndl-drawer,
+.ndl-theme-dark .ndl-popover {
+    background: #0C0C0C !important;
+    backdrop-filter: blur(40px) !important;
+    border: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.9) !important;
+    border-radius: 16px !important;
+}
+
+/* Typography Refinements */
+.tracking-concierge {
+  letter-spacing: 0.4em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+}
+
+.tracking-brand {
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase !important;
+  font-weight: 800 !important;
+}
+
+/* Table Surface (Glassified) */
+.ndl-theme-dark .ndl-table-container {
+  background: rgba(255, 255, 255, 0.02) !important;
+  backdrop-filter: blur(10px);
+  border: 0.5px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 12px !important;
+}
+
+.ndl-theme-dark .ndl-table-head-cell {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.15em !important;
+  font-size: 9px !important;
+}
+
+.ndl-theme-dark .ndl-table-cell {
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.02) !important;
+  font-size: 13px !important;
+}
+
+/* Premium Button System */
+.ndl-theme-dark .ndl-button-primary {
+  background: var(--grad-gs) !important;
+  border: none !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.2) !important;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.ndl-theme-dark .ndl-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(212, 175, 55, 0.4) !important;
+}
+
+/* Input Surface */
+.ndl-theme-dark .ndl-text-input input {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  color: white !important;
+}
+
+/* Live chat history scrollbar */
+.chat-history-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-history-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.chat-history-rail {
+  background: rgba(239, 239, 239, 0.95);
+  border-color: #dddddd;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.chat-history-thumb {
+  top: 0;
+  background: #c9c9c9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.ndl-theme-dark .chat-history-rail {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.ndl-theme-dark .chat-history-thumb {
+  background: #c0c0c0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Universal Font Support for SVG layers (Edges) */
+.nvl-container svg text,
+.nvl-container text {
+  font-family: 'Inter', "Noto Sans Tamil", -apple-system, system-ui, sans-serif !important;
+}

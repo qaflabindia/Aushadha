@@ -1,0 +1,61 @@
+# =============================================================================
+# Aushadha — Ruff Linter Configuration
+# =============================================================================
+# Ruff is a fast Python linter/formatter. This config is intentionally lenient
+# to avoid breaking the existing codebase — it will catch real issues without
+# forcing a mass reformatting pass.
+# =============================================================================
+
+# Target Python version
+target-version = "py312"
+
+# Reasonable line length — matches most modern editors
+line-length = 130
+
+# Only lint backend code
+include = ["backend/**/*.py"]
+
+# Exclude generated, cached, and third-party directories
+exclude = [
+    "backend/__pycache__",
+    "backend/local_model",
+    "backend/chunks",
+    "backend/merged_files",
+    "experiments",
+    "data",
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+]
+
+[lint]
+# Start with a conservative rule set — expand as the team is ready
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort (import ordering)
+    "UP",    # pyupgrade (modernize syntax)
+    "B",     # flake8-bugbear (common bugs)
+    "S",     # flake8-bandit (security)
+]
+
+# Ignore rules that would cause mass churn on the existing codebase
+ignore = [
+    "E501",  # line too long — handled by line-length setting
+    "E741",  # ambiguous variable name — common in data processing
+    "S101",  # assert used — fine in non-production code
+    "S104",  # binding to 0.0.0.0 — required for Docker
+    "S105",  # hardcoded password — false positives on defaults
+    "S106",  # hardcoded password in function arg
+    "B008",  # function call in default argument — FastAPI Depends() pattern
+    "UP007", # Use X | Y for union types — not compatible with all libs yet
+]
+
+[format]
+# Use double quotes — consistent with the existing codebase
+quote-style = "double"
+
+# Use Unix line endings
+line-ending = "lf"

@@ -1,0 +1,363 @@
+Playbook for a Winning Submission Problem Statement - 3 Ministry of AYUSH Hypertension Proof of Concept Prepared by YogNayur Wellness Pvt Ltd   
+
+How to use this playbook
+This is the single source of truth for your team. It covers delivery and submission compliance. It is written so reviewers can validate quickly and your team can execute without missing anything.
+Section 1 to 3 sets scope and working rules
+Section 4 assigns roles and work products
+Section 5 is the Annexure III portal completion guide
+Section 6 to 9 is the Proof of Concept build blueprint
+Section 10 to 12 is compliance: IPR, NOC, declaration, licenses
+Section 13 is the traceability matrix and final audit gate
+1 Problem statement and what we will demonstrate
+Problem Statement 3 expects an AI enabled system that helps AYUSH professionals create structured Electronic Health Records, detect early signals of local disease surges, and generate personalised treatment and lifestyle recommendations with explainability and trust. This submission demonstrates a Stage 1 Proof of Concept for hypertension using synthetic and public data only.
+2 Frozen scope statement
+Copy the following text exactly into every place it is needed, including portal, solution document, pitch deck, and demo script.
+We will deliver a Stage 1 Proof of Concept for hypertension with three frozen use cases. Use case 1 is multilingual clinician note to structured EHR fields in Hindi and English with clinician review. Use case 2 is personalised AYUSH aligned care planning for hypertension with a Clinician Trust Layer. Use case 3 is a minimal early warning demo using aggregated synthetic counts and an alert review queue. Stage 1 uses synthetic and public data only. Stage 1 does not claim live AHMIS integration. Stage 1 does not claim real world deployment outcomes.
+3 Working rules that prevent last minute mistakes
+3.1 Documentation naming conventions and examples
+Do not improvise names. Use this convention for every file.
+YogNayur_IndiaAI2026_AYUSH_PS3_<ArtifactName>_Hypertension_V<Major>.<Minor>_YYYYMMDD.<ext>
+Examples
+YogNayur_IndiaAI2026_AYUSH_PS3_Playbook_Hypertension_V6.0_20260214.docx
+YogNayur_IndiaAI2026_AYUSH_PS3_AnnexureIII_PortalAnswers_Hypertension_V1.0_20260214.docx
+YogNayur_IndiaAI2026_AYUSH_PS3_SolutionDocument_Hypertension_V2.0_20260214.docx
+YogNayur_IndiaAI2026_AYUSH_PS3_BusinessPlan_Hypertension_V1.0_20260214.docx
+YogNayur_IndiaAI2026_AYUSH_PS3_SecurityPack_Hypertension_V1.0_20260214.pdf
+YogNayur_IndiaAI2026_AYUSH_PS3_ThirdPartyRegister_Hypertension_V1.0_20260214.xlsx
+3.2 Folder structure
+00 ReadMe and SubmissionChecklist
+01 AnnexureIII PortalAnswers
+02 SolutionDocument
+03 PitchDeck
+04 DemoVideo
+05 ArchitecturePack
+06 EvaluationAndEvidence
+07 DataRegistersAndLicenses
+08 SecurityAndResponsibleAI
+09 BusinessPlan
+10 LegalAndDeclarations
+3.3 One master tracker rule
+Create one tracker sheet called SubmissionTracker and keep it updated daily.
+Portal field and character limit
+Owner
+Draft answer link
+Final answer location
+Evidence link
+Where else the same claim appears
+Status Draft Reviewed Final
+Reviewer initials and date
+Notes and risks
+3.4 Human writing style rules
+Write like a careful professional, not like marketing
+Prefer short sentences
+Avoid vague words unless you prove them
+No decorative symbols or icons anywhere
+Do not claim government implementation experience or AHMIS integration in Stage 1
+4 Roles and responsibilities
+Role
+Core responsibility
+Work products
+Team Leader
+Completeness, delegation, daily review, final audit
+SubmissionTracker, FinalAuditChecklist, ChangeLog
+Proposal Owner
+Portal answers and consistency across artifacts
+PortalAnswers doc, ConsistencyReport
+Technical Owner
+PoC build and architecture pack
+Runnable PoC, ArchitecturePack, Runbook
+Clinical Owner or Advisor
+Safety rules, red flags, wording templates
+ProtocolPack, SafetySignOffNote
+Data Owner
+Synthetic datasets, labels, dataset register
+CaseLibrary, AggregatedSeries, DatasetRegister
+Testing Owner
+Test plan, performance matrix, evidence pack
+TestReport, PerformanceMatrix, EvidencePack
+Security Owner
+RBAC, audit log, threat model, third party register
+SecurityPack, ThirdPartyRegister
+Responsible AI Owner
+Guardrails, explainability, parity testing
+RAIPack, ParityReport
+Business Owner
+Business plan and go to market
+BusinessPlan doc
+Deck Owner
+Pitch deck and demo story
+PitchDeck, DemoScript
+
+5 Annexure III portal completion guide
+This section tells you exactly what to prepare for each Annexure III section. Keep answers consistent with the frozen scope.
+5.1 Section 1 Team information
+Applicant type selection and organisation details
+Team name and Team Leader details
+Team members list with roles and contacts
+Relevant experience answer written carefully as startup capability, not deployment
+Collaboration experience as planned partnerships and advisor network
+Health domain expertise through advisors and validation approach
+Startup experience answer template
+YogNayur is an early stage startup and has not yet executed a government AYUSH deployment. For this challenge we are proposing a verifiable Proof of Concept using synthetic and public data, a labelled case library, and a test suite. We will work with clinical advisors to validate red flags, contraindications, and wording. We will provide integration readiness artifacts for future pilots without claiming access or integration in Stage 1.
+5.2 Section 2 Solution details: portal answer templates
+Use the following templates so answers remain clear, verifiable, and easy to assess.
+Portal prompt
+Answer structure to follow
+Must reference
+Proposed approach
+Describe UC1 then UC2 then UC3 as 6 to 10 steps in plain language
+ArchitecturePack and demo video
+Innovation and uniqueness
+State 3 unique points: multilingual structured capture, Trust Layer, conservative safety gates and auditability
+Screenshots and EvidencePack
+Technology stack
+List front end, back end, storage, models, security, hosting. Keep to facts
+ThirdPartyRegister
+AI model ownership
+State what is developed in house, what is open source, what is configured. Say what you will share
+ThirdPartyRegister and licensing section
+Benchmarking
+List metrics, targets, datasets, and how you will measure false positives and false negatives
+PerformanceMatrix and TestReport
+Data provenance
+Describe synthetic case library method, public sources, licenses, dataset sizes, coverage
+DatasetRegister
+Explainability
+Describe Trust Layer fields and how a clinician can verify why a suggestion is shown
+Screenshots of plan output
+Monitoring and enhancement
+Explain how you will monitor model drift, safety incidents, and planned updates during pilot
+Roadmap in solution document
+Scalability and interoperability
+Explain language expansion, facility scaling, and integration readiness boundary
+Integration readiness pack
+
+5.3 Section 3 Business plan
+Business model and pricing assumptions
+Market analysis including competition and differentiation
+Go to market plan and partnerships
+Roadmap and cost view for two years from go live
+5.4 Section 4 Supporting documents
+Certificate of Incorporation or registration proof
+Pitch deck
+Solution document
+Demo video if the portal asks
+Any letters of support if available
+Third party register if asked
+5.5 Section 5 Declaration
+Use the following declaration text as per the guidelines document. Team Leader signs and uploads if required.
+Declaration by Team Leader I/we hereby declare that all the information provided in this application is true and complete to the best of our knowledge. I/we hereby also declare that I am authorised to participate in this Challenge, sign all the documents and agreements related to the Challenge and to commit resources. I/we confirm that we will abide by the conditions mentioned in the Challenge document in full and without any deviation. I/We shall observe confidentiality of all the information passed on to us in the course of the Challenge and shall not use the information for any other purpose than the current Challenge. I/We confirm that we have not been blacklisted/banned in the last three years by any State/Central Government organisations/Firms / Institutions/ Central PSU / PSE. Date: _________________________________ 
+6 Proof of Concept build blueprint
+6.1 Use case 1 Multilingual note to structured hypertension EHR
+Hindi and English typed notes accepted in Stage 1
+Extraction produces structured fields with confidence per field
+Clinician can edit and confirm
+No care plan generation before clinician confirmation
+All actions are logged
+6.2 Hypertension EHR schema minimum
+Field
+Required
+Notes
+language_of_note
+Yes
+Hindi or English
+systolic_bp and diastolic_bp
+No
+Extract if present and validate range
+bp_category
+Yes
+Normal, Elevated, Stage1, Stage2, CrisisSuspected, Unknown
+symptom_chest_pain, symptom_breathlessness, symptom_neurological
+No
+Key red flag triggers
+stress_high_suspected, sleep_poor_suspected, diet_high_salt_suspected
+No
+Used for lifestyle plan
+comorbidities
+No
+Diabetes, Obesity, CKD, CVD, None, Unknown
+red_flag_any and red_flag_list
+Yes
+Must be computed and visible
+clinician_review_status
+Yes
+Draft, Edited, Confirmed
+
+6.3 Use case 2 Care plan with Clinician Trust Layer
+A care plan is structured decision support. It is not a prescription. The clinician remains in control.
+Every recommendation must include the Trust Layer fields.
+Recommendation
+Reason
+Trigger factors
+Safety status
+Confidence indicator
+Evidence basis type
+Clinician action
+6.4 Hypertension red flags and escalation
+Red flag
+Trigger
+System behaviour
+Crisis suspected
+bp_category CrisisSuspected or very high BP with symptoms
+Referral guidance first. Suppress intense routines.
+Chest pain or severe breathlessness
+symptom_chest_pain True or symptom_breathlessness True
+Referral guidance first. Emergency evaluation messaging.
+Neurological symptoms
+symptom_neurological True
+Referral guidance first. Conservative content only.
+Pregnancy risk suspected
+Pregnancy mentioned with high BP
+Referral guidance first. Clinician review required.
+CKD or CVD with high BP
+CKD or CVD with Stage2 or higher
+Referral guidance first. Increased caution and follow up urgency.
+
+6.5 Use case 3 Early warning review signals
+Input is aggregated synthetic counts only
+Aggregation unit is locality and week
+Baseline window is 8 weeks
+Alert when deviation threshold met and persists for 2 windows
+Reviewer queue with status change and notes
+No automatic actions
+7 Data creation and registers
+7.1 Synthetic case library
+Create at least 50 cases
+At least 12 red flag cases
+For every case create one Hindi note and one English note
+Label ground truth fields
+Create expected safe output skeleton for automated checks
+Freeze dataset version before final evaluation run
+7.2 Early warning series
+Create 2 to 3 localities
+Create 16 to 24 weeks per locality
+Create baseline scenario, injected surge scenario, noisy scenario
+Document injection method and expected detection window
+7.3 Registers
+Dataset register with provenance and license
+Third party register for all components with license obligations
+8 Testing and evidence
+8.1 Performance targets
+Extraction accuracy at least 0.80 for key fields
+Red flag safety pass rate 100 percent
+Trust Layer completeness 100 percent
+Early warning sensitivity at least 0.80 on injected surges
+Early warning false alert rate at most 0.20 on stable baselines
+Hindi English parity gap at most 0.05
+8.2 Evidence pack contents
+Screenshots for Hindi and English extraction
+Screenshot of edit and confirm
+Screenshots showing Trust Layer fields
+Screenshots showing referral first behaviour
+Screenshots of alert queue and status update
+Test logs with dataset version and code version
+One page metric summary table
+9 Security, privacy, and Responsible AI
+Role based access control with a simple role matrix
+Audit event catalogue implemented and demonstrable
+Threat model summary and risk register
+Guardrails list and prohibited outputs
+Explainability through Trust Layer and confidence indicators
+Parity testing report for Hindi and English
+10 IPR and licensing compliance block
+The following IPR clause is in the guidelines document. Treat it as binding for your submission and planning.
+All Intellectual Property Rights (IPR) will belong to the solution owner participating in the Challenge. IndiaAI and partnering institutions shall have a non exclusive, royalty free, perpetual license to use the awarded AI solution including all IPR arising out of its use, and the solution owner shall be deemed to have given a No Objection Certificate (NOC) for the same and shall also remain bound by the terms of a Non Disclosure Agreement (NDA) with respect to such work.
+What the team must do to comply
+Create an internal one page acknowledgement note signed by Founder and Team Leader that the team accepts the license clause
+Update ThirdPartyRegister to confirm every third party license allows this form of non exclusive use rights for an awarded solution
+Decide what parts of code and documentation can be shared if asked for verification, and record it in a ShareabilityNote
+Ensure the demo environment does not contain secrets, keys, or proprietary customer data
+11 Employer NOC block
+The guidelines mention that the solution owner is deemed to have given an NOC for the IPR license clause. Separately, if any team member is employed elsewhere and their employer has IP claims, obtain an employer NOC.
+11.1 Decision rule
+If a team member is currently employed and their employment terms include IP assignment, obtain an employer NOC
+If the team member is a consultant to another organisation, obtain a written clarification that the other organisation has no IP claim
+Store all NOCs in 10 LegalAndDeclarations
+11.2 Employer NOC template
+To whom it may concern This is to certify that <Employer Name> has no objection to <Employee Name> participating in the IndiaAI Innovation Challenge 2026. We confirm that <Employer Name> does not have any right, title, or claim over any prize money, intellectual property, or outputs created for this Challenge by <Employee Name> as part of the YogNayur team. Signed Name and Designation Organisation seal if available Date
+12 Supporting documents and portal readiness pack
+Create these documents even if the portal does not ask for all of them. They protect you during review and verification.
+Certificate of Incorporation or registration proof
+Signed declaration by Team Leader using the guideline text
+ThirdPartyRegister with license details
+DatasetRegister with provenance and licenses
+SecurityPack and ResponsibleAIPack
+PerformanceMatrix and EvidencePack
+ChangeLog, ShareabilityNote, IPR Acknowledgement Note
+Employer NOCs if applicable
+13 Traceability matrix and final audit gate
+13.1 Evaluation criteria traceability matrix
+This table ensures every evaluation parameter is explicitly addressed and evidenced. Fill the right side columns during finalisation.
+Evaluation parameter from guidelines
+Portal field or section
+Solution doc section
+Deck slide
+Demo timestamp
+Evidence artifact
+Approach towards problem solving: idea, innovation, simplicity, uniqueness, novelty
+Annexure III Section 2
+Solution Doc Section 2
+Slides 2 to 5
+00:00 to 01:30
+EvidencePack screenshots
+Solution technical feasibility: features, scalability, interoperability, stack
+Annexure III Section 2
+Solution Doc Section 3 and 4
+Slides 3 to 6
+01:30 to 03:00
+ArchitecturePack
+Product roadmap: cost to build deploy maintain for two years, regulatory compliance, integration plan
+Annexure III Section 2 and 3
+Solution Doc Roadmap
+Slides 8 to 10
+03:00 to 03:40
+BusinessPlan and Roadmap table
+Team ability and culture
+Annexure III Section 1
+Solution Doc Team
+Slide 10
+03:40 to 04:00
+Team profiles
+Responsible AI principles
+Annexure III Section 2
+Responsible AI Pack
+Slide 6
+02:20 to 03:00
+RAIPack
+Data policies and cyber security guidelines
+Annexure III Section 2 and 4
+Security Pack
+Slide 6
+02:20 to 03:00
+SecurityPack and ThirdPartyRegister
+Technical: data preparation
+Annexure III Section 2
+Testing section
+Slide 7
+04:00 to 04:20
+DatasetRegister and TestReport
+Technical: model building and evaluation
+Annexure III Section 2
+Model section
+Slide 7
+04:20 to 04:40
+PerformanceMatrix
+Technical robustness: accuracy, precision, recall, F1
+Annexure III Section 2
+Metrics section
+Slide 7
+04:40 to 05:00
+PerformanceMatrix and EvidencePack
+
+13.2 Final audit checklist
+All portal fields answered and mapped in the SubmissionTracker
+All supporting uploads present including incorporation proof and signed declaration
+Frozen scope statement appears identically in portal, solution document, deck, and demo script
+IPR clause acknowledged and ThirdPartyRegister confirms license compatibility
+Employer NOCs collected where applicable
+Performance matrix completed and backed by evidence pack
+Demo video matches what is described and shows UC1 UC2 UC3 and referral first behaviour
+No overclaims about integration or outcomes
+No decorative symbols or icons across any artifact
+Final submission folder zipped with correct naming and a short ReadMe
+End of Playbook Final Version 6
