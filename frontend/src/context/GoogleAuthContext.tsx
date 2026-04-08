@@ -8,6 +8,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 
+const AUTH_CHANGED_EVENT = 'aushadha-auth-changed';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -62,6 +64,9 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const apiBase = backendUrl || import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
+  const notifyAuthChanged = useCallback(() => {
+    window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+  }, []);
 
   // Helpers
   const isTokenExpired = (jwtToken: string): boolean => {
@@ -85,19 +90,22 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
           // Token expired — clear stale session so user sees login
           localStorage.removeItem('aushadha_auth_token');
           localStorage.removeItem('aushadha_auth_user');
+          notifyAuthChanged();
         } else {
           const parsedUser = JSON.parse(savedUser) as AuthUser;
           setToken(savedToken);
           setUser(parsedUser);
+          notifyAuthChanged();
         }
       } catch {
         // Corrupted storage — clear it
         localStorage.removeItem('aushadha_auth_token');
         localStorage.removeItem('aushadha_auth_user');
+        notifyAuthChanged();
       }
     }
     setIsLoading(false);
-  }, []);
+  }, [notifyAuthChanged]);
 
   // Global axios 401 interceptor — auto-logout on expired/invalid token
   useEffect(() => {
@@ -110,6 +118,7 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
           localStorage.removeItem('aushadha_auth_user');
           setUser(null);
           setToken(null);
+          notifyAuthChanged();
           if (!window.location.pathname.startsWith('/login')) {
             window.location.href = '/login';
           }
@@ -118,15 +127,16 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
       }
     );
     return () => axios.interceptors.response.eject(interceptorId);
-  }, []);
+  }, [notifyAuthChanged]);
 
   // Save session to localStorage whenever it changes
   useEffect(() => {
     if (token && user) {
       localStorage.setItem('aushadha_auth_token', token);
       localStorage.setItem('aushadha_auth_user', JSON.stringify(user));
+      notifyAuthChanged();
     }
-  }, [token, user]);
+  }, [token, user, notifyAuthChanged]);
 
   // Google Sign-In
   const loginWithGoogle = useCallback(
@@ -197,7 +207,8 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
     setToken(null);
     localStorage.removeItem('aushadha_auth_token');
     localStorage.removeItem('aushadha_auth_user');
-  }, []);
+    notifyAuthChanged();
+  }, [notifyAuthChanged]);
 
   // Auth headers for API calls
   const getAuthHeaders = useCallback((): Record<string, string> => {

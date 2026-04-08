@@ -41,38 +41,155 @@ from src.shared.constants import (
     CHAT_AYUSH_MODE, AYUSH_MASTER_PROMPT, CHAT_VECTOR_MODE, CHAT_FULLTEXT_MODE
 )
 from src.shared.localization import translate_metadata
+from src.ayush_sidecar import AyushSidecarDependencies, run_ayush_sidecar
 load_dotenv() 
 
-# ── AYUSH Web Research Helper ──────────────────────────────────────────
-def conduct_ayush_research(disease_name):
-    """Perform live web research on AYUSH clinical findings using LLM-based search (Gemini/Google Grounding)."""
+AYUSH_RESEARCH_ALLOWED_DOMAINS = [
+    "ayush.gov.in",
+    "ayushportal.nic.in",
+    "ccras.nic.in",
+    "ccrum.res.in",
+    "ccrs.nic.in",
+    "ccryn.gov.in",
+    "nih.gov",
+    "pubmed.ncbi.nlm.nih.gov",
+    "pmc.ncbi.nlm.nih.gov",
+    "clinicaltrials.gov",
+]
+
+# ── Shared Chat Model Resolver ─────────────────────────────────────────
+def resolve_chat_model(model: str | None) -> str:
+    """Resolve the actual chat-capable model to use for interactive chat paths."""
+    if not model:
+        return get_value_from_env("DEFAULT_DIFFBOT_CHAT_MODEL", "openai_gpt_5_mini")
+    if model == "diffbot":
+        return get_value_from_env("DEFAULT_DIFFBOT_CHAT_MODEL", "openai_gpt_5_mini")
+    return model
+
+
+def _resolve_openai_runtime_config(model: str) -> tuple[str | None, str | None]:
+    model_key = model.upper().replace(".", "_").strip()
+    env_key = f"LLM_MODEL_CONFIG_{model_key}"
+    env_value = get_value_from_env(env_key)
+
+    if not env_value and "OPENAI" in model_key:
+        api_key = get_value_from_env("OPENAI_API_KEY")
+        if api_key:
+            formatted_model = model_key.lower().replace("openai_", "").replace("_", "-")
+            if formatted_model == "gpt-3-5":
+                formatted_model = "gpt-3.5-turbo"
+            elif formatted_model == "gpt-5-2":
+                formatted_model = "gpt-5.2"
+            env_value = f"{formatted_model},{api_key}"
+
+    if not env_value:
+        return None, None
+
+    parts = [get_value_from_env(part.strip()) or part.strip() for part in env_value.split(",")]
+    if len(parts) < 2:
+        return None, None
+    return parts[0], parts[1]
+
+
+def _supports_openai_reasoning_effort(model_name: str) -> bool:
+    lowered = (model_name or "").lower()
+    return lowered.startswith("gpt-5") or lowered.startswith("o")
+
+
+def _extract_openai_web_sources(response_payload: dict) -> list[str]:
+    urls: list[str] = []
+    for item in response_payload.get("output", []) or []:
+        if item.get("type") == "web_search_call":
+            action = item.get("action") or {}
+            for source in action.get("sources", []) or []:
+                url = source.get("url")
+                if url:
+                    urls.append(url)
+        if item.get("type") == "message":
+            for content in item.get("content", []) or []:
+                for annotation in content.get("annotations", []) or []:
+                    if annotation.get("type") == "url_citation" and annotation.get("url"):
+                        urls.append(annotation["url"])
+    return list(dict.fromkeys(urls))
+
+
+def _conduct_openai_ayush_research(
+    disease_name: str,
+    research_model: str,
+    allowed_domains: list[str] | None = None,
+) -> tuple[str, list[str]]:
+    model_name, api_key = _resolve_openai_runtime_config(research_model)
+    if not model_name or not api_key:
+        logging.warning("OpenAI research config missing for model=%s", research_model)
+        return "", []
+
     try:
-        logging.info(f"Conducting live LLM AYUSH research for: {disease_name}")
-        
-        # We explicitly use Gemini for research as it has built-in Google Search grounding
-        from src.llm import get_llm
-        from langchain_core.messages import HumanMessage
-        
-        # Ensure grounding is enabled in environment for this call
-        os.environ["ENABLE_GOOGLE_SEARCH_GROUNDING"] = "True"
-        llm, model_name, _ = get_llm("GEMINI-PRO")
-        
-        search_prompt = (
-            f"Search for clinical research findings, standard doses, and side effects (ADR) "
-            f"for {disease_name} in AYUSH systems (Ayurveda, Yoga, Unani, Siddha, Homeopathy). "
-            f"Focus on evidence from ayush.gov.in and ncbi.nlm.nih.gov."
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key)
+        request_payload = {
+            "model": model_name,
+            "tools": [
+                {
+                    "type": "web_search",
+                    "filters": {"allowed_domains": allowed_domains or AYUSH_RESEARCH_ALLOWED_DOMAINS},
+                }
+            ],
+            "tool_choice": "required",
+            "include": ["web_search_call.action.sources"],
+            "input": (
+                f"Conduct web research for AYUSH clinical evidence on {disease_name}. "
+                "Search only within the allowed trusted domains. "
+                "Return only source-grounded findings useful for an AYUSH clinical intelligence report: "
+                "triage/referral rules, disease mapping, named AYUSH interventions, exact dose, duration, "
+                "study design, sample size, quantified outcomes, ADRs, DOI/PMCID, CTRI, or government references. "
+                "If nothing relevant is found, return exactly 'LEC'. Do not speculate."
+            ),
+        }
+        if _supports_openai_reasoning_effort(model_name):
+            request_payload["reasoning"] = {"effort": "low"}
+
+        response = client.responses.create(**request_payload)
+        payload = response.model_dump() if hasattr(response, "model_dump") else {}
+        output_text = getattr(response, "output_text", "") or payload.get("output_text", "")
+        sources = _extract_openai_web_sources(payload)
+        if not output_text or output_text.strip().upper() == "LEC":
+            return "", sources
+        return output_text.strip(), sources
+    except Exception as e:
+        logging.error("OpenAI AYUSH web research failed: %s", e)
+        return "", []
+
+
+# ── AYUSH Web Research Helper ──────────────────────────────────────────
+def conduct_ayush_research(
+    disease_name,
+    research_model: str,
+    allowed_domains: list[str] | None = None,
+) -> tuple[str, list[str]]:
+    """Perform provider-native AYUSH web research when supported by the selected provider."""
+    try:
+        resolved_model = resolve_chat_model(research_model)
+        logging.info("Conducting provider-native AYUSH research for: %s using model=%s", disease_name, resolved_model)
+
+        if resolved_model.upper().startswith("OPENAI"):
+            research_text, sources = _conduct_openai_ayush_research(
+                disease_name,
+                resolved_model,
+                allowed_domains=allowed_domains,
+            )
+            if research_text:
+                logging.info("OpenAI AYUSH research successful: %s characters, %s sources", len(research_text), len(sources))
+            return research_text, sources
+
+        logging.warning(
+            "Provider-native web search is not implemented for selected model=%s. Returning no external findings.",
+            resolved_model,
         )
-        
-        response = llm.invoke([HumanMessage(content=search_prompt)])
-        results = response.content
-        
-        if results:
-            logging.info(f"Research successful: {len(results)} characters retrieved")
-            return f"### Live AYUSH Web Research Findings:\n{results}"
-        return "No specific online research findings identified for this condition."
+        return "", []
     except Exception as e:
         logging.error(f"AYUSH Web Research failed: {e}")
-        return f"AYUSH Web Research encountered an error: {str(e)}"
+        return "", []
 
 def extract_disease_from_history(messages, llm):
     """Use LLM to identify the primary disease/condition discussed in the chat history."""
@@ -90,6 +207,30 @@ def extract_disease_from_history(messages, llm):
         return condition if condition.lower() != "none" else None
     except Exception as e:
         logging.error(f"Failed to extract disease from history: {e}")
+        return None
+
+
+def extract_disease_from_question(question, llm):
+    """Use the current user question only to identify the primary disease/condition."""
+    try:
+        if not question or not question.strip():
+            return None
+
+        extraction_prompt = ChatPromptTemplate.from_messages([
+            (
+                "system",
+                "You are a medical assistant. Identify the primary disease or medical condition in the user's question. "
+                "Respond ONLY with the name of the condition (e.g., 'Diabetes', 'Hypertension'). "
+                "If the question is only a generic request like 'generate report' and no specific condition is stated, respond with 'None'.",
+            ),
+            ("human", "{question}"),
+        ])
+        extraction_chain = extraction_prompt | llm
+        response = extraction_chain.invoke({"question": question})
+        condition = response.content.strip().strip("'\"")
+        return condition if condition.lower() != "none" else None
+    except Exception as e:
+        logging.error(f"Failed to extract disease from question: {e}")
         return None
 
 def fetch_patient_severity_context(graph, patient_id):
@@ -538,8 +679,7 @@ def get_neo4j_retriever(graph, document_names,chat_mode_settings, score_threshol
 def setup_chat(model, graph, document_names, chat_mode_settings, patient_id=None):
     start_time = time.time()
     try:
-        if model == "diffbot":
-             model = get_value_from_env("DEFAULT_DIFFBOT_CHAT_MODEL","openai_gpt_5_mini")
+        model = resolve_chat_model(model)
         
         llm, model_name, _ = get_llm(model=model)
         logging.info(f"Model called in chat: {model} (version: {model_name})")
@@ -768,191 +908,32 @@ async def process_graph_response(model, graph, question, messages, history, lang
         }
 
 async def process_ayush_response(model: str, graph, document_names: list, question: str, messages: list, history, session_id: str, language: str = "en", patient_id: str = None) -> dict:
-    """
-    Handle the `ayush_clinical` chat mode.
-    1. Get LLM (uses the secret vault for the API key).
-    2. Fetch relevant document chunks from Neo4j vector index.
-    3. Fetch live web context (PubMed + DuckDuckGo) from AYUSH trusted sources.
-    4. Invoke the LLM with the AYUSH_MASTER_PROMPT using combined context.
-    """
-    import time
-
-    start_time = time.time()
-    model_version = model
-
-    try:
-        # ── 1. LLM from secret vault ────────────────────────────────────────────
-        if model == "diffbot":
-            model = get_value_from_env("DEFAULT_DIFFBOT_CHAT_MODEL", "openai_gpt_4o_mini")
-        llm, model_version, _ = get_llm(model=model)
-        logging.info(f"AYUSH mode: LLM connection verified — model={model_version}")
-
-        # ── Extract Disease for Research/Prompt Early ───────────────────────
-        disease_name = "Unknown Condition"
-        icd_code = "N/A"
-        # Improve extraction: look for "report for X", "research on X", etc. Handling ambiguous queries.
-        disease_match = re.search(r"(?:for|about|on|of|intelligence|report|on|of)\b\s*([a-zA-Z\s]*)(?:$|\?)", question, re.I)
-        
-        extracted_name = disease_match.group(1).strip() if disease_match and disease_match.group(1).strip() else ""
-        if extracted_name:
-            disease_name = extracted_name
-        else:
-            # Step A: Try to infer from chat history
-            inferred_history_name = extract_disease_from_history(messages[:-1], llm)
-            if inferred_history_name:
-                disease_name = inferred_history_name
-                logging.info(f"Inferred disease name from history: {disease_name}")
-            elif patient_id:
-                # Step B: Fallback to patient's primary condition in Neo4j
-                try:
-                    logging.info(f"Question ambiguous, fetching condition for patient {patient_id} from graph")
-                    # Fix: Search for Condition nodes associated with the patient
-                    res = graph.query(
-                        "MATCH (e:__Entity__) WHERE e.patient_id = $pid AND (labels(e) CONTAINS 'Condition' OR labels(e) CONTAINS 'Medical Condition') RETURN e.id AS condition LIMIT 1", 
-                        {"pid": patient_id}
-                    )
-                    if res and res[0].get("condition"):
-                        # Strip patient_id if it's still prefixed in existing data
-                        raw_cond = res[0]["condition"]
-                        disease_name = raw_cond.split('_')[-1] if '_' in raw_cond else raw_cond
-                        logging.info(f"Inferred disease name from Patient records: {disease_name}")
-                except Exception as e:
-                    logging.warning(f"Failed to fetch patient condition: {e}")
-            else:
-                # Step C: Final fallback for short queries
-                if len(question.split()) <= 3:
-                    disease_name = question.strip("?. ")
-
-        # ── 1b. Severity & Clinical Context Retrieval ───────────────────────
-        severity_context = fetch_patient_severity_context(graph, patient_id)
-
-        # ── 2. Document chunks from Neo4j ───────────────────────────────────────
-        doc_context = ""
-        doc_sources: list = []
-        try:
-            # Use the vector+fulltext retrieval mode (same as regular RAG)
-            vector_fulltext_settings = get_chat_mode_settings(mode=CHAT_DEFAULT_MODE)
-            # Fix #15: document_names is now always a list (parsed by QA_RAG before call)
-            doc_names_list = list(map(str.strip, document_names)) if document_names else []
-            retriever = get_neo4j_retriever(
-                graph=graph,
-                document_names=doc_names_list,
-                chat_mode_settings=vector_fulltext_settings,
-                score_threshold=CHAT_SEARCH_KWARG_SCORE_THRESHOLD,
-                patient_id=patient_id # Propagate patient_id
-            )
-            doc_retriever_chain = create_document_retriever_chain(llm, retriever)
-            docs, _ = retrieve_documents(doc_retriever_chain, messages)
-            if docs:
-                chunks = []
-                for d in docs:
-                    src = d.metadata.get("fileName", d.metadata.get("source", ""))
-                    if src and src not in doc_sources:
-                        doc_sources.append(src)
-                    chunks.append(d.page_content)
-                doc_context = "\n\n".join(chunks)
-                logging.info(f"AYUSH mode: retrieved {len(docs)} document chunks from Neo4j")
-            else:
-                logging.info("AYUSH mode: no matching document chunks found.")
-        except Exception as e:
-            logging.warning(f"AYUSH mode: document retrieval failed (non-fatal): {e}")
-
-        # DuckDuckGo search integration for the 10 portals
-        research_context = ""
-        if disease_name and disease_name != "Unknown Condition":
-            research_context = conduct_ayush_research(disease_name)
-        
-        combined_parts = []
-        if doc_context:
-            combined_parts.append(f"### Uploaded Document Excerpts (AYUSH Knowledge Base):\n{doc_context}")
-        
-        if research_context:
-            combined_parts.append(research_context)
-            
-        if severity_context:
-            combined_parts.append(severity_context)
-
-        if not combined_parts:
-            combined_context = "NO UPLOADED DOCUMENT OR RESEARCH CONTEXT AVAILABLE. YOU MUST PROCEED using your internal expert knowledge. DO NOT REFUSE."
-        else:
-            combined_context = "\n\n".join(combined_parts)
-
-        all_sources = doc_sources
-
-        # ── 6. Call LLM with AYUSH Master Prompt ───────────────────────────────
-        ayush_prompt = ChatPromptTemplate.from_messages([
-            ("system", AYUSH_MASTER_PROMPT),
-            MessagesPlaceholder(variable_name="messages"),
-            ("human", "User question: {input}"),
-        ])
-        ayush_chain = ayush_prompt | llm
- 
-        ai_response = ayush_chain.invoke({
-            "messages": messages[:-1],
-            "context": combined_context,
-            "input": question,
-            "DISEASE_NAME": disease_name,
-            "ICD_CODE": icd_code
-        })
-
-        content = ai_response.content
-        total_tokens = get_total_tokens(ai_response, llm)
-
-        # Save to database
-        try:
-            history.add_user_message(question)
-            history.add_ai_message(content)
-        except Exception as e:
-            logging.error(f"AYUSH mode: Failed to persist chat history: {e}")
-        
-        predict_time = time.time() - start_time
-
-        ai_msg = AIMessage(content=content)
-        messages.append(ai_msg)
-
-        summarization_thread = threading.Thread(target=summarize_and_log, args=(history, messages, llm))
-        summarization_thread.start()
-
-        logging.info(f"AYUSH clinical response generated in {predict_time:.2f}s using {model_version}")
-
-        result_metadata = {
-            "sources": all_sources,
-            "model": model_version,
-            "nodedetails": {"chunkdetails": [], "entitydetails": [], "communitydetails": []},
-            "total_tokens": total_tokens,
-            "response_time": round(predict_time, 2),
-            "mode": CHAT_AYUSH_MODE,
-            "entities": {"entityids": [], "relationshipids": []},
-            "metric_details": {"question": question, "contexts": combined_context[:500], "answer": content},
-        }
-
-        if language and language != "en":
-            result_metadata = await translate_metadata(result_metadata, language, model)
-
-        return {
-            "session_id": "",
-            "message": content,
-            "info": result_metadata,
-            "user": "chatbot",
-        }
-
-    except Exception as e:
-        logging.exception(f"Error in AYUSH clinical mode: {e}")
-        return {
-            "session_id": "",
-            "message": f"AYUSH clinical mode encountered an error: {type(e).__name__}: {str(e)[:200]}",
-            "info": {
-                "sources": [],
-                "model": model_version,
-                "nodedetails": {"chunkdetails": [], "entitydetails": [], "communitydetails": []},
-                "total_tokens": 0,
-                "response_time": round(time.time() - start_time, 2),
-                "mode": CHAT_AYUSH_MODE,
-                "entities": {"entityids": [], "relationshipids": []},
-                "metric_details": {},
-            },
-            "user": "chatbot",
-        }
+    deps = AyushSidecarDependencies(
+        resolve_chat_model=resolve_chat_model,
+        get_llm=get_llm,
+        extract_disease_from_question=extract_disease_from_question,
+        extract_disease_from_history=extract_disease_from_history,
+        fetch_patient_severity_context=fetch_patient_severity_context,
+        get_chat_mode_settings=get_chat_mode_settings,
+        get_neo4j_retriever=get_neo4j_retriever,
+        create_document_retriever_chain=create_document_retriever_chain,
+        retrieve_documents=retrieve_documents,
+        conduct_ayush_research=conduct_ayush_research,
+        get_total_tokens=get_total_tokens,
+        translate_metadata=translate_metadata,
+    )
+    return await run_ayush_sidecar(
+        deps=deps,
+        model=model,
+        graph=graph,
+        document_names=document_names or [],
+        question=question,
+        messages=messages,
+        history=history,
+        session_id=session_id,
+        language=language,
+        patient_id=patient_id,
+    )
     # Fix #6: removed unreachable `return chat_mode_settings` — both try and except already return
 
 def create_neo4j_chat_message_history(graph, session_id, write_access=True):

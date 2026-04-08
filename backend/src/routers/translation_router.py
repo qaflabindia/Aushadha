@@ -3,19 +3,20 @@ Translation Router — /translate
 Provides UI string lookup with LLM auto-generation on cache miss.
 """
 import logging
-import os
 import asyncio
 import json
 import re
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from src.api_response import create_api_response
 from src.database import get_db
+from src.llm import get_llm, llm_semaphore
 from src.ui_translations import (
     SUPPORTED_LANG_CODES, LANG_NAMES, UITranslation,
-    ensure_table, get_ui_translation, get_ui_translations_batch,
+    get_ui_translation, get_ui_translations_batch,
     upsert_ui_translation, bulk_upsert_ui_translations, get_coverage_stats,
 )
 
@@ -39,30 +40,6 @@ class TranslateBatchRequest(BaseModel):
     model: Optional[str] = None
 
 
-# ─── LLM auto-generation ──────────────────────────────────────────────────────
-# ─── LLM auto-generation helpers ──────────────────────────────────────────────
-def _get_translation_params(lang_code: str, model: Optional[str]):
-    """Unified logic for LLM selection and medical context setup."""
-    from src.llm import get_llm
-    
-    INDIAN_LANGS = ["hi", "ta", "te", "kn", "ml", "mr", "gu", "bn", "or", "pa"]
-    if model:
-        llm_model = model
-    elif lang_code in INDIAN_LANGS:
-        llm_model = "SARVAM"
-    else:
-        llm_model = "GEMINI-PRO"
-
-    llm, _, _ = get_llm(llm_model)
-    lang_name = LANG_NAMES.get(lang_code, lang_code)
-    
-    context_hint = (
-        "This is for AyushPragya, a specialized clinical AI platform for Indian healthcare (AYUSH/Medical). "
-        "Ensure the translation is professional, medically accurate where applicable, and colloquially appropriate for healthcare providers."
-    )
-    return llm, lang_name, context_hint
-
-
 def _clean_llm_response(content: str) -> str:
     """Strip <think> blocks and markdown JSON formatting from LLM output."""
     # Strip <think>...</think> blocks
@@ -83,19 +60,62 @@ def _clean_llm_response(content: str) -> str:
     return content.strip()
 
 
-async def _get_translation_params(lang_code: str, model: Optional[str]):
-    """Unified logic for LLM selection and medical context setup."""
-    from src.llm import get_llm, llm_semaphore
-    
-    INDIAN_LANGS = ["hi", "ta", "te", "kn", "ml", "mr", "gu", "bn", "or", "pa"]
-    if model:
-        llm = get_llm(model)
-    elif lang_code in INDIAN_LANGS:
-        llm = get_llm("sarvam")
-    else:
-        llm = get_llm("gpt-4o")
-    
-    lang_name = SUPPORTED_LANG_CODES.get(lang_code, lang_code)
+def _parse_batch_translation_response(content: str) -> dict[str, str]:
+    """Parse several JSON response shapes returned by translation models."""
+    cleaned = _clean_llm_response(content)
+    if not cleaned:
+        return {}
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        parsed = None
+
+    if isinstance(parsed, dict):
+        if "translations" in parsed and isinstance(parsed["translations"], dict):
+            return {str(k): str(v) for k, v in parsed["translations"].items()}
+        if "items" in parsed and isinstance(parsed["items"], list):
+            normalized: dict[str, str] = {}
+            for item in parsed["items"]:
+                if isinstance(item, dict):
+                    original = item.get("original_string") or item.get("source") or item.get("english")
+                    translated = item.get("translated_string") or item.get("translation") or item.get("target")
+                    if original and translated:
+                        normalized[str(original)] = str(translated)
+            if normalized:
+                return normalized
+        if all(isinstance(v, str) for v in parsed.values()):
+            return {str(k): str(v) for k, v in parsed.items()}
+
+    if isinstance(parsed, list):
+        normalized: dict[str, str] = {}
+        for item in parsed:
+            if isinstance(item, dict):
+                original = item.get("original_string") or item.get("source") or item.get("english")
+                translated = item.get("translated_string") or item.get("translation") or item.get("target")
+                if original and translated:
+                    normalized[str(original)] = str(translated)
+        if normalized:
+            return normalized
+
+    # Sarvam can return comma-separated JSON objects without surrounding brackets.
+    wrapped = f"[{cleaned}]" if not cleaned.lstrip().startswith("[") else cleaned
+    parsed_list = json.loads(wrapped)
+    normalized: dict[str, str] = {}
+    for item in parsed_list:
+        if isinstance(item, dict):
+            original = item.get("original_string") or item.get("source") or item.get("english")
+            translated = item.get("translated_string") or item.get("translation") or item.get("target")
+            if original and translated:
+                normalized[str(original)] = str(translated)
+    return normalized
+
+def _get_translation_params(lang_code: str, model: Optional[str]):
+    """Pick the translation model and user-facing language name."""
+    indian_langs = {"hi", "ta", "te", "kn", "ml", "mr", "gu", "bn", "or", "pa", "as", "ur"}
+    llm_model = model or ("SARVAM" if lang_code in indian_langs else "OPENAI_GPT_5_2")
+    llm, _, _ = get_llm(llm_model)
+    lang_name = LANG_NAMES.get(lang_code, lang_code)
     return llm, lang_name
 
 
@@ -138,7 +158,7 @@ async def _llm_translate_batch(texts: list[str], lang_code: str, model: Optional
         ]
         async with llm_semaphore:
             response = await llm.ainvoke(messages)
-            return json.loads(_clean_llm_response(response.content))
+            return _parse_batch_translation_response(response.content)
     except Exception as e:
         logger.error(f"LLM batch translation critical failure for {len(texts)} texts → {lang_code}: {str(e)}", exc_info=True)
         return {}
@@ -207,7 +227,18 @@ async def translate_ui_batch(req: TranslateBatchRequest, db: Session = Depends(g
     
     if misses:
         logger.info(f"Translating {len(misses)} UI strings via LLM to {req.lang}")
-        new_translations = await _llm_translate_batch(misses, req.lang)
+        new_translations: dict[str, str] = {}
+        batch_size = 12
+        for index in range(0, len(misses), batch_size):
+            chunk = misses[index:index + batch_size]
+            chunk_translations = await _llm_translate_batch(chunk, req.lang)
+            if not chunk_translations:
+                logger.warning(f"Batch chunk failed for {req.lang}; falling back to single-string translation for {len(chunk)} items")
+                for text in chunk:
+                    translated = await _llm_translate(text, req.lang)
+                    if translated:
+                        chunk_translations[text] = translated
+            new_translations.update(chunk_translations)
         
         # 3. Save new ones to DB
         if new_translations:
