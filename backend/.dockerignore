@@ -1,1 +1,9 @@
 .secrets.vault
+.vault.key
+*.pem
+*.key
+.env
+.env.*
+*credentials*.json
+*service-account*.json
+client_secret_*.json
