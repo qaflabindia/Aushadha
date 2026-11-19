@@ -35,6 +35,8 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_BACKEND_API_URL=http://localhost:8000
+        - VITE_LLM_MODELS=${VITE_LLM_MODELS:-gemini_2.0_flash,gemini_2.5_flash,gemini_2.5_pro,openai_gpt_5_mini,diffbot}
+        - VITE_LLM_MODELS_PROD=${VITE_LLM_MODELS_PROD:-gemini_2.0_flash,gemini_2.5_flash,openai_gpt_5_mini,diffbot}
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-256164019269-o0174fcoksuls9hf9b9nkto42fc1c649.apps.googleusercontent.com}
     container_name: frontend
     ports:
