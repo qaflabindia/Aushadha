@@ -232,7 +232,6 @@ google-cloud-cli-469.0.0-linux-x86_64.tar.gz
 /backend/*/merged_files
 /backend/*/chunks
 google-cloud-cli-linux-x86_64.tar.gz
-.vennv
 newenv
 files
 startupbackend.sh
@@ -245,3 +244,35 @@ frontend.zip
 
 backend/.secrets.vault
 backend/.vault.key
+
+# --- Added by origin/main repository cleanup ---
+*.safetensors
+*.bin
+data/models/
+backend/local_model/
+.env*
+*.env*
+*vault*
+*secrets*
+client_secret_*.json
+*.pdf*
+*.docx*
+*@gmail.com*
+experiments/
+POC_Documents/
+POC_Experiments/
+Annexure III- Section 2-Draft.docx
+PT-AP-SANTHO/
+sln2737@gmail.com/
+root.parent@gmail.com/
+Thumbs.db
+node_modules/
+*.pyc
+*.pyo
+.claude/
+.gemini/
+.antigravity/
+frontend/dist/
+frontend/node_modules/
+backend/venv/
+backend/__pycache__/
