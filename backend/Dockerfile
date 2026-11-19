@@ -24,14 +24,12 @@ ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 COPY requirements.txt constraints.txt /code/
 # --no-cache-dir --upgrade 
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+# CPU-only PyTorch (no NVIDIA CUDA libraries); pinned so requirements.txt keeps it
+RUN pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision && \
+   pip freeze | grep -iE '^(torch|torchvision)==' > /tmp/torch-cpu.txt
+RUN pip install -r requirements.txt -c /tmp/torch-cpu.txt
 
-RUN python -c "from transformers import AutoTokenizer, AutoModel; \
-   name='sentence-transformers/all-MiniLM-L6-v2'; \
-   tok=AutoTokenizer.from_pretrained(name); \
-   mod=AutoModel.from_pretrained(name); \
-   tok.save_pretrained('./local_model'); \
-   mod.save_pretrained('./local_model')"
+# Embeddings use Vertex AI (EMBEDDING_MODEL=vertexai); no local MiniLM model is downloaded
 
 RUN python -m nltk.downloader -d /usr/local/nltk_data punkt
 RUN python -m nltk.downloader -d /usr/local/nltk_data averaged_perceptron_tagger

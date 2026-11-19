@@ -7,3 +7,4 @@
 *credentials*.json
 *service-account*.json
 client_secret_*.json
+local_model/
