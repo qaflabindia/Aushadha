@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -40,7 +40,7 @@ services:
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-256164019269-o0174fcoksuls9hf9b9nkto42fc1c649.apps.googleusercontent.com}
     container_name: frontend
     ports:
-      - "8080:8080"
+      - "${FRONTEND_PORT:-8080}:8080"
     depends_on:
       - backend
     networks:
@@ -75,7 +75,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     networks:
       - net
 
