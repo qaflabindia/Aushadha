@@ -54,7 +54,7 @@ sentence-transformers
 google-cloud-logging
 pypandoc
 graphdatascience
-Secweb
+Secweb==1.30.10
 ragas
 rouge_score
 langchain-neo4j
