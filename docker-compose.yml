@@ -20,6 +20,10 @@ services:
       # Google Cloud: use the host's Application Default Credentials (gcloud auth application-default login)
       - GOOGLE_APPLICATION_CREDENTIALS=/secrets/gcp/application_default_credentials.json
       - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID:-maharishifacts-d04a7}
+      # Google Sign-In: backend must verify tokens for the same OAuth client the frontend uses
+      - GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-256164019269-o0174fcoksuls9hf9b9nkto42fc1c649.apps.googleusercontent.com}
+      # CORS: allow the frontend's published origin
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-8080},http://127.0.0.1:${FRONTEND_PORT:-8080}}
     depends_on:
       - postgres
       - neo4j
