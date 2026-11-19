@@ -17,6 +17,9 @@ services:
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
       - NEO4J_DATABASE=neo4j
       - SESSION_SECRET=${SESSION_SECRET}
+      # Google Cloud: use the host's Application Default Credentials (gcloud auth application-default login)
+      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/gcp/application_default_credentials.json
+      - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID:-maharishifacts-d04a7}
     depends_on:
       - postgres
       - neo4j
@@ -24,6 +27,7 @@ services:
       - net
     volumes:
       - ./backend:/code
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/secrets/gcp/application_default_credentials.json:ro
 
   frontend:
     build:
