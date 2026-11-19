@@ -15,6 +15,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import axios from 'axios';
 import { PremiumDropdown } from '../UI/PremiumDropdown';
 import { RiLockLine, RiDeleteBinLine } from 'react-icons/ri';
+import { SUPPORTED_LANGUAGES } from '../../context/LangTypes';
 
 interface UserRecord {
   id: number;
@@ -45,6 +46,8 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
   const [newUserCaseId, setNewUserCaseId] = useState('');
 
   const [transStats, setTransStats] = useState<TranslationStat[]>([]);
+  const [seedLanguage, setSeedLanguage] = useState('hi');
+  const [isSeedingTranslations, setIsSeedingTranslations] = useState(false);
 
   const apiBase = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
   const columnHelper = createColumnHelper<UserRecord>();
@@ -157,6 +160,36 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
     } catch (err: any) {
       const detail = err?.response?.data?.detail || `Failed to delete user ${user.email}`;
       setAlert({ type: 'danger', message: detail });
+    }
+  };
+
+  const handleSeedTranslations = async () => {
+    setIsSeedingTranslations(true);
+    try {
+      const headers = getAuthHeaders();
+      const response = await axios.post(`${apiBase}/translate/ui/seed?lang=${encodeURIComponent(seedLanguage)}`, null, {
+        headers,
+        timeout: 300000,
+      });
+
+      const seeded = response?.data?.seeded ?? 0;
+      setAlert({
+        type: 'success',
+        message:
+          seeded > 0
+            ? `${t('Translation seeding completed for')} ${seedLanguage.toUpperCase()}: ${seeded} ${t('entries added')}.`
+            : `${t('No new translation entries were needed for')} ${seedLanguage.toUpperCase()}.`,
+      });
+      await fetchData();
+    } catch (err: any) {
+      console.error('Failed to seed translations', err);
+      const detail =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        `${t('Translation seeding failed for')} ${seedLanguage.toUpperCase()}.`;
+      setAlert({ type: 'danger', message: detail });
+    } finally {
+      setIsSeedingTranslations(false);
     }
   };
 
@@ -324,6 +357,28 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
         {t('Translation Management')}
       </Typography>
       <div className='glass-panel p-4 mb-4'>
+        <div className='flex items-end gap-4 mb-4 flex-wrap'>
+          <div style={{ width: '220px' }}>
+            <Typography variant='body-small' className='mb-2 block opacity-70'>
+              {t('Seed Language')}
+            </Typography>
+            <PremiumDropdown
+              value={seedLanguage}
+              options={SUPPORTED_LANGUAGES.filter((lang) => lang.code !== 'en').map((lang) => ({
+                label: `${lang.code.toUpperCase()} - ${lang.nameEn}`,
+                value: lang.code,
+                description: lang.name,
+              }))}
+              onChange={(value: string) => setSeedLanguage(value)}
+            />
+          </div>
+          <Button onClick={handleSeedTranslations} isDisabled={isSeedingTranslations}>
+            {isSeedingTranslations ? t('Seeding...') : t('Seed Translations')}
+          </Button>
+          <Button onClick={() => fetchData()} fill='outlined' isDisabled={isSeedingTranslations}>
+            {t('Refresh Statistics')}
+          </Button>
+        </div>
         <table className='w-full text-left text-sm'>
           <thead>
             <tr className='border-b opacity-60'>

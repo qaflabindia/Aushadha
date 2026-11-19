@@ -58,10 +58,18 @@ def get_llm(model: str):
                 env_value = f"diffbot,{api_key}"
 
         elif "GEMINI" in model:
-            # Gemini often just needs the model name if auth is via separate Google creds, 
-            # but usually users provide GOOGLE_API_KEY. The code expects just "model_name".
-            # We'll default to gemini-pro if not set.
-            env_value = "gemini-1.5-pro-001" 
+            gemini_model_map = {
+                "GEMINI_2_5_FLASH": "gemini-2.5-flash",
+                "GEMINI_2_5_PRO": "gemini-2.5-pro",
+                "GEMINI_1_5_FLASH": "gemini-1.5-flash",
+                "GEMINI_1_5_PRO": "gemini-1.5-pro",
+                "GEMINI_3_FLASH": "gemini-3-flash-preview",
+                "GEMINI_3_FLASH_PREVIEW": "gemini-3-flash-preview",
+            }
+            env_value = gemini_model_map.get(
+                model,
+                model.lower().replace("gemini_", "gemini-").replace("_", "-")
+            ) 
 
         elif "ANTHROPIC" in model:
             api_key = get_value_from_env("ANTHROPIC_API_KEY")
@@ -120,23 +128,54 @@ def get_llm(model: str):
     callback_manager = CallbackManager([callback_handler])
     try:
         if "GEMINI" in model:
-            model_name = env_value
-            credentials, project_id = google.auth.default()
-            llm = ChatVertexAI(
-                model_name=model_name,
-                credentials=credentials,
-                project=project_id,
-                temperature=0,
-                callbacks=callback_manager,
-                safety_settings={
-                    HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                },
+            model_name = env_value.split(",")[0].strip() if "," in env_value else env_value.strip()
+            configured_project = get_value_from_env("PROJECT_ID") or get_value_from_env("GOOGLE_CLOUD_PROJECT") or get_value_from_env("GCP_PROJECT")
+            location = get_value_from_env("GCP_REGION") or get_value_from_env("LOCATION") or "us-central1"
             
-            )
+            credentials = None
+            detected_project = None
+            try:
+                credentials, detected_project = google.auth.default()
+            except Exception as auth_err:
+                logging.warning(f"google.auth.default() notice: {auth_err}")
+                
+            project_id = configured_project or detected_project
+            google_api_key = get_value_from_env("GOOGLE_API_KEY") or get_value_from_env("GEMINI_API_KEY")
+
+            if google_api_key and not credentials:
+                try:
+                    from langchain_google_genai import ChatGoogleGenerativeAI
+                    llm = ChatGoogleGenerativeAI(
+                        model=model_name,
+                        google_api_key=google_api_key,
+                        temperature=0,
+                        callbacks=callback_manager,
+                    )
+                    logging.info(f"Initialized Gemini via ChatGoogleGenerativeAI with model {model_name}")
+                except Exception as genai_err:
+                    logging.warning(f"ChatGoogleGenerativeAI fallback error: {genai_err}")
+
+            if 'llm' not in locals():
+                if not project_id:
+                    raise Exception(
+                        "Google Cloud Project ID could not be determined. Please set PROJECT_ID in your .env file "
+                        "or run 'gcloud config set project <PROJECT_ID>'."
+                    )
+                llm = ChatVertexAI(
+                    model_name=model_name,
+                    credentials=credentials,
+                    project=project_id,
+                    location=location,
+                    temperature=0,
+                    callbacks=callback_manager,
+                    safety_settings={
+                        HarmCategory.HARM_CATEGORY_UNSPECIFIED: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                    },
+                )
         elif "OPENAI" in model:
             parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
             model_name, api_key = parts[0], parts[1]
