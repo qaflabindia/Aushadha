@@ -630,7 +630,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                         <>
                           <span
                             className={clsx('text-[10px] tracking-[0.2em] font-semibold uppercase', {
-                              'text-white/30': colorMode === 'dark',
+                              'text-white/55': colorMode === 'dark',
                               'text-black/40': colorMode === 'light',
                             })}
                           >

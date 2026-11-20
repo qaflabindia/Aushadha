@@ -39,8 +39,6 @@
   letter-spacing: -0.02em;
 }
 
-
-
 /* Action Buttons */
 .ndl-theme-dark .ndl-button-primary,
 .ndl-theme-dark button[class*='primary'] {
@@ -185,19 +183,41 @@
   font-weight: 600 !important;
 }
 
-/* Disabled buttons: muted accent instead of flat grey */
+/* Disabled buttons: muted accent instead of flat grey.
+   Uses the `background` shorthand: the primary-button rules paint a gold gradient as a
+   background image, which a background-color alone cannot cover (gold text on gold). */
 .ndl-theme-light .ndl-btn.ndl-disabled,
-.ndl-theme-light .ndl-btn:disabled {
-  background-color: rgba(140, 109, 44, 0.12) !important;
-  color: rgba(98, 75, 28, 0.55) !important;
+.ndl-theme-light .ndl-btn:disabled,
+.ndl-theme-light button[class*='primary']:disabled {
+  background: rgba(140, 109, 44, 0.12) !important;
+  color: rgba(98, 75, 28, 0.6) !important;
   border-color: transparent !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
 }
 
 .ndl-theme-dark .ndl-btn.ndl-disabled,
-.ndl-theme-dark .ndl-btn:disabled {
-  background-color: rgba(212, 175, 55, 0.1) !important;
-  color: rgba(212, 175, 55, 0.45) !important;
-  border-color: transparent !important;
+.ndl-theme-dark .ndl-btn:disabled,
+.ndl-theme-dark button[class*='primary']:disabled {
+  background: rgba(212, 175, 55, 0.1) !important;
+  color: rgba(232, 217, 168, 0.6) !important;
+  border-color: rgba(212, 175, 55, 0.2) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.ndl-theme-dark .ndl-btn.ndl-disabled svg,
+.ndl-theme-dark .ndl-btn:disabled svg {
+  color: rgba(232, 217, 168, 0.6) !important;
+  fill: rgba(232, 217, 168, 0.6) !important;
+}
+
+/* Icons inside gold primary buttons: the global gold icon colour would vanish on the gold fill */
+.ndl-theme-dark .ndl-button-primary:not(:disabled) svg,
+.ndl-theme-dark button[class*='primary']:not(:disabled) svg {
+  color: #000000 !important;
+  fill: #000000 !important;
 }
 
 /* Main view switcher (File Management / Clinical Intelligence) */

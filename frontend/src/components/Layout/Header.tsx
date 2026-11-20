@@ -63,8 +63,8 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
                 'border-[#D4AF37]/30 text-[#D4AF37] bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.05)]':
                   colorMode === 'dark' && selectedPatient,
                 'border-blue-200 text-blue-600 bg-blue-50': colorMode === 'light' && selectedPatient,
-                'border-white/5 text-white/30': colorMode === 'dark' && !selectedPatient,
-                'border-gray-100 text-gray-400': colorMode === 'light' && !selectedPatient,
+                'border-white/10 text-white/60': colorMode === 'dark' && !selectedPatient,
+                'border-gray-200 text-gray-500': colorMode === 'light' && !selectedPatient,
               }
             )}
           >
@@ -74,7 +74,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
                 <span className='text-[11px]'>{selectedPatient.case_id}</span>
               </>
             ) : (
-              <span className='italic opacity-40 italic'>{t('Context: Not Selected')}</span>
+              <span className='italic'>{t('Context: Not Selected')}</span>
             )}
           </div>
         )}
@@ -100,8 +100,7 @@ const Header: React.FC<HeaderProp> = ({ deleteOnClick: _deleteOnClick }) => {
             />
             <span
               className={clsx('text-[10px] uppercase tracking-[0.25em] font-extrabold transition-all', {
-                'bg-gradient-to-r from-white via-[#D4AF37] to-white bg-clip-text text-transparent group-hover:via-white group-hover:to-[#D4AF37]':
-                  colorMode === 'dark',
+                'text-[#E8D9A8] group-hover:text-[#D4AF37]': colorMode === 'dark',
                 'text-[#1A1A1A] group-hover:text-gray-600': colorMode === 'light',
               })}
             >

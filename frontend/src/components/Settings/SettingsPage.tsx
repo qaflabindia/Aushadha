@@ -626,7 +626,7 @@ const SecuritySection: React.FC = () => {
           ) : (
             <p
               className={clsx('text-xs italic', {
-                'text-white/30': colorMode === 'dark',
+                'text-white/55': colorMode === 'dark',
                 'text-gray-400': colorMode === 'light',
               })}
             >
@@ -651,7 +651,7 @@ const AdminSection: React.FC = () => {
         <SectionHeader title={t('Administration')} />
         <div
           className={clsx('flex flex-col items-center justify-center gap-3 py-20 rounded-2xl border border-dashed', {
-            'border-white/10 text-white/30': colorMode === 'dark',
+            'border-white/10 text-white/55': colorMode === 'dark',
             'border-gray-200 text-gray-400': colorMode === 'light',
           })}
         >
