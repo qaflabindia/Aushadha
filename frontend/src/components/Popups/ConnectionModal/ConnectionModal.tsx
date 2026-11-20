@@ -125,8 +125,17 @@ export default function ConnectionModal({
             }
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching secrets from vault', error);
+        // Say why the fields are empty instead of leaving it to look like the vault has no keys
+        const status = error?.response?.status;
+        let content = t('Could not read the saved connection settings. Enter them below.');
+        if (status === 401) {
+          content = t('Your session has expired. Sign in again to load the saved connection settings.');
+        } else if (status === 403) {
+          content = t('Only an administrator can load the saved connection settings. Enter them below.');
+        }
+        setMessage({ type: 'warning', content });
       }
     };
 

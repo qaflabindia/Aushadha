@@ -83,6 +83,13 @@ class RequireAuthMiddleware:
         scope.setdefault("state", {})["auth_user"] = user
 
         if user is None and scope.get("path", "") not in PUBLIC_PATHS:
+            # Log the refusal (never the token itself) so refused requests show up in the logs
+            logger.warning(
+                "Auth gate refused %s %s: %s",
+                scope.get("method", ""),
+                scope.get("path", ""),
+                "invalid or expired token" if token else "no token",
+            )
             body = json.dumps({"detail": "Authentication required"}).encode()
             await send({
                 "type": "http.response.start",
