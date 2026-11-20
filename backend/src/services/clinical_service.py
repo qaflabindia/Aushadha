@@ -73,7 +73,7 @@ class ClinicalService:
                         condition_name=ehr_data.condition_name,
                         chief_complaint=ehr_data.chief_complaint,
                         red_flag_any=ehr_data.red_flag_any,
-                        red_flag_details=ehr_data.red_flag_details,
+                        red_flag_details=ehr_data.red_flag_list,
                         bp_category=getattr(ehr_data, 'bp_category', 'Unknown')
                     )
                     db.add(visit)
