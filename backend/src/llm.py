@@ -70,6 +70,8 @@ def get_llm(model: str):
                 "GEMINI_1_5_PRO": "gemini-1.5-pro",
                 "GEMINI_3_FLASH": "gemini-3-flash-preview",
                 "GEMINI_3_FLASH_PREVIEW": "gemini-3-flash-preview",
+                "GEMINI_3_1_PRO": "gemini-3.1-pro-preview",
+                "GEMINI_3_1_PRO_PREVIEW": "gemini-3.1-pro-preview",
             }
             env_value = gemini_model_map.get(
                 model,
