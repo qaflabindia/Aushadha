@@ -252,7 +252,7 @@ const PageLayout: React.FC = () => {
       // Fetch backend health status
       try {
         const response = await healthStatus();
-        setIsBackendConnected(response.data.healthy);
+        setIsBackendConnected(Boolean(response.data?.healthy ?? response.data?.database ?? response.status === 200));
       } catch (error) {
         setIsBackendConnected(false);
       }

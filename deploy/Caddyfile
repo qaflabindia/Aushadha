@@ -1,0 +1,30 @@
+# HTTPS front door for the public demo. Certificates come from Let's Encrypt automatically.
+# APP_HOST serves the web app; API_HOST serves the backend API.
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
+		-Server
+	}
+}
+
+{$APP_HOST} {
+	import security_headers
+	header X-Frame-Options "DENY"
+	encode gzip
+	reverse_proxy frontend:8080
+}
+
+{$API_HOST} {
+	import security_headers
+	request_body {
+		max_size 50MB
+	}
+	reverse_proxy backend:8000 {
+		# Status updates are a server-sent event stream: pass each event through at once
+		flush_interval -1
+	}
+}

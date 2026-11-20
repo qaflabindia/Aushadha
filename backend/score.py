@@ -28,7 +28,7 @@ load_dotenv(override=True)
 # ---------------------------------------------------------------------------
 
 def healthy_condition():
-    return {"database": True}
+    return {"healthy": True, "database": True}
 
 def healthy():
     return True
@@ -90,6 +90,11 @@ _allowed_origins = [
     for origin in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
     if origin.strip()
 ]
+# Public deployments: require a signed-in user on every route (REQUIRE_AUTH_ALL=true).
+# Registered before CORS so that it runs inside it (Starlette runs the last-added
+# middleware first): 401 responses still carry CORS headers.
+from src.shared.auth_gate import RequireAuthMiddleware  # noqa: E402
+app.add_middleware(RequireAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,

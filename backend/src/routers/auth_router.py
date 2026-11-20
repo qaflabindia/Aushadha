@@ -92,6 +92,10 @@ async def google_verify(request: Request, db: Session = Depends(get_db)):
             return create_api_response("Failed", message="Invalid Google token")
 
         db_user = db.query(User).filter(User.email == user.email).first()
+        if not db_user and os.getenv("ALLOW_GOOGLE_SIGNUP", "true").strip().lower() not in ("1", "true", "yes"):
+            # Public deployments: only accounts an admin has already added may sign in
+            logger.warning("Google sign-in refused for unregistered account")
+            return create_api_response("Failed", message="This account is not registered. Ask the administrator for access.")
         if not db_user:
             # Auto-provision first-time Google users
             from src.models import Role

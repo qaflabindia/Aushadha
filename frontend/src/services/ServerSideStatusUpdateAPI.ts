@@ -23,6 +23,11 @@ export function triggerStatusUpdateAPI(
   if (userCredentials.userName) {
     params.append('userName', userCredentials.userName);
   }
+  // EventSource cannot set an Authorization header, so the login token goes in the query
+  const authToken = localStorage.getItem('aushadha_auth_token');
+  if (authToken) {
+    params.append('token', authToken);
+  }
   // Password transmission omitted to prevent credential leakage
   const queryString = params.toString();
   const requestUrl = queryString

@@ -7,11 +7,12 @@ import asyncio
 import json
 import re
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.api_response import create_api_response
+from src.shared.auth_gate import REQUIRE_AUTH_ALL
 from src.database import get_db
 from src.llm import get_llm, llm_semaphore
 from src.ui_translations import (
@@ -211,7 +212,7 @@ async def translate_ui_string(req: TranslateSingleRequest, db: Session = Depends
 
 
 @router.post("/ui/batch")
-async def translate_ui_batch(req: TranslateBatchRequest, db: Session = Depends(get_db)):
+async def translate_ui_batch(req: TranslateBatchRequest, request: Request, db: Session = Depends(get_db)):
     """
     Efficient batch translation for UI strings. 
     Returns a mapping of { 'english': 'target' }.
@@ -224,7 +225,12 @@ async def translate_ui_batch(req: TranslateBatchRequest, db: Session = Depends(g
     
     # 2. Identify misses
     misses = [t for t in req.texts if not translated_map.get(t)]
-    
+
+    # Public deployment: anonymous callers get cached translations only, so nobody can
+    # run up LLM costs through this pre-login route
+    if misses and REQUIRE_AUTH_ALL and getattr(request.state, "auth_user", None) is None:
+        misses = []
+
     if misses:
         logger.info(f"Translating {len(misses)} UI strings via LLM to {req.lang}")
         new_translations: dict[str, str] = {}
