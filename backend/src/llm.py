@@ -29,6 +29,42 @@ import asyncio
 # Global semaphore to prevent flooding LLM APIs
 # Gemini Flash usually has high RPM but lower TPU quotas
 llm_semaphore = asyncio.Semaphore(int(os.getenv("MAX_CONCURRENT_LLM_CALLS", "5")))
+
+
+def _as_plain_text(result):
+    """Turn list-of-parts message content into the plain string the rest of the app expects."""
+    for generation in result.generations:
+        message = generation.message
+        if isinstance(message.content, list):
+            text = "".join(
+                part if isinstance(part, str) else part.get("text", "")
+                for part in message.content
+                if isinstance(part, str) or (isinstance(part, dict) and part.get("type") == "text")
+            )
+            generation.message = message.model_copy(update={"content": text})
+            generation.text = text
+    return result
+
+
+class GeminiVertexAI(ChatVertexAI):
+    """ChatVertexAI that always returns string content.
+
+    Gemini 3 models attach a thought signature to each reply, so ChatVertexAI returns the
+    content as a list of parts instead of a string. LLMGraphTransformer and other callers
+    parse content as a string and fail ("the JSON object must be str ... not list").
+    """
+
+    def _generate(self, *args, **kwargs):
+        return _as_plain_text(super()._generate(*args, **kwargs))
+
+    async def _agenerate(self, *args, **kwargs):
+        return _as_plain_text(await super()._agenerate(*args, **kwargs))
+
+    def get_name(self, suffix=None, *, name=None):
+        # Keep reporting as ChatVertexAI: get_graph_document_list picks its settings by this name
+        return super().get_name(suffix, name=name or "ChatVertexAI")
+
+
 import re
 from typing import List
 from langchain_core.callbacks.manager import CallbackManager
@@ -168,7 +204,7 @@ def get_llm(model: str):
                         "Google Cloud Project ID could not be determined. Please set PROJECT_ID in your .env file "
                         "or run 'gcloud config set project <PROJECT_ID>'."
                     )
-                llm = ChatVertexAI(
+                llm = GeminiVertexAI(
                     model_name=model_name,
                     credentials=credentials,
                     project=project_id,
