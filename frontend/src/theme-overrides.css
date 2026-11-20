@@ -210,3 +210,45 @@
   border-bottom: 1px solid rgba(140, 109, 44, 0.12);
   background: rgba(255, 255, 255, 0.55);
 }
+
+/* =====================================================================
+   Dropdown surfaces: blurred but opaque, so menus never mix with the page
+   behind them. Applies to the app's PremiumDropdown (model and language
+   pickers, rendered at the top level of <body>) and to Needle menus,
+   popovers and select lists.
+   ===================================================================== */
+.premium-dropdown-panel--dark,
+.ndl-theme-dark .ndl-menu,
+.ndl-theme-dark .ndl-select-menu,
+.ndl-theme-dark .ndl-popover {
+  background-color: rgba(12, 12, 13, 0.96) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.22) !important;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+.premium-dropdown-panel--light,
+.ndl-theme-light .ndl-menu,
+.ndl-theme-light .ndl-select-menu,
+.ndl-theme-light .ndl-popover {
+  background-color: rgba(255, 253, 248, 0.97) !important;
+  backdrop-filter: blur(24px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(140%) !important;
+  border: 1px solid rgba(140, 109, 44, 0.2) !important;
+  box-shadow:
+    0 20px 48px rgba(60, 45, 10, 0.16),
+    0 2px 6px rgba(60, 45, 10, 0.06) !important;
+}
+
+/* Menu rows: clear hover and selected states on the opaque surface */
+.ndl-theme-light .ndl-menu .ndl-menu-item:hover,
+.ndl-theme-light .ndl-select-option:hover {
+  background-color: rgba(140, 109, 44, 0.07) !important;
+}
+
+.ndl-theme-dark .ndl-select-option:hover {
+  background-color: rgba(212, 175, 55, 0.08) !important;
+}

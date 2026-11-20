@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { RiArrowDownSLine, RiCheckLine } from 'react-icons/ri';
@@ -36,31 +37,65 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
   const t = useTranslate();
   const [isOpen, setIsOpen] = useState(false);
   const [dropUp, setDropUp] = useState(false);
+  const [panelPos, setPanelPos] = useState<{ left: number; width: number; top?: number; bottom?: number }>({
+    left: 0,
+    width: 0,
+  });
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
 
-  React.useLayoutEffect(() => {
-    if (isOpen && menuRef.current) {
-      const rect = menuRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      // If the dropdown is in the bottom 40% of the screen, drop up
-      if (rect.bottom > viewportHeight * 0.6) {
-        setDropUp(true);
-      } else {
-        setDropUp(false);
-      }
+  // The panel is rendered at the end of <body> so it sits above every glass panel and
+  // gets its own backdrop blur; position it against the trigger in viewport coordinates.
+  const placePanel = useCallback(() => {
+    if (!menuRef.current) {
+      return;
     }
-  }, [isOpen]);
+    const rect = menuRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    // If the trigger is in the bottom 40% of the screen, open upwards
+    const up = rect.bottom > viewportHeight * 0.6;
+    setDropUp(up);
+    setPanelPos(
+      up
+        ? { left: rect.left, width: rect.width, bottom: viewportHeight - rect.top + 8 }
+        : { left: rect.left, width: rect.width, top: rect.bottom + 8 }
+    );
+  }, []);
+
+  React.useLayoutEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    placePanel();
+    window.addEventListener('resize', placePanel);
+    window.addEventListener('scroll', placePanel, true);
+    return () => {
+      window.removeEventListener('resize', placePanel);
+      window.removeEventListener('scroll', placePanel, true);
+    };
+  }, [isOpen, placePanel]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) || panelRef.current?.contains(target)) {
+        return;
+      }
+      setIsOpen(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   return (
@@ -79,9 +114,9 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
             'border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.15)]': colorMode === 'dark' && isOpen,
 
             // Light Mode Glass
-            '!bg-white/70 !backdrop-blur-2xl border-gray-200 text-gray-900 hover:border-blue-400 shadow-md':
+            '!bg-white/70 !backdrop-blur-2xl border-[#9A7B2F]/20 text-[#1C1B19] hover:border-[#9A7B2F]/50 shadow-md':
               colorMode === 'light' && !disabled,
-            'border-blue-500 ring-2 ring-blue-500/20': colorMode === 'light' && isOpen,
+            '!border-[#8C6D2C] ring-2 ring-[#8C6D2C]/15': colorMode === 'light' && isOpen,
           }
         )}
       >
@@ -90,7 +125,7 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
             <span
               className={clsx('transition-colors', {
                 'text-[#D4AF37]': colorMode === 'dark',
-                'text-blue-600': colorMode === 'light',
+                'text-[#8C6D2C]': colorMode === 'light',
               })}
             >
               {icon}
@@ -115,91 +150,102 @@ export const PremiumDropdown: React.FC<PremiumDropdownProps> = ({
         />
       </button>
 
-      {isOpen && (
-        <div
-          className={clsx(
-            'absolute z-[1100] w-full rounded-xl border shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-inc-scale overflow-hidden',
-            dropUp ? 'bottom-full mb-2 origin-bottom' : 'top-full mt-2 origin-top',
-            {
-              '!bg-black/70 !backdrop-blur-2xl border-white/20': colorMode === 'dark',
-              '!bg-white/70 !backdrop-blur-2xl border-gray-200 shadow-2xl': colorMode === 'light',
-            }
-          )}
-        >
-          <div className='max-h-[300px] overflow-y-auto premium-scrollbar p-1.5'>
-            {options.map((opt) => {
-              const isSelected = value === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type='button'
-                  onClick={() => {
-                    onChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={clsx(
-                    'w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group',
-                    {
-                      // Dark Mode variations
-                      'bg-white/5 border border-white/5': colorMode === 'dark' && isSelected,
-                      'hover:bg-white/5': colorMode === 'dark' && !isSelected,
+      {isOpen &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role='listbox'
+            style={{
+              position: 'fixed',
+              left: panelPos.left,
+              width: panelPos.width,
+              top: panelPos.top,
+              bottom: panelPos.bottom,
+            }}
+            className={clsx(
+              'premium-dropdown-panel z-[1100] rounded-xl border animate-inc-scale overflow-hidden',
+              dropUp ? 'origin-bottom' : 'origin-top',
+              {
+                'premium-dropdown-panel--dark': colorMode === 'dark',
+                'premium-dropdown-panel--light': colorMode === 'light',
+              }
+            )}
+          >
+            <div className='max-h-[300px] overflow-y-auto premium-scrollbar p-1.5'>
+              {options.map((opt) => {
+                const isSelected = value === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type='button'
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={clsx(
+                      'w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group',
+                      {
+                        // Dark Mode variations
+                        'bg-white/5 border border-white/5': colorMode === 'dark' && isSelected,
+                        'hover:bg-white/5': colorMode === 'dark' && !isSelected,
 
-                      // Light Mode variations
-                      'bg-blue-50/80 border border-blue-100': colorMode === 'light' && isSelected,
-                      'hover:bg-gray-50': colorMode === 'light' && !isSelected,
-                    }
-                  )}
-                >
-                  <div className='flex items-center gap-3 overflow-hidden'>
-                    {opt.icon && (
-                      <span
-                        className={clsx('flex-shrink-0 opacity-70 transition-opacity group-hover:opacity-100', {
-                          'text-[#D4AF37]': colorMode === 'dark',
-                          'text-blue-600': colorMode === 'light',
-                        })}
-                      >
-                        {opt.icon}
-                      </span>
+                        // Light Mode variations
+                        'bg-[#8C6D2C]/[0.08] border border-[#8C6D2C]/15': colorMode === 'light' && isSelected,
+                        'hover:bg-[#8C6D2C]/[0.05]': colorMode === 'light' && !isSelected,
+                      }
                     )}
-                    <div className='flex flex-col truncate'>
-                      <span
-                        className={clsx('text-sm font-medium transition-colors', {
-                          'text-white': colorMode === 'dark' && isSelected,
-                          'text-white/70 group-hover:text-white': colorMode === 'dark' && !isSelected,
-
-                          'text-blue-900': colorMode === 'light' && isSelected,
-                          'text-gray-700 group-hover:text-gray-900': colorMode === 'light' && !isSelected,
-                        })}
-                      >
-                        {opt.label}
-                      </span>
-                      {opt.description && (
+                  >
+                    <div className='flex items-center gap-3 overflow-hidden'>
+                      {opt.icon && (
                         <span
-                          className={clsx('text-xs mt-0.5 truncate', {
-                            'text-white/40': colorMode === 'dark',
-                            'text-gray-500': colorMode === 'light',
+                          className={clsx('flex-shrink-0 opacity-70 transition-opacity group-hover:opacity-100', {
+                            'text-[#D4AF37]': colorMode === 'dark',
+                            'text-[#8C6D2C]': colorMode === 'light',
                           })}
                         >
-                          {opt.description}
+                          {opt.icon}
                         </span>
                       )}
-                    </div>
-                  </div>
+                      <div className='flex flex-col truncate'>
+                        <span
+                          className={clsx('text-sm font-medium transition-colors', {
+                            'text-white': colorMode === 'dark' && isSelected,
+                            'text-white/70 group-hover:text-white': colorMode === 'dark' && !isSelected,
 
-                  {isSelected && (
-                    <RiCheckLine
-                      className={clsx('w-5 h-5 flex-shrink-0 ml-3', {
-                        'text-[#D4AF37]': colorMode === 'dark',
-                        'text-blue-600': colorMode === 'light',
-                      })}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                            'text-[#3B2F14] font-semibold': colorMode === 'light' && isSelected,
+                            'text-[#1C1B19]/75 group-hover:text-[#1C1B19]': colorMode === 'light' && !isSelected,
+                          })}
+                        >
+                          {opt.label}
+                        </span>
+                        {opt.description && (
+                          <span
+                            className={clsx('text-xs mt-0.5 truncate', {
+                              'text-white/40': colorMode === 'dark',
+                              'text-[#5C5446]': colorMode === 'light',
+                            })}
+                          >
+                            {opt.description}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {isSelected && (
+                      <RiCheckLine
+                        className={clsx('w-5 h-5 flex-shrink-0 ml-3', {
+                          'text-[#D4AF37]': colorMode === 'dark',
+                          'text-[#8C6D2C]': colorMode === 'light',
+                        })}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
