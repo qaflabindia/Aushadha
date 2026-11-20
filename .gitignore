@@ -128,6 +128,10 @@ celerybeat.pid
 .env
 .env.*
 !.env.example
+# Plain-text key lists (e.g. keys.md in the repo root) must never be committed
+keys.md
+*-keys.md
+secrets.md
 *.env.local
 backend/.env
 frontend/.env

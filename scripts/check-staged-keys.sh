@@ -8,7 +8,7 @@ staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
 # 1. File names that must never be committed.
 blocked_names=$(printf '%s\n' "$staged" | grep -iE \
-  '(^|/)(\.env|\.env\..*|.*\.env|.*\.pem|.*\.key|.*\.p12|.*\.pfx|id_rsa|id_ed25519|\.vault\.key|.*\.vault|credentials\.json|token\.json|secrets\.(json|ya?ml)|client_secret_.*\.json|.*service-account.*\.json|.*sa-key.*\.json|.*-credentials\.json)$' \
+  '(^|/)(\.env|\.env\..*|.*\.env|.*\.pem|.*\.key|.*\.p12|.*\.pfx|id_rsa|id_ed25519|\.vault\.key|.*\.vault|credentials\.json|token\.json|secrets\.(json|ya?ml)|client_secret_.*\.json|.*service-account.*\.json|.*sa-key.*\.json|.*-credentials\.json|keys\.md|.*-keys\.md|secrets\.md)$' \
   | grep -viE '(^|/)(example\.env|\.env\.example)$')
 if [ -n "$blocked_names" ]; then
   echo "BLOCKED: these files hold keys or credentials and must not be committed:" >&2
@@ -17,7 +17,7 @@ if [ -n "$blocked_names" ]; then
 fi
 
 # 2. Secrets pasted into any staged text file.
-pattern='-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}|sk-(proj-|ant-)?[A-Za-z0-9_-]{32,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,}'
+pattern='-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}|sk-(proj-|ant-)?[A-Za-z0-9_-]{32,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,}|AQ\.[A-Za-z0-9_-]{40,}|hf_[A-Za-z0-9]{30,}|rzp_(live|test)_[A-Za-z0-9]{10,}|sk_[A-Za-z0-9_]{30,}'
 hits=$(printf '%s\n' "$staged" | while IFS= read -r f; do
   [ -n "$f" ] || continue
   [ "$f" = "scripts/check-staged-keys.sh" ] && continue
