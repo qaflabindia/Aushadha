@@ -55,8 +55,9 @@ export default function ConnectionModal({
   const [protocol, setProtocol] = useState<string>(initialprotocol ?? 'neo4j+s');
   const [URI, setURI] = useState<string>(initialuri ?? '');
   const [port, setPort] = useState<string>(initialport ?? '7687');
-  const [database, setDatabase] = useState<string>(initialdb ?? 'db');
-  const [username, setUsername] = useState<string>(initialusername ?? 'db_user');
+  // Start empty: 'db' and 'db_user' are only placeholders, never values to submit or save
+  const [database, setDatabase] = useState<string>(initialdb ?? '');
+  const [username, setUsername] = useState<string>(initialusername ?? '');
   const [password, setPassword] = useState<string>('');
   const [saveToVault, setSaveToVault] = useState<boolean>(true);
   const [connectionMessage, setMessage] = useState<Message | null>({ type: 'unknown', content: '' });
@@ -266,9 +267,9 @@ export default function ConnectionModal({
             return acc;
           }, {});
           parseAndSetURI(configObject.NEO4J_URI);
-          setUsername(configObject.NEO4J_USERNAME ?? 'db_user');
+          setUsername(configObject.NEO4J_USERNAME ?? '');
           setPassword(configObject.NEO4J_PASSWORD ?? '');
-          setDatabase(configObject.NEO4J_DATABASE ?? 'db');
+          setDatabase(configObject.NEO4J_DATABASE ?? '');
           setPort(configObject.NEO4J_PORT ?? '7687');
         } else {
           setMessage({ type: 'danger', content: 'Please drop a valid file' });
@@ -295,24 +296,24 @@ export default function ConnectionModal({
     createDefaultFormData(credential);
     setIsLoading(true);
 
-    // Save to vault independently of connection outcome if checkbox is checked
-    if (saveToVault) {
-      try {
-        await saveSecret('NEO4J_URI', connectionURI);
-        await saveSecret('NEO4J_USERNAME', username);
-        await saveSecret('NEO4J_PASSWORD', password);
-        await saveSecret('NEO4J_DATABASE', database);
-      } catch (vaultErr) {
-        console.error('Failed to save to vault', vaultErr);
-      }
-    }
-
     try {
       const response = await connectAPI(credential);
       setIsLoading(false);
       if (response?.data?.status !== 'Success') {
         throw new Error(response.data.error);
       } else {
+        // Save to the vault only after Neo4j accepted these credentials, so a failed
+        // attempt can never overwrite working ones
+        if (saveToVault) {
+          try {
+            await saveSecret('NEO4J_URI', connectionURI);
+            await saveSecret('NEO4J_USERNAME', username);
+            await saveSecret('NEO4J_PASSWORD', password);
+            await saveSecret('NEO4J_DATABASE', database || 'neo4j');
+          } catch (vaultErr) {
+            console.error('Failed to save to vault', vaultErr);
+          }
+        }
         const isgdsActive = response.data.data.gds_status;
         const isReadOnlyUser = !response.data.data.write_access;
         const isGCSActive = response.data.data.gcs_file_cache === 'True';

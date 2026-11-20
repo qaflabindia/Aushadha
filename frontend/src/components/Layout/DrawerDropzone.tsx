@@ -90,7 +90,9 @@ const DrawerDropzone: React.FC<DrawerProps> = ({
                   <div className='mx-6 flex items-center justify-between pb-6'>
                     <Typography variant='body-medium' className='flex items-center gap-2 text-orange-400 font-bold'>
                       <StatusIndicator type='warning' />
-                      <span>{t('Please select a patient context in Settings to enable uploads')}</span>
+                      <span>
+                        {t('Select a patient from the Context menu at the top of the page to enable uploads')}
+                      </span>
                     </Typography>
                   </div>
                 )}
