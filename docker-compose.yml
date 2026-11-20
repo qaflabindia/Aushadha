@@ -17,6 +17,8 @@ services:
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
       - NEO4J_DATABASE=neo4j
       - SESSION_SECRET=${SESSION_SECRET}
+      # Ollama chat models: off unless INCLUDE_OLLAMA=yes
+      - INCLUDE_OLLAMA=${INCLUDE_OLLAMA:-no}
       # Google Cloud: use the host's Application Default Credentials (gcloud auth application-default login)
       - GOOGLE_APPLICATION_CREDENTIALS=/secrets/gcp/application_default_credentials.json
       - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID:-maharishifacts-d04a7}
