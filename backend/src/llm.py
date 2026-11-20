@@ -81,8 +81,8 @@ def get_llm(model: str):
             if api_key:
                 # Map frontend model identifiers to Anthropic API model names
                 anthropic_model_map = {
-                    "ANTHROPIC_CLAUDE_4_5_SONNET": "claude-sonnet-4-20250514",
-                    "ANTHROPIC_CLAUDE_4_5_HAIKU": "claude-haiku-4-20250514",
+                    "ANTHROPIC_CLAUDE_4_5_SONNET": "claude-sonnet-4-5-20250929",
+                    "ANTHROPIC_CLAUDE_4_5_HAIKU": "claude-haiku-4-5-20251001",
                     "ANTHROPIC_CLAUDE_4_OPUS": "claude-opus-4-20250514",
                     "ANTHROPIC_CLAUDE_3_5_SONNET": "claude-3-5-sonnet-20241022",
                 }
@@ -253,6 +253,13 @@ def get_llm(model: str):
         elif "LOCAL" in model or "SARVAM" in model:
             parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
             model_name, base_url, api_key = parts[0], parts[1], parts[2]
+            extra = {}
+            if "api.sarvam.ai" in base_url:
+                # sarvam-105b reasons before answering and defaults to 2048 output tokens, which a
+                # batch of UI strings can spend on reasoning alone, returning no text. Sarvam reads
+                # max_tokens but ignores the max_completion_tokens field LangChain sends, so pass it
+                # in the request body.
+                extra = {"reasoning_effort": "low", "extra_body": {"max_tokens": 16384}}
             llm = ChatOpenAI(
                 api_key=api_key,
                 base_url=base_url,
@@ -260,6 +267,7 @@ def get_llm(model: str):
                 temperature=0,
                 timeout=300,
                 callbacks=callback_manager,
+                **extra,
             )
         
         elif "SARVAM_LOCAL_2B" in model:
