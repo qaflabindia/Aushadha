@@ -120,6 +120,19 @@ for _ in $(seq 1 60); do
   sleep 5
 done
 
+log "Waiting for Neo4j"
+# First boot downloads the Neo4j plugins, which can take a few minutes
+for _ in $(seq 1 60); do
+  if docker exec backend python -c "
+from neo4j import GraphDatabase
+from src.shared.env_utils import get_value_from_env as v
+d = GraphDatabase.driver(v('NEO4J_URI'), auth=(v('NEO4J_USERNAME'), v('NEO4J_PASSWORD'))); d.verify_connectivity()
+" 2>/dev/null; then
+    echo "neo4j ready"; break
+  fi
+  sleep 5
+done
+
 log "Seeding accounts"
 docker exec -i -w /code -e ADMIN_EMAIL backend python - < deploy/seed_demo.py > /root/aushadha-logins.txt
 chmod 600 /root/aushadha-logins.txt

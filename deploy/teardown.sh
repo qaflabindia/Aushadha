@@ -5,8 +5,8 @@
 set -uo pipefail
 
 PROJECT=${PROJECT:-$(gcloud config get-value project 2>/dev/null)}
-REGION=${REGION:-asia-south1}
-ZONE=${ZONE:-asia-south1-a}
+REGION=${REGION:-asia-southeast1}
+ZONE=${ZONE:-asia-southeast1-b}
 NAME=${NAME:-aushadha-demo}
 SA="$NAME-vm@$PROJECT.iam.gserviceaccount.com"
 G=(gcloud --project "$PROJECT" --quiet)

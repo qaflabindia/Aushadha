@@ -17,8 +17,8 @@
 set -euo pipefail
 
 PROJECT=${PROJECT:-$(gcloud config get-value project 2>/dev/null)}
-REGION=${REGION:-asia-south1}
-ZONE=${ZONE:-asia-south1-a}
+REGION=${REGION:-asia-southeast1}
+ZONE=${ZONE:-asia-southeast1-b}
 NAME=${NAME:-aushadha-demo}
 MACHINE=${MACHINE:-e2-standard-4}
 DISK_GB=${DISK_GB:-60}
@@ -64,8 +64,8 @@ log "Static IP"
 exists "${G[@]}" compute addresses describe "$IP_NAME" --region "$REGION" ||
   "${G[@]}" compute addresses create "$IP_NAME" --region "$REGION"
 IP=$("${G[@]}" compute addresses describe "$IP_NAME" --region "$REGION" --format 'value(address)')
-APP_HOST="app.${IP//./-}.sslip.io"
-API_HOST="api.${IP//./-}.sslip.io"
+APP_HOST=${APP_HOST:-"app.${IP//./-}.sslip.io"}
+API_HOST=${API_HOST:-"api.${IP//./-}.sslip.io"}
 echo "$IP -> https://$APP_HOST"
 
 log "Service account"

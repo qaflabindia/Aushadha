@@ -272,3 +272,33 @@
 .ndl-theme-dark .ndl-select-option:hover {
   background-color: rgba(212, 175, 55, 0.08) !important;
 }
+
+/* =====================================================================
+   Guided-tour Spotlight: a popover whose text is designed for a strong
+   background. The popover rules above repaint its background, which left
+   white text on cream (light) and dark text on black (dark). Give it the
+   app's dark surface with ivory text in both themes.
+   ===================================================================== */
+.ndl-theme-light .ndl-spotlight,
+.ndl-theme-dark .ndl-spotlight {
+  --theme-palette-discovery-bg-strong: 12 12 13;
+  --theme-palette-discovery-border-strong: 212 175 55;
+  --theme-palette-neutral-text-inverse: 245 241 230;
+  background-color: rgb(12 12 13) !important;
+  border: 1px solid rgba(212, 175, 55, 0.45) !important;
+  color: rgb(245 241 230) !important;
+}
+
+.ndl-theme-light .ndl-spotlight .ndl-spotlight-header,
+.ndl-theme-dark .ndl-spotlight .ndl-spotlight-header,
+.ndl-theme-light .ndl-spotlight .ndl-spotlight-body,
+.ndl-theme-dark .ndl-spotlight .ndl-spotlight-body,
+.ndl-theme-light .ndl-spotlight .ndl-spotlight-label,
+.ndl-theme-dark .ndl-spotlight .ndl-spotlight-label {
+  color: rgb(245 241 230) !important;
+}
+
+.ndl-theme-light .ndl-spotlight .ndl-spotlight-header,
+.ndl-theme-dark .ndl-spotlight .ndl-spotlight-header {
+  color: rgb(212 175 55) !important;
+}
