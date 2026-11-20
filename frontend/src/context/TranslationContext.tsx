@@ -9,6 +9,7 @@
  */
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, FC } from 'react';
 import { useLanguage } from './LanguageContext';
+import { resolveLabel } from '../utils/labels';
 
 // ─── Context types ────────────────────────────────────────────────────────────
 
@@ -124,12 +125,14 @@ export const TranslationProvider: FC<{ children: React.ReactNode }> = ({ childre
   }, [language.code, knownStrings]);
 
   const t = useCallback(
-    (english: string): string => {
+    (key: string): string => {
+      // camelCase UI keys (e.g. "fileManagement") map to their English label first
+      const english = resolveLabel(key);
       const lang = language.code;
       if (lang === 'en') {
         return english;
       }
-      const translated = cacheRef.current[lang]?.[english];
+      const translated = cacheRef.current[lang]?.[english] ?? cacheRef.current[lang]?.[key];
       return translated || english; // English fallback
     },
     [language.code, cacheVersion]

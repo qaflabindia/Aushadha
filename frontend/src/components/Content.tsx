@@ -995,7 +995,7 @@ const Content: React.FC<ContentProps> = ({
       />
       <div className={`main-content-wrapper flex flex-col`}>
         {/* Prominent Tab Switcher */}
-        <div className='flex items-center justify-center p-4 bg-black/40 border-b border-white/5'>
+        <div className='content-tabbar flex items-center justify-center p-4'>
           <div className='glass-panel p-1 flex gap-2'>
             <Button
               onClick={() => setViewPoint('tableView')}

@@ -7,47 +7,41 @@ export const ThemeWrapperContext = createContext({
 interface ThemeWrapperProps {
   children: ReactNode;
 }
+
+const themeBodyInjection = (mode: 'light' | 'dark') => {
+  document.body.classList.toggle('ndl-theme-dark', mode === 'dark');
+  document.body.classList.toggle('ndl-theme-light', mode === 'light');
+  // Native controls (scrollbars, form fields) follow the active theme too
+  document.documentElement.style.colorScheme = mode;
+};
+
 const ThemeWrapper = ({ children }: ThemeWrapperProps) => {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-  const defaultMode = localStorage.getItem('mode') as 'light' | 'dark';
-  const [mode, setMode] = useState<'light' | 'dark'>(defaultMode ?? (prefersDarkMode ? 'dark' : 'light'));
-  const [usingPreferredMode, setUsingPreferredMode] = useState<boolean>(!defaultMode);
+  // A stored choice wins; with none, the app follows the system theme and keeps following it
+  const [storedMode, setStoredMode] = useState<'light' | 'dark' | null>(
+    () => localStorage.getItem('mode') as 'light' | 'dark' | null
+  );
+  const mode: 'light' | 'dark' = storedMode ?? (prefersDarkMode ? 'dark' : 'light');
 
   useEffect(() => {
-    // Ensure the body class is updated on initial load
     themeBodyInjection(mode);
   }, [mode]);
+
   const themeWrapperUtils = useMemo(
     () => ({
       colorMode: mode,
       toggleColorMode: () => {
-        setMode((prevMode) => {
-          const newMode = prevMode === 'light' ? 'dark' : 'light';
-          setUsingPreferredMode(false);
-          localStorage.setItem('mode', newMode);
-          themeBodyInjection(newMode);
-          return newMode;
-        });
+        const newMode = mode === 'light' ? 'dark' : 'light';
+        localStorage.setItem('mode', newMode);
+        setStoredMode(newMode);
       },
     }),
     [mode]
   );
-  const themeBodyInjection = (mode: string) => {
-    if (mode === 'dark') {
-      document.body.classList.add('ndl-theme-dark');
-      document.body.classList.remove('ndl-theme-light');
-    } else {
-      document.body.classList.add('ndl-theme-light');
-      document.body.classList.remove('ndl-theme-dark');
-    }
-  };
 
-  if (usingPreferredMode) {
-    prefersDarkMode ? themeBodyInjection('dark') : themeBodyInjection('light');
-  }
   return (
     <ThemeWrapperContext.Provider value={themeWrapperUtils}>
-      <NeedleThemeProvider theme={mode as 'light' | 'dark' | undefined} wrapperProps={{ isWrappingChildren: false }}>
+      <NeedleThemeProvider theme={mode} wrapperProps={{ isWrappingChildren: false }}>
         {children}
       </NeedleThemeProvider>
     </ThemeWrapperContext.Provider>

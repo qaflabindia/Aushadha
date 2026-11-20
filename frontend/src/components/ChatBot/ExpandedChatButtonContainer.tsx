@@ -36,17 +36,15 @@ const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
   return (
     <>
       <a ref={downloadLinkRef} className='hidden' />
+      {/* Compact action row shown in the chat header */}
       <div
-        className={clsx(
-          'w-14 min-w-[56px] flex flex-col items-center py-4 gap-4 transition-all duration-700 glass-luxe z-30',
-          {
-            'bg-[#080808]/60 border-l border-white/10': colorMode === 'dark',
-            'bg-white/60 border-l border-gray-200': colorMode === 'light',
-          }
-        )}
+        className={clsx('flex items-center gap-0.5 transition-colors duration-500', {
+          'text-[#D4AF37]/80': colorMode === 'dark',
+          'text-[#5C4A1E]/80': colorMode === 'light',
+        })}
       >
-        <IconButtonWithToolTip text={t('Close')} onClick={closeChatBot} clean placement='right' label={t('Close')}>
-          <RiCloseLine className='n-size-token-7 outline-none' size={28} />
+        <IconButtonWithToolTip text={t('Close')} onClick={closeChatBot} clean placement='bottom' label={t('Close')}>
+          <RiCloseLine className='n-size-token-5 outline-none' size={18} />
         </IconButtonWithToolTip>
 
         <IconButtonWithToolTip
@@ -54,12 +52,12 @@ const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
           clean
           onClick={deleteOnClick}
           disabled={messages.length <= 1}
-          placement='right'
+          placement='bottom'
           label={t('Delete Chat')}
         >
           <RiDeleteBin6Line
-            className={clsx('n-size-token-7 outline-none', messages.length <= 1 ? 'opacity-50' : 'text-red-500')}
-            size={28}
+            className={clsx('n-size-token-5 outline-none', messages.length <= 1 ? 'opacity-50' : 'text-red-500')}
+            size={18}
           />
         </IconButtonWithToolTip>
 
@@ -68,13 +66,13 @@ const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
             text={isFullScreen ? t('Minimise') : t('Maximise')}
             onClick={toggleFullScreen}
             clean
-            placement='right'
+            placement='bottom'
             label={isFullScreen ? t('Minimise') : t('Maximise')}
           >
             {isFullScreen ? (
-              <RiCollapseDiagonalLine className='n-size-token-7 outline-none' size={28} />
+              <RiCollapseDiagonalLine className='n-size-token-5 outline-none' size={18} />
             ) : (
-              <RiExpandDiagonalLine className='n-size-token-7 outline-none' size={28} />
+              <RiExpandDiagonalLine className='n-size-token-5 outline-none' size={18} />
             )}
           </IconButtonWithToolTip>
         )}
@@ -83,10 +81,10 @@ const ExpandedChatButtonContainer: React.FC<ExpandedChatButtonProps> = ({
           text={t('Download Conversation')}
           onClick={() => downloadClickHandler({ conversation: messages }, downloadLinkRef as any, 'aushadha-chat.json')}
           clean
-          placement='right'
+          placement='bottom'
           label={t('Download Conversation')}
         >
-          <RiDownloadLine className='n-size-token-7 outline-none' size={28} />
+          <RiDownloadLine className='n-size-token-5 outline-none' size={18} />
         </IconButtonWithToolTip>
       </div>
     </>

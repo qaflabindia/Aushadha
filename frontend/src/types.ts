@@ -258,6 +258,8 @@ export type ChatbotProps = {
   connectionStatus: boolean;
   isChatOnly?: boolean;
   isDeleteChatLoading: boolean;
+  /** Optional controls (close, clear, expand, download) shown at the right of the chat header */
+  headerActions?: ReactNode;
 };
 
 export type GraphType = 'Entities' | 'DocumentChunk' | 'Communities';

@@ -55,9 +55,16 @@ const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
   };
 
   return (
-    <div className='flex w-full h-full min-h-0 overflow-hidden'>
-      <div className='flex flex-row w-full h-full min-h-0 p-2 gap-4 overflow-hidden'>
-        <div className='flex-shrink-0'>
+    <div className='flex w-full h-full min-h-0 flex-col overflow-hidden'>
+      <Chatbot
+        isFullScreen={isFullScreen}
+        messages={messages}
+        setMessages={setMessages}
+        clear={clearHistoryData}
+        isLoading={getIsLoading(messages)}
+        connectionStatus={connectionStatus}
+        isDeleteChatLoading={isDeleteChatLoading}
+        headerActions={
           <ExpandedChatButtonContainer
             closeChatBot={closeChatBot || (() => {})}
             deleteOnClick={() => setMessages([])}
@@ -65,19 +72,8 @@ const DrawerChatbot: React.FC<DrawerChatbotProps> = ({
             isFullScreen={isFullScreen}
             toggleFullScreen={toggleFullScreen}
           />
-        </div>
-        <div className='flex-1 min-w-0 min-h-0 relative overflow-hidden'>
-          <Chatbot
-            isFullScreen={false}
-            messages={messages}
-            setMessages={setMessages}
-            clear={clearHistoryData}
-            isLoading={getIsLoading(messages)}
-            connectionStatus={connectionStatus}
-            isDeleteChatLoading={isDeleteChatLoading}
-          />
-        </div>
-      </div>
+        }
+      />
     </div>
   );
 };

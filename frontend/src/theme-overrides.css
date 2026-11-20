@@ -1,9 +1,9 @@
 /* Premium Luxury Theme Overrides - Deep Obsidian & Metallic Gold */
 .ndl-theme-dark {
-  /* Core Palette */
-  --theme-palette-neutral-bg-default: #050505 !important;
-  --theme-palette-neutral-bg-weak: #0a0a0a !important;
-  --theme-palette-neutral-bg-strong: #111111 !important;
+  /* Core Palette (Needle expects "R G B / A" values here, not hex) */
+  --theme-palette-neutral-bg-default: 5 5 5 / 1 !important;
+  --theme-palette-neutral-bg-weak: 10 10 10 / 1 !important;
+  --theme-palette-neutral-bg-strong: 17 17 17 / 1 !important;
 
   /* Accent Gradients */
   --luxury-gradient: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
@@ -25,10 +25,10 @@
 
 /* Typography Overrides - No more Saffron, back to Ivory & Gold */
 .ndl-theme-dark {
-  --theme-palette-primary-text: #d4af37 !important;
-  --theme-palette-neutral-text-default: #ffffff !important;
-  --theme-palette-neutral-text-strong: #ffffff !important;
-  --theme-palette-neutral-text-weak: #a0a0a0 !important;
+  --theme-palette-primary-text: 212 175 55 / 1 !important;
+  --theme-palette-neutral-text-default: 245 241 230 / 1 !important;
+  --theme-palette-neutral-text-strong: 255 255 255 / 1 !important;
+  --theme-palette-neutral-text-weak: 168 162 150 / 1 !important;
 }
 
 .ndl-theme-dark h1,
@@ -101,4 +101,112 @@
 .ndl-theme-dark [role='menuitem']:focus {
   background-color: rgba(212, 175, 55, 0.1) !important;
   color: #d4af37 !important;
+}
+
+/* =====================================================================
+   Accent palettes for both themes (Obsidian & Gold / Ivory & Champagne)
+   Replaces Needle's default teal so buttons, tabs, focus rings and links
+   carry the gold accent in dark mode and a deep champagne in light mode.
+   ===================================================================== */
+.ndl-theme-dark {
+  --theme-palette-primary-bg-strong: 212 175 55 / 1;
+  --theme-palette-primary-hover-strong: 226 192 82 / 1;
+  --theme-palette-primary-pressed-strong: 190 155 45 / 1;
+  --theme-palette-primary-bg-weak: 212 175 55 / 0.12;
+  --theme-palette-primary-bg-selected: 212 175 55 / 0.16;
+  --theme-palette-primary-bg-status: 212 175 55 / 1;
+  --theme-palette-primary-border-strong: 212 175 55 / 1;
+  --theme-palette-primary-border-weak: 212 175 55 / 0.3;
+  --theme-palette-primary-focus: 226 192 82 / 1;
+  --theme-palette-primary-icon: 212 175 55 / 1;
+  --theme-palette-primary-hover-weak: 212 175 55 / 0.08;
+  --theme-palette-primary-pressed-weak: 212 175 55 / 0.14;
+  --theme-palette-neutral-text-inverse: 10 10 10 / 1;
+}
+
+.ndl-theme-light {
+  --theme-palette-neutral-bg-default: 250 248 243 / 1;
+  --theme-palette-neutral-bg-on-bg-weak: 250 248 243 / 1;
+  --theme-palette-neutral-bg-weak: 255 255 255 / 1;
+  --theme-palette-neutral-bg-strong: 240 235 224 / 1;
+  --theme-palette-neutral-border-weak: 236 230 216 / 1;
+  --theme-palette-neutral-border-strong: 216 206 184 / 1;
+  --theme-palette-neutral-text-default: 28 27 25 / 1;
+  --theme-palette-neutral-text-weak: 92 84 70 / 1;
+  --theme-palette-neutral-text-weaker: 112 104 90 / 1;
+  --theme-palette-primary-bg-strong: 140 109 44 / 1;
+  --theme-palette-primary-hover-strong: 118 91 35 / 1;
+  --theme-palette-primary-pressed-strong: 98 75 28 / 1;
+  --theme-palette-primary-bg-weak: 247 241 226 / 1;
+  --theme-palette-primary-bg-selected: 247 241 226 / 1;
+  --theme-palette-primary-bg-status: 184 149 74 / 1;
+  --theme-palette-primary-border-strong: 140 109 44 / 1;
+  --theme-palette-primary-border-weak: 222 205 160 / 1;
+  --theme-palette-primary-focus: 184 149 74 / 1;
+  --theme-palette-primary-icon: 140 109 44 / 1;
+  --theme-palette-primary-text: 122 94 36 / 1;
+  --theme-palette-primary-hover-weak: 140 109 44 / 0.08;
+  --theme-palette-primary-pressed-weak: 140 109 44 / 0.14;
+}
+
+.ndl-theme-light body {
+  background-color: #faf8f3;
+  color: #1c1b19;
+}
+
+/* One typeface across the app: Inter, falling back to Needle's bundled Public Sans */
+:root {
+  --font-font-family-body-large: 'Inter', 'Public Sans';
+  --font-font-family-body-medium: 'Inter', 'Public Sans';
+  --font-font-family-body-small: 'Inter', 'Public Sans';
+  --font-font-family-label: 'Inter', 'Public Sans';
+  --font-font-family-subheading-large: 'Inter', 'Public Sans';
+  --font-font-family-subheading-medium: 'Inter', 'Public Sans';
+  --font-font-family-subheading-small: 'Inter', 'Public Sans';
+}
+
+/* Light theme: table headers in small caps champagne, readable size */
+.ndl-theme-light .ndl-table-head-cell,
+.ndl-theme-light .ndl-data-grid-th {
+  background: rgba(250, 248, 243, 0.9) !important;
+  color: #7a5e24 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid rgba(140, 109, 44, 0.18) !important;
+}
+
+.ndl-theme-dark .ndl-data-grid-th {
+  color: #d4af37 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* Disabled buttons: muted accent instead of flat grey */
+.ndl-theme-light .ndl-btn.ndl-disabled,
+.ndl-theme-light .ndl-btn:disabled {
+  background-color: rgba(140, 109, 44, 0.12) !important;
+  color: rgba(98, 75, 28, 0.55) !important;
+  border-color: transparent !important;
+}
+
+.ndl-theme-dark .ndl-btn.ndl-disabled,
+.ndl-theme-dark .ndl-btn:disabled {
+  background-color: rgba(212, 175, 55, 0.1) !important;
+  color: rgba(212, 175, 55, 0.45) !important;
+  border-color: transparent !important;
+}
+
+/* Main view switcher (File Management / Clinical Intelligence) */
+.content-tabbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.ndl-theme-light .content-tabbar {
+  border-bottom: 1px solid rgba(140, 109, 44, 0.12);
+  background: rgba(255, 255, 255, 0.55);
 }

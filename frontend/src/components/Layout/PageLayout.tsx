@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import clsx from 'clsx';
 import DrawerDropzone from './DrawerDropzone';
 import ResearchDrawer from './ResearchDrawer';
@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router';
 import { deduplicateByFullPattern, deduplicateNodeByValue } from '../../utils/Utils';
 import DataImporterSchemaDialog from '../Popups/GraphEnhancementDialog/EnitityExtraction/DataImporter';
 import { useTranslate } from '../../context/TranslationContext';
+import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 const GCSModal = lazy(() => import('../DataSources/GCS/GCSModal'));
 const S3Modal = lazy(() => import('../DataSources/AWS/S3Modal'));
 const GenericModal = lazy(() => import('../WebSources/GenericSourceModal'));
@@ -158,6 +159,7 @@ const getSpotlights = (t: (s: string) => string) => [
 ];
 const PageLayout: React.FC = () => {
   const t = useTranslate();
+  const { colorMode } = useContext(ThemeWrapperContext);
   const [openConnection, setOpenConnection] = useState<connectionState>({
     openPopUp: false,
     chunksExists: false,
@@ -654,12 +656,20 @@ const PageLayout: React.FC = () => {
         activeDrawerMode={leftDrawerMode}
         setActiveDrawerMode={setLeftDrawerMode}
       >
-        <div className='flex-1 flex flex-col relative overflow-hidden min-h-0'>
+        <div className='flex-1 flex flex-row relative overflow-hidden min-h-0'>
           {isLeftExpanded && (
             <div
               className={clsx(
-                'absolute left-0 top-0 bottom-0 z-20 bg-black/40 backdrop-blur-xl border-r border-white/5 shadow-2xl transition-all duration-300 overflow-hidden',
-                isChatFullScreen && leftDrawerMode === 'chat' ? 'w-[calc(100vw-72px)]' : 'w-80'
+                'top-0 bottom-0 backdrop-blur-xl transition-all duration-300 overflow-hidden',
+                colorMode === 'dark'
+                  ? 'bg-black/40 border-r border-[#D4AF37]/15'
+                  : 'bg-white/55 border-r border-[#9A7B2F]/15',
+                isChatFullScreen && leftDrawerMode === 'chat'
+                  ? 'absolute left-0 z-20 w-[calc(100vw-72px)] shadow-2xl'
+                  : leftDrawerMode === 'chat'
+                    ? // Docked: sits beside the page and pushes it over instead of covering it
+                      'relative shrink-0 w-[clamp(380px,30vw,460px)] z-10'
+                    : 'absolute left-0 z-20 w-80 shadow-2xl'
               )}
             >
               {leftDrawerMode === 'upload' ? (
@@ -688,38 +698,40 @@ const PageLayout: React.FC = () => {
             </div>
           )}
 
-          {leftDrawerMode === 'admin' ? (
-            <AdminPage />
-          ) : leftDrawerMode === 'settings' ? (
-            <SettingsPage
-              combinedPatterns={combinedPatternsVal}
-              setCombinedPatterns={setCombinedPatternsVal}
-              combinedNodes={combinedNodesVal}
-              setCombinedNodes={setCombinedNodesVal}
-              combinedRels={combinedRelsVal}
-              setCombinedRels={setCombinedRelsVal}
-            />
-          ) : (
-            <Content
-              openChatBot={openChatBot}
-              showChatBot={showChatBot}
-              openTextSchema={openTextSchema}
-              openLoadSchema={openLoadSchema}
-              openPredefinedSchema={openPredefinedSchema}
-              openDataImporterSchema={openDataImporterSchema}
-              showEnhancementDialog={showEnhancementDialog}
-              toggleEnhancementDialog={toggleEnhancementDialog}
-              setOpenConnection={setOpenConnection}
-              showDisconnectButton={showDisconnectButton}
-              connectionStatus={connectionStatus}
-              combinedPatterns={combinedPatternsVal}
-              setCombinedPatterns={setCombinedPatternsVal}
-              combinedNodes={combinedNodesVal}
-              setCombinedNodes={setCombinedNodesVal}
-              combinedRels={combinedRelsVal}
-              setCombinedRels={setCombinedRelsVal}
-            />
-          )}
+          <div className='flex-1 min-w-0 min-h-0 flex flex-col relative overflow-hidden'>
+            {leftDrawerMode === 'admin' ? (
+              <AdminPage />
+            ) : leftDrawerMode === 'settings' ? (
+              <SettingsPage
+                combinedPatterns={combinedPatternsVal}
+                setCombinedPatterns={setCombinedPatternsVal}
+                combinedNodes={combinedNodesVal}
+                setCombinedNodes={setCombinedNodesVal}
+                combinedRels={combinedRelsVal}
+                setCombinedRels={setCombinedRelsVal}
+              />
+            ) : (
+              <Content
+                openChatBot={openChatBot}
+                showChatBot={showChatBot}
+                openTextSchema={openTextSchema}
+                openLoadSchema={openLoadSchema}
+                openPredefinedSchema={openPredefinedSchema}
+                openDataImporterSchema={openDataImporterSchema}
+                showEnhancementDialog={showEnhancementDialog}
+                toggleEnhancementDialog={toggleEnhancementDialog}
+                setOpenConnection={setOpenConnection}
+                showDisconnectButton={showDisconnectButton}
+                connectionStatus={connectionStatus}
+                combinedPatterns={combinedPatternsVal}
+                setCombinedPatterns={setCombinedPatternsVal}
+                combinedNodes={combinedNodesVal}
+                setCombinedNodes={setCombinedNodesVal}
+                combinedRels={combinedRelsVal}
+                setCombinedRels={setCombinedRelsVal}
+              />
+            )}
+          </div>
         </div>
       </DashboardScaffold>
 

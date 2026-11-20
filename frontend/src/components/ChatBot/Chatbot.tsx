@@ -134,8 +134,8 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     }
 
     const viewportHeight = viewport.clientHeight;
-    const {scrollHeight} = viewport;
-    const {scrollTop} = viewport;
+    const { scrollHeight } = viewport;
+    const { scrollTop } = viewport;
     const trackHeight = Math.max(viewportHeight - 24, 0);
     const isScrollable = scrollHeight > viewportHeight + 1;
 
@@ -551,35 +551,36 @@ const Chatbot: FC<ChatbotProps> = (props) => {
     >
       {/* Sticky Chat Header */}
       <div
-        className={clsx('z-20 shrink-0 px-8 py-5 border-b backdrop-blur-3xl flex items-center justify-between', {
-          'bg-black/60 border-white/5 shadow-2xl': colorMode === 'dark',
-          'bg-white/60 border-gray-100': colorMode === 'light',
+        className={clsx('z-20 shrink-0 pl-5 pr-3 py-3.5 border-b backdrop-blur-3xl flex items-center gap-3', {
+          'bg-black/60 border-[#D4AF37]/10 shadow-2xl': colorMode === 'dark',
+          'bg-white/60 border-[#9A7B2F]/12': colorMode === 'light',
         })}
       >
-        <div className='flex flex-col'>
+        <div
+          className={clsx('w-1.5 h-1.5 shrink-0 rounded-full animate-pulse', {
+            'bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]': colorMode === 'dark',
+            'bg-[#9A7B2F] shadow-[0_0_6px_rgba(154,123,47,0.6)]': colorMode === 'light',
+          })}
+        />
+        <div className='flex min-w-0 flex-1 flex-col'>
           <span
-            className={clsx('text-[10px] uppercase tracking-[0.3em] font-extrabold', {
+            className={clsx('truncate text-[12px] uppercase tracking-[0.22em] font-semibold leading-tight', {
               'text-[#D4AF37]': colorMode === 'dark',
-              'text-[#1A1A1A]': colorMode === 'light',
+              'text-[#3B2F14]': colorMode === 'light',
             })}
           >
             {t('Concierge Intelligence')}
           </span>
           <span
-            className={clsx('text-[8px] uppercase tracking-[0.2em] font-bold mt-1 opacity-40', {
-              'text-[#D4AF37]': colorMode === 'dark',
-              'text-gray-500': colorMode === 'light',
+            className={clsx('truncate text-[10px] uppercase tracking-[0.18em] font-medium mt-1', {
+              'text-[#D4AF37]/50': colorMode === 'dark',
+              'text-[#5C4A1E]/60': colorMode === 'light',
             })}
           >
             {t('Medical Neural Network')}
           </span>
         </div>
-        <div
-          className={clsx('w-2 h-2 rounded-full animate-pulse', {
-            'bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]': colorMode === 'dark',
-            'bg-blue-500 shadow-[0_0_8px_#3B82F6]': colorMode === 'light',
-          })}
-        />
+        {props.headerActions}
       </div>
       {isDeleteChatLoading && (
         <div className='absolute inset-0 z-50 bg-black/60 backdrop-blur-xl flex items-center justify-center'>
@@ -587,17 +588,17 @@ const Chatbot: FC<ChatbotProps> = (props) => {
         </div>
       )}
 
-      <div className='flex-1 min-h-0 flex flex-col gap-4 p-6'>
+      <div className='flex-1 min-h-0 flex flex-col gap-3 p-3'>
         {/* Dedicated conversation viewport */}
         <div
-          className={clsx('relative flex-1 min-h-0 overflow-hidden rounded-[28px] border glass-luxe', {
+          className={clsx('relative flex-1 min-h-0 overflow-hidden rounded-[20px] border glass-luxe', {
             'border-white/5 bg-black/10': colorMode === 'dark',
-            'border-gray-200 bg-white/70': colorMode === 'light',
+            'border-[#9A7B2F]/10 bg-white/70': colorMode === 'light',
           })}
         >
           <div
             ref={historyViewportRef}
-            className='chat-history-scroll flex h-full min-h-0 flex-col gap-8 overflow-y-scroll overflow-x-hidden overscroll-contain p-6 pr-10'
+            className='chat-history-scroll flex h-full min-h-0 flex-col gap-8 overflow-y-scroll overflow-x-hidden overscroll-contain px-4 py-5 pr-7'
           >
             {listMessages.length > 0 &&
               listMessages.map((chat, index) => {
@@ -605,21 +606,21 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                 return (
                   <div
                     key={chat.id + index}
-                    className={clsx('flex flex-col gap-3 w-full animate-fade-in-up', {
+                    className={clsx('flex flex-col gap-2 w-full animate-fade-in-up', {
                       'items-start': chat.user === 'chatbot',
                       'items-end': chat.user !== 'chatbot',
                     })}
                   >
-                    <div className='flex items-center gap-3 px-2'>
+                    <div className='flex items-center gap-2 px-1'>
                       {chat.user === 'chatbot' ? (
                         <>
                           <div className='w-7 h-7 rounded-full border border-[#D4AF37]/30 flex items-center justify-center bg-[#D4AF37]/5 shadow-[0_0_15px_rgba(212,175,55,0.1)]'>
                             <RiRobotLine className='text-[#D4AF37] w-3.5 h-3.5' />
                           </div>
                           <span
-                            className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
+                            className={clsx('text-[10px] tracking-[0.2em] font-semibold uppercase', {
                               'text-[#D4AF37]/60': colorMode === 'dark',
-                              'text-[#D4AF37]': colorMode === 'light',
+                              'text-[#9A7B2F]': colorMode === 'light',
                             })}
                           >
                             {t('Concierge Intelligence')}
@@ -628,7 +629,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                       ) : (
                         <>
                           <span
-                            className={clsx('text-[9px] tracking-concierge font-extrabold uppercase', {
+                            className={clsx('text-[10px] tracking-[0.2em] font-semibold uppercase', {
                               'text-white/30': colorMode === 'dark',
                               'text-black/40': colorMode === 'light',
                             })}
@@ -654,13 +655,14 @@ const Chatbot: FC<ChatbotProps> = (props) => {
 
                     <div
                       className={clsx(
-                        `p-6 rounded-[24px] border-grad-gs glass-luxe transition-all duration-700`,
+                        `px-4 py-3.5 rounded-[18px] border-grad-gs glass-luxe transition-all duration-700`,
                         {
-                          'shadow-2xl': chat.user === 'chatbot',
+                          'shadow-2xl': chat.user === 'chatbot' && colorMode === 'dark',
+                          'shadow-[0_6px_24px_rgba(60,45,10,0.06)]': chat.user === 'chatbot' && colorMode === 'light',
                           'bg-[#D4AF37]/5': chat.user !== 'chatbot' && colorMode === 'dark',
-                          'bg-blue-50/50': chat.user !== 'chatbot' && colorMode === 'light',
+                          'bg-[#9A7B2F]/[0.07]': chat.user !== 'chatbot' && colorMode === 'light',
                         },
-                        isFullScreen ? 'max-w-[75%]' : 'max-w-[95%]'
+                        isFullScreen ? 'max-w-[75%]' : 'max-w-full'
                       )}
                     >
                       <div
@@ -672,11 +674,11 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                         )}
                       >
                         <div
-                          className={clsx('leading-relaxed font-normal antialiased', {
+                          className={clsx('text-[14px] leading-relaxed font-normal antialiased', {
                             'text-white/95': chat.user === 'chatbot' && colorMode === 'dark',
                             'text-[#D4AF37] font-semibold': chat.user !== 'chatbot' && colorMode === 'dark',
                             'text-[#1A1A1A]': chat.user === 'chatbot' && colorMode === 'light',
-                            'text-blue-700 font-semibold': chat.user !== 'chatbot' && colorMode === 'light',
+                            'text-[#3B2F14] font-medium': chat.user !== 'chatbot' && colorMode === 'light',
                           })}
                           style={{
                             color:
@@ -684,7 +686,9 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                                 ? 'rgba(255,255,255,0.95)'
                                 : chat.user !== 'chatbot' && colorMode === 'dark'
                                   ? '#D4AF37'
-                                  : '#1A1A1A',
+                                  : chat.user !== 'chatbot'
+                                    ? '#3B2F14'
+                                    : '#1C1B19',
                           }}
                         >
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -698,7 +702,12 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                       </div>
 
                       {chat.user === 'chatbot' && !chat.isLoading && !chat.isTyping && (
-                        <div className='mt-5 flex items-center justify-between border-t border-white/5 pt-4'>
+                        <div
+                          className={clsx('mt-3 flex items-center justify-between border-t pt-3', {
+                            'border-white/5': colorMode === 'dark',
+                            'border-[#9A7B2F]/10': colorMode === 'light',
+                          })}
+                        >
                           <CommonActions
                             chat={chat}
                             copyHandler={handleCopy}
@@ -745,17 +754,17 @@ const Chatbot: FC<ChatbotProps> = (props) => {
 
         {/* Dedicated composer pane */}
         <div
-          className={clsx('shrink-0 rounded-[24px] border glass-luxe', {
+          className={clsx('shrink-0 rounded-[20px] border glass-luxe', {
             'border-white/5 bg-black/20': colorMode === 'dark',
-            'border-gray-200 bg-white/80': colorMode === 'light',
+            'border-[#9A7B2F]/10 bg-white/80': colorMode === 'light',
           })}
         >
           <div
-            className={clsx('p-6 transition-all duration-500', {
+            className={clsx('p-3 transition-all duration-500', {
               'shadow-[0_-20px_50px_rgba(0,0,0,0.3)]': colorMode === 'dark',
             })}
           >
-            <form onSubmit={handleSubmit} className='flex gap-4 items-center w-full'>
+            <form onSubmit={handleSubmit} className='flex gap-2.5 items-center w-full'>
               <div className='flex-1 relative group w-full'>
                 <TextInput
                   isDisabled={isLoading}
@@ -763,7 +772,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                   onChange={handleInputChange}
                   isFluid
                   placeholder={t('Inquire Vault')}
-                  className={clsx('focus:border-[#D4AF37]/50 py-4 px-12 rounded-2xl w-full', {
+                  className={clsx('focus:border-[#D4AF37]/50 py-3 px-11 rounded-xl w-full', {
                     'text-white shadow-inner': colorMode === 'dark',
                     'text-black': colorMode === 'light',
                   })}
@@ -774,10 +783,10 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                   ref={chatAnchor}
                   onClick={() => setShowChatModeOption(true)}
                   className={clsx(
-                    'absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300 hover:bg-[#D4AF37]/10',
+                    'absolute left-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all duration-300 hover:bg-[#D4AF37]/10',
                     {
                       'text-[#D4AF37]': colorMode === 'dark',
-                      'text-gray-500': colorMode === 'light',
+                      'text-[#9A7B2F]': colorMode === 'light',
                     }
                   )}
                   title={t('Intelligence Search Mode')}
@@ -791,7 +800,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                     onClick={handleMicClick}
                     disabled={isTranscribing}
                     className={clsx(
-                      'absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all duration-300',
+                      'absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all duration-300',
                       {
                         'text-[#D4AF37] scale-110 shadow-[0_0_15px_#D4AF37] bg-[#D4AF37]/10': isListening,
                         'text-white/40 hover:text-white/60': !isListening && colorMode === 'dark',
@@ -816,7 +825,7 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                     type='button'
                     onClick={handleCancel}
                     className={clsx(
-                      'h-[54px] px-8 rounded-2xl flex items-center justify-center transition-all duration-500 translate-y-[-1px]',
+                      'h-11 px-5 rounded-xl flex items-center justify-center transition-all duration-500',
                       {
                         'bg-red-900/40 text-red-500 font-extrabold uppercase tracking-[0.15em] text-[10px] border border-red-500/30 hover:bg-red-900/60':
                           colorMode === 'dark',
@@ -832,11 +841,12 @@ const Chatbot: FC<ChatbotProps> = (props) => {
                     type='submit'
                     disabled={isLoading || !inputMessage.trim()}
                     className={clsx(
-                      'h-[54px] px-10 rounded-2xl flex items-center justify-center transition-all duration-500 disabled:opacity-20 translate-y-[-1px]',
+                      'h-11 px-6 rounded-xl flex items-center justify-center transition-all duration-500 disabled:opacity-30 disabled:cursor-not-allowed',
                       {
-                        'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]':
+                        'bg-gradient-to-br from-[#D4AF37] to-[#E5E4E2] text-black font-extrabold uppercase tracking-[0.2em] text-[11px] shadow-[0_4px_25px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_35px_rgba(212,175,55,0.5)]':
                           colorMode === 'dark',
-                        'bg-blue-600 text-white font-bold uppercase tracking-widest text-[10px]': colorMode === 'light',
+                        'bg-gradient-to-br from-[#B8954A] to-[#8C6D2C] text-white font-bold uppercase tracking-[0.2em] text-[11px] shadow-[0_4px_18px_rgba(140,109,44,0.25)] hover:shadow-[0_8px_26px_rgba(140,109,44,0.35)]':
+                          colorMode === 'light',
                       }
                     )}
                   >

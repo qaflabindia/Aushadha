@@ -122,10 +122,10 @@
 .ndl-theme-dark .ndl-table-head-cell {
   background: rgba(255, 255, 255, 0.02) !important;
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.05) !important;
-  color: rgba(255, 255, 255, 0.4) !important;
+  color: rgba(212, 175, 55, 0.75) !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.15em !important;
-  font-size: 9px !important;
+  letter-spacing: 0.12em !important;
+  font-size: 11px !important;
 }
 
 .ndl-theme-dark .ndl-table-cell {
