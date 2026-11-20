@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
+import api from '../API/Index';
 
 const AUTH_CHANGED_EVENT = 'aushadha-auth-changed';
 
@@ -107,26 +108,30 @@ export const GoogleAuthProvider: React.FC<GoogleAuthProviderProps> = ({ children
     setIsLoading(false);
   }, [notifyAuthChanged]);
 
-  // Global axios 401 interceptor — auto-logout on expired/invalid token
+  // 401 interceptor — auto-logout on expired/invalid token. Registered on plain axios and
+  // on the shared API client (most backend calls), so an expired session returns to login
+  // instead of failing every request.
   useEffect(() => {
-    const interceptorId = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error?.response?.status === 401) {
-          // Clear stale session and redirect to login
-          localStorage.removeItem('aushadha_auth_token');
-          localStorage.removeItem('aushadha_auth_user');
-          setUser(null);
-          setToken(null);
-          notifyAuthChanged();
-          if (!window.location.pathname.startsWith('/login')) {
-            window.location.href = '/login';
-          }
+    const onRejected = (error: any) => {
+      if (error?.response?.status === 401) {
+        // Clear stale session and redirect to login
+        localStorage.removeItem('aushadha_auth_token');
+        localStorage.removeItem('aushadha_auth_user');
+        setUser(null);
+        setToken(null);
+        notifyAuthChanged();
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.href = '/login';
         }
-        return Promise.reject(error);
       }
-    );
-    return () => axios.interceptors.response.eject(interceptorId);
+      return Promise.reject(error);
+    };
+    const axiosId = axios.interceptors.response.use((response) => response, onRejected);
+    const apiId = api.interceptors.response.use((response) => response, onRejected);
+    return () => {
+      axios.interceptors.response.eject(axiosId);
+      api.interceptors.response.eject(apiId);
+    };
   }, [notifyAuthChanged]);
 
   // Save session to localStorage whenever it changes

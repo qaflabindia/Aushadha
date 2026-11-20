@@ -1,6 +1,8 @@
 import './index.css';
 
 async function bootstrap() {
+  const { installAuthTokenForBackendRequests } = await import('./API/attachAuthToken.ts');
+  installAuthTokenForBackendRequests();
   await document.fonts.load("14px 'Noto Sans Tamil'");
 
   const { SKIP_AUTH } = await import('./utils/Constants.ts');
@@ -15,11 +17,15 @@ async function bootstrap() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
   const inner = SKIP_AUTH ? (
-    <PatientProvider><App /></PatientProvider>
+    <PatientProvider>
+      <App />
+    </PatientProvider>
   ) : (
     <GoogleOAuthProvider clientId={googleClientId}>
       <GoogleAuthProvider>
-        <PatientProvider><App /></PatientProvider>
+        <PatientProvider>
+          <App />
+        </PatientProvider>
       </GoogleAuthProvider>
     </GoogleOAuthProvider>
   );
@@ -27,13 +33,10 @@ async function bootstrap() {
   createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <LanguageProvider>
-        <TranslationProvider>
-          {inner}
-        </TranslationProvider>
+        <TranslationProvider>{inner}</TranslationProvider>
       </LanguageProvider>
     </BrowserRouter>
   );
 }
 
 bootstrap();
-

@@ -1,11 +1,14 @@
 import axios from 'axios';
 import { url } from '../utils/Utils';
 import { UserCredentials } from '../types';
+import { attachTokenToAxios } from './attachAuthToken';
 
 const api = axios.create({
   baseURL: url(),
   data: {},
 });
+// Send the login token from the very first request, before createDefaultFormData runs
+attachTokenToAxios(api);
 
 // Store credentials globally for the interceptor
 let globalCredentials: UserCredentials | null = null;
