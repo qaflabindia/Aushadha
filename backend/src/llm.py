@@ -10,7 +10,6 @@ from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_anthropic import ChatAnthropic
 from langchain_fireworks import ChatFireworks
 from langchain_aws import ChatBedrock
-from langchain_community.chat_models import ChatOllama
 from langchain_huggingface import HuggingFacePipeline
 import boto3
 import google.auth
@@ -237,11 +236,6 @@ def get_llm(model: str):
             llm = ChatBedrock(
                 client=bedrock_client,region_name=region_name, model_id=model_name, model_kwargs=dict(temperature=0),callbacks=callback_manager, 
             )
-
-        elif "OLLAMA" in model:
-            parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
-            model_name, base_url = parts[0], parts[1]
-            llm = ChatOllama(base_url=base_url, model=model_name,callbacks=callback_manager)
 
         elif "LOCAL" in model or "SARVAM" in model:
             parts = [get_value_from_env(p.strip()) or p.strip() for p in env_value.split(",")]
