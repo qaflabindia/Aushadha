@@ -3,9 +3,17 @@ import { url } from '../utils/Utils';
 export function triggerStatusUpdateAPI(
   name: string,
   userCredentials: UserCredentials,
-  datahandler: (i: eventResponsetypes) => void
+  datahandler: (i: eventResponsetypes) => void,
+  patientId?: string | null
 ) {
   const params = new URLSearchParams();
+  // Documents are stored per patient; without these the backend finds no document to report on
+  if (patientId) {
+    params.append('patient_id', patientId);
+    if (userCredentials.email) {
+      params.append('email', userCredentials.email);
+    }
+  }
   if (userCredentials.uri) {
     params.append('uri', userCredentials.uri);
   }

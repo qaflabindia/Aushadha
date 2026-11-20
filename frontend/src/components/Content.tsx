@@ -268,7 +268,10 @@ const Content: React.FC<ContentProps> = ({
         return {
           ...curfile,
           model:
-            curfile.status === 'New' || curfile.status === 'Ready to Reprocess' || curfile.status === 'Failed'
+            curfile.status === 'New' ||
+            curfile.status === 'Ready to Reprocess' ||
+            curfile.status === 'Failed' ||
+            curfile.status === 'Cancelled'
               ? (selectedOption?.value ?? '')
               : curfile.model,
         };
@@ -340,7 +343,12 @@ const Content: React.FC<ContentProps> = ({
       });
       if (fileItem.name != undefined && userCredentials != null) {
         const { name } = fileItem;
-        triggerStatusUpdateAPI(name as string, userCredentials, updateStatusForLargeFiles);
+        triggerStatusUpdateAPI(
+          name as string,
+          { ...userCredentials, email: userCredentials.email || authUser?.email },
+          updateStatusForLargeFiles,
+          patientId
+        );
       }
 
       const apiResponse = await extractAPI(

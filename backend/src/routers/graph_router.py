@@ -568,12 +568,19 @@ async def update_extract_status(
     password: str = None,
     database: str = None,
     patient_id: str = None,
+    email: str = None,
     credentials: Neo4jCredentials = Depends(get_neo4j_credentials),
     db: Session = Depends(get_db)
 ):
     """Stream updates on extract status for a given file name."""
     if patient_id:
-        verify_patient_access(credentials.email, credentials.user_role, patient_id, db)
+        # EventSource sends a plain GET, so the user arrives as a query parameter. Take the
+        # role from the user table rather than trusting one sent by the client.
+        from src.models import User
+        user_email = credentials.email or email
+        db_user = db.query(User).filter(User.email == user_email).first() if user_email else None
+        user_role = db_user.role.name if db_user and db_user.role else None
+        verify_patient_access(user_email, user_role, patient_id, db)
     async def generate():
         status = ''
         if password is not None and password != "null":
@@ -629,7 +636,9 @@ async def update_extract_status(
                         'communityRelCount' : result[0]['communityRelCount'],
                         'token_usage' : result[0]['token_usage']
                         })
-                    yield status
+                        yield status
+                    # Poll once a second; without a pause this loop queries Neo4j non-stop
+                    await asyncio.sleep(1)
             except asyncio.CancelledError:
                 logging.info("SSE Connection cancelled")
                 raise
