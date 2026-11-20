@@ -128,8 +128,10 @@ def load_embedding_model(embedding_model_name: str):
         dimension = 1536
         logging.info(f"Embedding: Using OpenAI Embeddings , Dimension:{dimension}")
     elif embedding_model_name == "vertexai":        
+        location = get_value_from_env("GCP_REGION") or "global"
         embeddings = VertexAIEmbeddings(
-            model="gemini-embedding-001"
+            model="gemini-embedding-001",
+            location=location
         )
         dimension = 3072
         logging.info(f"Embedding: Using Vertex AI Embeddings , Dimension:{dimension}")

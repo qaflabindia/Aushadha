@@ -100,14 +100,16 @@ def get_llm(model: str):
 
         elif "GEMINI" in model:
             gemini_model_map = {
-                "GEMINI_2_5_FLASH": "gemini-2.5-flash",
-                "GEMINI_2_5_PRO": "gemini-2.5-pro",
-                "GEMINI_1_5_FLASH": "gemini-1.5-flash",
-                "GEMINI_1_5_PRO": "gemini-1.5-pro",
                 "GEMINI_3_FLASH": "gemini-3-flash-preview",
                 "GEMINI_3_FLASH_PREVIEW": "gemini-3-flash-preview",
+                "GEMINI_3_8_FLASH": "gemini-3.8-flash",
                 "GEMINI_3_1_PRO": "gemini-3.1-pro-preview",
                 "GEMINI_3_1_PRO_PREVIEW": "gemini-3.1-pro-preview",
+                "GEMINI_2_5_FLASH": "gemini-3-flash-preview",
+                "GEMINI_2_5_PRO": "gemini-3.1-pro-preview",
+                "GEMINI_2_0_FLASH": "gemini-3-flash-preview",
+                "GEMINI_1_5_FLASH": "gemini-3-flash-preview",
+                "GEMINI_1_5_PRO": "gemini-3.1-pro-preview",
             }
             env_value = gemini_model_map.get(
                 model,
@@ -173,7 +175,7 @@ def get_llm(model: str):
         if "GEMINI" in model:
             model_name = env_value.split(",")[0].strip() if "," in env_value else env_value.strip()
             configured_project = get_value_from_env("PROJECT_ID") or get_value_from_env("GOOGLE_CLOUD_PROJECT") or get_value_from_env("GCP_PROJECT")
-            location = get_value_from_env("GCP_REGION") or get_value_from_env("LOCATION") or "us-central1"
+            location = get_value_from_env("GCP_REGION") or get_value_from_env("LOCATION") or "global"
             
             credentials = None
             detected_project = None
@@ -552,16 +554,18 @@ async def get_graph_document_list(
             if hasattr(llm, "get_name") and llm.get_name() in supported_models:
                 node_properties = False
                 relationship_properties = False
+                is_tool_supported = True
             else:
                 node_properties = ["description"]
                 relationship_properties = ["description"]
+                is_tool_supported = False
             llm_transformer = LLMGraphTransformer(
                 llm=llm,
                 node_properties=node_properties,
                 relationship_properties=relationship_properties,
                 allowed_nodes=allowedNodes,
                 allowed_relationships=allowedRelationship,
-                ignore_tool_usage=True,
+                ignore_tool_usage=not is_tool_supported,
                 additional_instructions=ADDITIONAL_INSTRUCTIONS+ (additional_instructions if additional_instructions else "")
             )
         
