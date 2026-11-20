@@ -30,6 +30,8 @@ from langchain_groq import ChatGroq
 from langchain_anthropic import ChatAnthropic
 from langchain_fireworks import ChatFireworks
 from langchain_aws import ChatBedrock
+# Ollama disabled for now (kept for the GCP product)
+# from langchain_community.chat_models import ChatOllama
 
 # Local imports
 from src.llm import get_llm
@@ -309,6 +311,9 @@ def get_total_tokens(ai_response, llm):
             input_tokens = int(ai_response.response_metadata.get('usage', {}).get('input_tokens', 0))
             output_tokens = int(ai_response.response_metadata.get('usage', {}).get('output_tokens', 0))
             total_tokens = input_tokens + output_tokens
+        
+        # elif isinstance(llm, ChatOllama):
+        #     total_tokens = ai_response.response_metadata.get("prompt_eval_count", 0)
         
         else:
             logging.warning(f"Unrecognized language model: {type(llm)}. Returning 0 tokens.")
