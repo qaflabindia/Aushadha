@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import clsx from 'clsx';
 import DrawerDropzone from './DrawerDropzone';
 import ResearchDrawer from './ResearchDrawer';
@@ -248,20 +248,28 @@ const PageLayout: React.FC = () => {
     }
   }, [allPatterns, selectedNodes, selectedRels]);
 
+  // Set when the last connection check failed because the backend was unreachable (e.g. it
+  // was restarting); the check is then retried when the tab regains focus or the network returns
+  const reconnectPendingRef = useRef(false);
+  const runConnectionCheckRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
-    async function initializeConnection() {
-      // Fetch backend health status
+    let cancelled = false;
+    // To set the disconnect button state
+    const handleDisconnectButtonState = (isModalOpen: boolean) => {
+      setShowDisconnectButton(isModalOpen);
+      localStorage.setItem('disconnectButtonState', isModalOpen ? 'true' : 'false');
+    };
+
+    // One connection check. Returns 'retry' when the backend could not be reached or could not
+    // reach the database (a passing outage), 'done' when it gave a definite answer.
+    const checkConnection = async (isLastAttempt: boolean): Promise<'done' | 'retry'> => {
       try {
         const response = await healthStatus();
         setIsBackendConnected(Boolean(response.data?.healthy ?? response.data?.database ?? response.status === 200));
       } catch (error) {
         setIsBackendConnected(false);
       }
-      // To set the disconnect button state
-      const handleDisconnectButtonState = (isModalOpen: boolean) => {
-        setShowDisconnectButton(isModalOpen);
-        localStorage.setItem('disconnectButtonState', isModalOpen ? 'true' : 'false');
-      };
       try {
         const backendApiResponse = await envConnectionAPI();
         const connectionData = backendApiResponse.data;
@@ -282,7 +290,9 @@ const PageLayout: React.FC = () => {
           setConnectionStatus(Boolean(connectionData.data.graph_connection));
           setIsReadOnlyUser(connectionData.data.isReadonlyUser);
           handleDisconnectButtonState(false);
-        } else if (!connectionData.data && connectionData.status === 'Success') {
+          return 'done';
+        }
+        if (!connectionData.data && connectionData.status === 'Success') {
           const storedCredentials = localStorage.getItem('neo4j.connection');
           if (storedCredentials) {
             const credentials = JSON.parse(storedCredentials);
@@ -300,21 +310,52 @@ const PageLayout: React.FC = () => {
             if (credentials.isReadonlyUser !== undefined) {
               setIsReadOnlyUser(credentials.isReadonlyUser);
             }
-            handleDisconnectButtonState(true);
-          } else {
-            handleDisconnectButtonState(true);
           }
-        } else {
+          handleDisconnectButtonState(true);
+          return 'done';
+        }
+        // The backend answered but could not reach the database
+        if (isLastAttempt) {
           setErrorMessage(backendApiResponse?.data?.error);
           handleDisconnectButtonState(true);
-          console.log('from else cndition error is there');
         }
-      } catch (error) {
+        return 'retry';
+      } catch (error: any) {
+        const status = error?.response?.status;
+        // No response (backend down or restarting) or a server/gateway error: try again
+        if (!status || status >= 500) {
+          if (isLastAttempt && error instanceof Error) {
+            showErrorToast(error.message);
+          }
+          return 'retry';
+        }
         if (error instanceof Error) {
           showErrorToast(error.message);
         }
+        return 'done';
       }
-    }
+    };
+
+    // Waits between attempts, in seconds (about 65 s in all): covers a backend restart
+    const RETRY_DELAYS = [2, 3, 5, 5, 10, 10, 15, 15];
+    const initializeConnection = async () => {
+      reconnectPendingRef.current = false;
+      for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        if (cancelled) {
+          return;
+        }
+        const outcome = await checkConnection(attempt === RETRY_DELAYS.length);
+        if (outcome === 'done' || cancelled) {
+          return;
+        }
+        if (attempt < RETRY_DELAYS.length) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt] * 1000));
+        }
+      }
+      reconnectPendingRef.current = true;
+    };
+    runConnectionCheckRef.current = initializeConnection;
+
     initializeConnection();
     if (!isAuthenticated && isFirstTimeUser) {
       setActiveSpotlight('loginbutton');
@@ -323,7 +364,27 @@ const PageLayout: React.FC = () => {
     if ((isAuthenticated || SKIP_AUTH) && isFirstTimeUser) {
       setActiveSpotlight('connectbutton');
     }
+    return () => {
+      cancelled = true;
+    };
   }, [isAuthenticated, isFirstTimeUser]);
+
+  // After the retries ran out, check again when the user comes back to the tab or the network returns
+  useEffect(() => {
+    const retryIfPending = () => {
+      if (reconnectPendingRef.current && document.visibilityState === 'visible') {
+        runConnectionCheckRef.current?.();
+      }
+    };
+    window.addEventListener('online', retryIfPending);
+    window.addEventListener('focus', retryIfPending);
+    document.addEventListener('visibilitychange', retryIfPending);
+    return () => {
+      window.removeEventListener('online', retryIfPending);
+      window.removeEventListener('focus', retryIfPending);
+      document.removeEventListener('visibilitychange', retryIfPending);
+    };
+  }, []);
 
   const toggleLeftDrawer = useCallback(() => {
     if (isLargeDesktop) {
