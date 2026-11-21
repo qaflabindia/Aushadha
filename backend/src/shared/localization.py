@@ -2,15 +2,140 @@ import logging
 import json
 import re
 from langchain_core.messages import SystemMessage, HumanMessage
-from src.translation_cache import get_cached, get_cached_batch, save_to_cache
+from src.translation_cache import TranslationCache, get_cached_batch
 from src.database import SessionLocal
+from sqlalchemy import func
 
 # Local fallback cache for within-request efficiency
 _request_cache = {}
 
+# Scripts where an English word coming back unchanged means "not translated"
+_NON_LATIN_LANGS = {"hi", "ta", "te", "bn", "mr", "kn", "ml", "gu", "pa", "or", "as", "ur",
+                    "zh", "ja", "ko", "ar", "ru"}
+_LANG_NAMES = {
+    "hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi",
+    "kn": "Kannada", "ml": "Malayalam", "gu": "Gujarati", "pa": "Punjabi", "or": "Odia",
+    "as": "Assamese", "ur": "Urdu",
+}
+_FILE_NAME = re.compile(r"\.(pdf|docx?|txt|json|csv|md|png|jpe?g)$", re.IGNORECASE)
+_LLM_CHUNK = 40  # terms per LLM call, so long graphs don't overflow one JSON reply
+_MAX_TERM = 200  # longer texts (e.g. chunk text) are content, not labels: left as they are
+_CACHED_RUBBISH = [
+    "intended translation", "maybe", "wait", "user wrote", "medical term",
+    "okay,", "let's", "i need to", "user wants", "translate", "translation",
+    "into tamil", "into hindi", "sure,", "here is", "i think", "medical platform",
+    "the phrase", "means", "is a", "next part", "tackle this", "உருப்படி உள்ளது",
+    "அடுத்த பகுதி", "தொடர்புடையது", "குறிப்பிடப்பட்டுள்ளது",
+]
+
+
 def clear_translation_cache():
     global _request_cache
     _request_cache = {}
+
+
+def _keep_as_is(term: str) -> bool:
+    """Internal labels, file names and long content are never translated."""
+    t = term.strip()
+    return (
+        not t
+        or len(t) > _MAX_TERM
+        or t == "*"
+        or (t.startswith("__") and t.endswith("__"))
+        or bool(_FILE_NAME.search(t))
+        or not re.search(r"[A-Za-z]", t)
+    )
+
+
+def _is_untranslated(term: str, translated: str, language: str) -> bool:
+    """A cached value that is filler text, or English left as it was."""
+    low = translated.lower()
+    if language not in ("en", "fr", "de", "es"):
+        if any(i in low for i in _CACHED_RUBBISH):
+            return True
+        if len(re.findall(r"\b(the|is|at|which|on|for|of|to|and|a|an)\b", low)) > 2:
+            return True
+    return language in _NON_LATIN_LANGS and translated.strip().lower() == term.strip().lower()
+
+
+def _store(db, term: str, language: str, translated: str) -> None:
+    """Insert, or replace an earlier value that was never really translated."""
+    row = (
+        db.query(TranslationCache)
+        .filter(
+            func.lower(TranslationCache.source_text) == term.lower().strip(),
+            TranslationCache.source_lang == "en",
+            TranslationCache.target_lang == language,
+        )
+        .first()
+    )
+    if row:
+        row.translated_text = translated
+    else:
+        db.add(TranslationCache(source_text=term.strip(), source_lang="en",
+                                target_lang=language, translated_text=translated))
+    db.commit()
+
+
+async def translate_terms(terms, language, model=None) -> dict:
+    """Translate short display terms (graph labels, entity names, relationship types).
+
+    Incremental: a term is looked up in the in-process cache, then in the
+    translation_cache table; only terms never translated before (or whose cached value
+    was filler or plain English) go to the LLM, in chunks, and each result is saved, so
+    every new term costs one LLM translation and is served from the cache after that.
+    Failed or rejected translations are not saved, so they are retried next time.
+    Returns {term: translation}; a term that could not be translated maps to itself.
+    """
+    unique = [t for t in dict.fromkeys(terms) if isinstance(t, str)]
+    if not language or language == "en":
+        return {t: t for t in unique}
+
+    prefix = f"{language}:"
+    result, pending = {}, []
+    for t in unique:
+        if _keep_as_is(t):
+            result[t] = t
+        elif prefix + t in _request_cache:
+            result[t] = _request_cache[prefix + t]
+        else:
+            pending.append(t)
+    if not pending:
+        return result
+
+    db = SessionLocal()
+    try:
+        cached = get_cached_batch(db, pending, "en", language)
+        misses = []
+        for t in pending:
+            value = cached.get(t)
+            if value and not _is_untranslated(t, value, language):
+                _request_cache[prefix + t] = value
+                result[t] = value
+            else:
+                misses.append(t)
+
+        lang_name = _LANG_NAMES.get(language, language)
+        for i in range(0, len(misses), _LLM_CHUNK):
+            chunk = misses[i:i + _LLM_CHUNK]
+            translations = await _batch_translate_with_llm(chunk, lang_name, model)
+            for t in chunk:
+                value = translations.get(t)
+                if isinstance(value, str) and value.strip() and not _is_untranslated(t, value, language):
+                    _request_cache[prefix + t] = value
+                    _store(db, t, language, value)
+                    result[t] = value
+        if misses:
+            done = sum(1 for t in misses if result.get(t, t) != t)
+            logging.info("Translated %s of %s new terms to %s", done, len(misses), language)
+    except Exception as e:
+        logging.warning(f"Term translation to {language} failed: {e}")
+    finally:
+        db.close()
+
+    for t in unique:
+        result.setdefault(t, t)
+    return result
 
 async def translate_graph_labels(nodes, relationships, language, model):
     """
@@ -19,13 +144,6 @@ async def translate_graph_labels(nodes, relationships, language, model):
     """
     if not language or language == "en":
         return nodes, relationships
-
-    lang_map = {
-        "hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali",
-        "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam",
-        "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"
-    }
-    lang_name = lang_map.get(language, language)
 
     # Collect all unique terms that need translation
     terms_to_translate = set()
@@ -48,63 +166,11 @@ async def translate_graph_labels(nodes, relationships, language, model):
                 if val and isinstance(val, str):
                     terms_to_translate.add(val)
 
-    # Check cache (request cache first, then DB)
-    cache_key_prefix = f"{language}:"
-    db = SessionLocal()
-    try:
-        # Filter terms that are not in the in-process request cache
-        missing_from_req_cache = [t for t in terms_to_translate if f"{cache_key_prefix}{t}" not in _request_cache]
-        
-        if missing_from_req_cache:
-            # Batch lookup from DB
-            db_cached = get_cached_batch(db, missing_from_req_cache, "en", language)
-            
-            uncached_terms = []
-            for t, translated in db_cached.items():
-                if translated:
-                    # Aggressive "rubbish" detection for conversational filler
-                    rubbish_indicators = [
-                        "intended translation", "maybe", "wait", "user wrote", "medical term",
-                        "okay,", "let's", "i need to", "user wants", "translate", "translation",
-                        "into tamil", "into hindi", "sure,", "here is", "i think", "medical platform",
-                        "the phrase", "means", "is a", "next part", "tackle this", "உருப்படி உள்ளது",
-                        "அடுத்த பகுதி", "தொடர்புடையது", "குறிப்பிடப்பட்டுள்ளது"
-                    ]
-                    is_cached_rubbish = any(indicator in translated.lower() for indicator in rubbish_indicators)
-                    
-                    # Also check for sentence-like English structures in non-English labels
-                    if not is_cached_rubbish and language not in ["en", "fr", "de", "es"]:
-                        english_words = re.findall(r'\b(the|is|at|which|on|for|of|to|and|a|an)\b', translated.lower())
-                        if len(english_words) > 2:
-                            is_cached_rubbish = True
-
-                    if is_cached_rubbish and language not in ["en", "fr", "de", "es"]:
-                        logging.warning(f"CACHED RUBBISH IGNORED: '{translated}' for term '{t}'")
-                    else:
-                        _request_cache[f"{cache_key_prefix}{t}"] = translated
-                        continue
-                
-                # Skip file extensions
-                    if re.search(r'\.(pdf|docx|txt|json|png|jpg|jpeg)$', t, re.IGNORECASE):
-                        _request_cache[f"{cache_key_prefix}{t}"] = t
-                        continue
-                    uncached_terms.append(t)
-
-            # Batch translate uncached terms via LLM
-            if uncached_terms:
-                try:
-                    translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
-                    for original, translated in translations.items():
-                        _request_cache[f"{cache_key_prefix}{original}"] = translated
-                        save_to_cache(db, original, "en", language, translated)
-                except Exception as e:
-                    logging.warning(f"Translation failed for {len(uncached_terms)} terms: {e}")
-    finally:
-        db.close()
+    translated = await translate_terms(list(terms_to_translate), language, model)
 
     # Apply translations
     def get_translated(term):
-        return _request_cache.get(f"{cache_key_prefix}{term}", term)
+        return translated.get(term, term)
 
     for node in nodes:
         if node and "labels" in node:
@@ -151,13 +217,6 @@ async def translate_metadata(metadata, language, model):
     if not language or language == "en":
         return metadata
 
-    lang_map = {
-        "hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali",
-        "mr": "Marathi", "kn": "Kannada", "ml": "Malayalam",
-        "gu": "Gujarati", "pa": "Punjabi", "or": "Odia"
-    }
-    lang_name = lang_map.get(language, language)
-
     # Collect terms from entities and node details
     terms_to_translate = set()
     
@@ -191,60 +250,11 @@ async def translate_metadata(metadata, language, model):
     if not terms_to_translate:
         return metadata
 
-    # Translation process
-    cache_key_prefix = f"{language}:"
-    db = SessionLocal()
-    try:
-        # Filter terms that are not in the in-process request cache
-        missing_from_req_cache = [t for t in terms_to_translate if f"{cache_key_prefix}{t}" not in _request_cache]
-        
-        if missing_from_req_cache:
-            # Batch lookup from DB
-            db_cached = get_cached_batch(db, missing_from_req_cache, "en", language)
-            
-            uncached_terms = []
-            for t, translated in db_cached.items():
-                if translated:
-                    # Aggressive "rubbish" detection for conversational filler
-                    rubbish_indicators = [
-                        "intended translation", "maybe", "wait", "user wrote", "medical term",
-                        "okay,", "let's", "i need to", "user wants", "translate", "translation",
-                        "into tamil", "into hindi", "sure,", "here is", "i think", "medical platform"
-                    ]
-                    is_cached_rubbish = any(indicator in translated.lower() for indicator in rubbish_indicators)
-                    
-                    # Also check for sentence-like English structures in non-English labels
-                    if not is_cached_rubbish and language not in ["en", "fr", "de", "es"]:
-                        english_words = re.findall(r'\b(the|is|at|which|on|for|of|to|and|a|an)\b', translated.lower())
-                        if len(english_words) > 2:
-                            is_cached_rubbish = True
-
-                    if is_cached_rubbish and language not in ["en", "fr", "de", "es"]:
-                        logging.warning(f"CACHED RUBBISH IGNORED in metadata: '{translated}' for term '{t}'")
-                    else:
-                        _request_cache[f"{cache_key_prefix}{t}"] = translated
-                        continue
-                
-                # Skip file extensions
-                    if re.search(r'\.(pdf|docx|txt|json|png|jpg|jpeg)$', t, re.IGNORECASE):
-                        _request_cache[f"{cache_key_prefix}{t}"] = t
-                        continue
-                    uncached_terms.append(t)
-
-            if uncached_terms:
-                try:
-                    translations = await _batch_translate_with_llm(uncached_terms, lang_name, model)
-                    for original, translated in translations.items():
-                        _request_cache[f"{cache_key_prefix}{original}"] = translated
-                        save_to_cache(db, original, "en", language, translated)
-                except Exception as e:
-                    logging.warning(f"Metadata translation failed for {len(uncached_terms)} terms: {e}")
-    finally:
-        db.close()
+    translated = await translate_terms(list(terms_to_translate), language, model)
 
     # Apply translations back to metadata
     def get_translated(term):
-        return _request_cache.get(f"{cache_key_prefix}{term}", term)
+        return translated.get(term, term)
 
     # Apply to entities
     if "entities" in metadata:
@@ -352,8 +362,9 @@ CRITICAL RULES:
                 ]
                 is_rubbish = any(indicator in translated.lower() for indicator in rubbish_indicators)
                 
-                # Check for unusually long translations for what should be a label/type
-                if not is_rubbish and len(translated) > 60:
+                # Check for unusually long translations: much longer than the term itself
+                # means the model added explanation (long entity names are fine)
+                if not is_rubbish and len(translated) > max(60, 3 * len(str(term))):
                     is_rubbish = True
                 
                 # Check for excessive English words in non-English translation

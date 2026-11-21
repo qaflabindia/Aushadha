@@ -165,61 +165,150 @@ export function extractPdfFileName(url: string): string {
   return decodedFileName;
 }
 
+// Caption inside a node circle. A block of n lines may be as wide as the circle's chord
+// at the block's top and bottom edge (2·√(r² − (h/2)²)), so one line can span most of the
+// circle while three lines stay narrower, and no corner crosses the edge. The largest font
+// (and fewest lines) at which whole words fit is chosen, measured with the label's own
+// font; if nothing fits, the smallest font is used, long words break, and anything after
+// the last line is cut with an ellipsis.
+const LABEL_MAX_LINES = 3;
+const LABEL_LINE_HEIGHT = 1.25; // room for Indic scripts' vowel signs above and below
+const LABEL_EDGE_GAP = 3; // px kept clear of the circle's edge
+const LABEL_FONT =
+  "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+let labelMeasureCtx: CanvasRenderingContext2D | null = null;
+
+// Lines the words take when wrapped at word boundaries in `width`; Infinity if a word is wider than a line
+const wrappedLineCount = (words: string[], fontSize: number, width: number): number => {
+  if (!labelMeasureCtx) {
+    labelMeasureCtx = document.createElement('canvas').getContext('2d');
+  }
+  const ctx = labelMeasureCtx;
+  if (!ctx) {
+    return 1;
+  }
+  ctx.font = `${fontSize}px ${LABEL_FONT}`;
+  const space = ctx.measureText(' ').width;
+  let lines = 1;
+  let used = 0;
+  for (const word of words) {
+    const w = ctx.measureText(word).width;
+    if (w > width) {
+      return Infinity;
+    }
+    if (used === 0) {
+      used = w;
+    } else if (used + space + w <= width) {
+      used += space + w;
+    } else {
+      lines += 1;
+      used = w;
+    }
+  }
+  return lines;
+};
+
+// Widest text block of `lines` lines that fits inside a circle of radius r (0 if none)
+const chordWidth = (r: number, lines: number, fontSize: number): number => {
+  const half = (lines * fontSize * LABEL_LINE_HEIGHT) / 2;
+  return half >= r ? 0 : Math.floor(2 * Math.sqrt(r * r - half * half));
+};
+
 export function createHtmlLabel(caption: string, nodeSize: number = 40): HTMLElement {
-  const htmlEl = document.createElement('div');
   const diameter = nodeSize * 2;
-  htmlEl.innerText = caption;
-  htmlEl.style.color = '#000000';
+  const r = nodeSize - LABEL_EDGE_GAP;
+  const text = (caption ?? '').replace(/\s+/g, ' ').trim();
+  const words = text ? text.split(' ') : [];
 
-  // Font size calculation: scale nicely with node size (e.g. 40 size -> ~11px)
-  const fontSize = Math.max(9, Math.round(nodeSize * 0.28));
-  htmlEl.style.fontSize = `${fontSize}px`;
-  // Generic sans-serif stack supporting all OS-native typographic ligatures
-  htmlEl.style.fontFamily =
-    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-  htmlEl.style.textAlign = 'center';
+  const base = Math.max(9, Math.round(nodeSize * 0.28));
+  const minFont = 7;
+  let fontSize = minFont;
+  let maxLines = 1;
+  let width = chordWidth(r, 1, minFont);
+  let fitted = false;
+  for (let size = base; size >= minFont && !fitted; size--) {
+    for (let lines = 1; lines <= LABEL_MAX_LINES; lines++) {
+      const w = chordWidth(r, lines, size);
+      if (w > 0 && wrappedLineCount(words, size, w) <= lines) {
+        fontSize = size;
+        maxLines = lines;
+        width = w;
+        fitted = true;
+        break;
+      }
+    }
+  }
+  if (!fitted) {
+    // Smallest font, as many lines as fit; long words break and the rest is cut
+    for (let lines = LABEL_MAX_LINES; lines >= 1; lines--) {
+      const w = chordWidth(r, lines, minFont);
+      if (w > 0) {
+        maxLines = lines;
+        width = w;
+        break;
+      }
+    }
+  }
 
-  // Dynamic sizing perfectly matching circle bounding box bounds
+  // Outer element fills the node and centres the text box
+  const htmlEl = document.createElement('div');
   htmlEl.style.width = `${diameter}px`;
   htmlEl.style.height = `${diameter}px`;
-  htmlEl.style.boxSizing = 'border-box';
-
-  // Padding based on node size to keep text inside the circle edge
-  const padding = Math.max(4, nodeSize * 0.15);
-  htmlEl.style.padding = `${padding}px`;
-
-  htmlEl.style.wordWrap = 'break-word';
-  htmlEl.style.wordBreak = 'break-word';
-  htmlEl.style.lineHeight = '1.2';
-  htmlEl.style.pointerEvents = 'none';
-
-  // Absolute center alignment inside the bounds
   htmlEl.style.display = 'flex';
   htmlEl.style.alignItems = 'center';
   htmlEl.style.justifyContent = 'center';
+  htmlEl.style.pointerEvents = 'none';
   htmlEl.style.backgroundColor = 'transparent';
+
+  const textEl = document.createElement('div');
+  textEl.innerText = text;
+  textEl.style.maxWidth = `${width}px`;
+  textEl.style.color = '#000000';
+  textEl.style.fontSize = `${fontSize}px`;
+  textEl.style.lineHeight = `${LABEL_LINE_HEIGHT}`;
+  // Generic sans-serif stack supporting all OS-native typographic ligatures
+  textEl.style.fontFamily = LABEL_FONT;
+  textEl.style.textAlign = 'center';
+  // Break inside a word only when the word alone is wider than the box
+  textEl.style.overflowWrap = 'anywhere';
+  textEl.style.wordBreak = 'break-word';
+  textEl.style.overflow = 'hidden';
+  textEl.style.textOverflow = 'ellipsis';
+  // Cut to maxLines with an ellipsis
+  textEl.style.display = '-webkit-box';
+  textEl.style.setProperty('-webkit-box-orient', 'vertical');
+  textEl.style.setProperty('-webkit-line-clamp', String(maxLines));
+  textEl.style.setProperty('line-clamp', String(maxLines));
+
+  htmlEl.appendChild(textEl);
   return htmlEl;
 }
 
+// Graph text longer than this is content (e.g. a chunk's text), not a label: not translated
+const MAX_GRAPH_TOKEN = 200;
+
 export async function translateGraphTokens(texts: string[], lang: string): Promise<Record<string, string>> {
-  if (lang === 'en' || texts.length === 0) {
-    return Object.fromEntries(texts.map((t) => [t, t]));
+  const identity = Object.fromEntries(texts.map((t) => [t, t]));
+  const tokens = texts.filter((t) => t && t.length <= MAX_GRAPH_TOKEN);
+  if (lang === 'en' || tokens.length === 0) {
+    return identity;
   }
   try {
+    // Known terms come from the backend's translation cache; new ones are translated once and cached
     const res = await fetch(`${url()}/translate/dynamic/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts, lang }),
+      body: JSON.stringify({ texts: tokens, lang }),
     });
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
     const data = await res.json();
-    return data.translations;
+    return { ...identity, ...(data?.translations ?? {}) };
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[translateGraphTokens] failed', e);
-    return Object.fromEntries(texts.map((t) => [t, t]));
+    return identity;
   }
 }
 
@@ -231,7 +320,8 @@ export const processGraphData = (
   const schemeVal: Scheme = {};
   let iterator = 0;
   const filteredNeoNodes = neoNodes.filter((node: any) => {
-    const labels = node.labels || [];
+    // Original (English) labels: the backend may have translated node.labels
+    const labels = node.original_labels || node.labels || [];
     return !labels.includes('*') && !labels.includes('__Entity__');
   });
 

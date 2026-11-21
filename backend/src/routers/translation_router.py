@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from src.api_response import create_api_response
 from src.shared.auth_gate import REQUIRE_AUTH_ALL
+from src.shared.google_auth import AuthenticatedUser, require_auth
+from src.shared.localization import translate_terms
 from src.database import get_db
 from src.llm import get_llm, llm_semaphore
 from src.ui_translations import (
@@ -256,6 +258,25 @@ async def translate_ui_batch(req: TranslateBatchRequest, request: Request, db: S
             translated_map.update(new_translations)
 
     return create_api_response("Success", data=translated_map)
+
+
+MAX_DYNAMIC_TERMS = 500
+
+
+@router.post("/dynamic/batch")
+async def translate_dynamic_batch(
+    req: TranslateBatchRequest, user: AuthenticatedUser = Depends(require_auth)
+):
+    """
+    Translate graph text (node captions, labels, relationship types) for display.
+    Uses the translation_cache table: known terms come from the cache, new ones are
+    translated once by the LLM and saved. Returns {"translations": {english: target}}.
+    """
+    texts = [t for t in dict.fromkeys(req.texts) if isinstance(t, str) and t.strip()][:MAX_DYNAMIC_TERMS]
+    if req.lang == "en" or req.lang not in SUPPORTED_LANG_CODES:
+        return {"translations": {t: t for t in texts}}
+    translations = await translate_terms(texts, req.lang, req.model)
+    return {"translations": translations}
 
 
 @router.get("/ui/stats")

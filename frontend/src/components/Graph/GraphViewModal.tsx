@@ -256,18 +256,34 @@ const GraphViewModal: React.FunctionComponent<GraphViewModalProps> = ({
       if (viewPoint !== graphLabels.chatInfoView) {
         graphApi();
       } else {
-        const { finalNodes, finalRels, schemeVal } = processGraphData(
-          nodeValues ?? [],
-          relationshipValues ?? [],
-          {} // Translations for chatInfoView are already handled or can be added if needed
-        );
-        setAllNodes(finalNodes);
-        setAllRelationships(finalRels);
-        setScheme(schemeVal);
-        setNode(finalNodes);
-        setRelationship(finalRels);
-        setNewScheme(schemeVal);
-        setLoading(false);
+        // Graph from a chat answer's details: translate its captions and types the same way
+        const showChatGraph = async () => {
+          const chatNodes = nodeValues ?? [];
+          const chatRels = relationshipValues ?? [];
+          const tokens = new Set<string>();
+          chatNodes.forEach((n: any) => {
+            n.labels?.forEach((l: string) => tokens.add(l));
+            const caption = getNodeCaption(n);
+            if (caption) {
+              tokens.add(caption);
+            }
+          });
+          chatRels.forEach((r: any) => {
+            if (r.type) {
+              tokens.add(r.type);
+            }
+          });
+          const tokenTranslations = await translateGraphTokens(Array.from(tokens), appLanguage.code);
+          const { finalNodes, finalRels, schemeVal } = processGraphData(chatNodes, chatRels, tokenTranslations);
+          setAllNodes(finalNodes);
+          setAllRelationships(finalRels);
+          setScheme(schemeVal);
+          setNode(finalNodes);
+          setRelationship(finalRels);
+          setNewScheme(schemeVal);
+          setLoading(false);
+        };
+        showChatGraph();
       }
     }
   }, [open]);
