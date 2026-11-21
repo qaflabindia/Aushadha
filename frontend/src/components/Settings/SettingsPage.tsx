@@ -15,7 +15,9 @@ import {
   RiVipDiamondLine,
 } from 'react-icons/ri';
 import { useGoogleAuth } from '../../context/GoogleAuthContext';
-import { Avatar, Banner } from '@neo4j-ndl/react';
+import { Avatar, Banner, SpotlightTarget } from '@neo4j-ndl/react';
+import PageTour, { PageTourStep, TourButton } from '../UI/PageTour';
+import { HelpLink } from '../Help/helpLinks';
 import LanguageSelector from '../UI/LanguageSelector';
 import PatientDropdown from '../User/PatientDropdown';
 import { OptionType } from '../../types';
@@ -34,18 +36,26 @@ type TabKey = 'general' | 'ai' | 'account' | 'admin' | 'graph' | 'security';
 
 // ─── Section Components ────────────────────────────────────────────────────────
 
-const SectionHeader: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => {
+const SectionHeader: React.FC<{ title: string; subtitle?: string; helpTopic?: string }> = ({
+  title,
+  subtitle,
+  helpTopic,
+}) => {
   const { colorMode } = useContext(ThemeWrapperContext);
+  const t = useTranslation();
   return (
     <div className='mb-8'>
-      <h2
-        className={clsx('text-2xl font-bold', {
-          'text-white': colorMode === 'dark',
-          'text-gray-900': colorMode === 'light',
-        })}
-      >
-        {title}
-      </h2>
+      <div className='flex items-center justify-between gap-3'>
+        <h2
+          className={clsx('text-2xl font-bold', {
+            'text-white': colorMode === 'dark',
+            'text-gray-900': colorMode === 'light',
+          })}
+        >
+          {title}
+        </h2>
+        {helpTopic && <HelpLink topic={helpTopic} label={t('Help on this page')} dark={colorMode === 'dark'} />}
+      </div>
       {subtitle && (
         <p
           className={clsx('text-sm mt-1', {
@@ -112,6 +122,7 @@ const GeneralSettings: React.FC = () => {
     <div>
       <SectionHeader
         title={t('General Workstation')}
+        helpTopic='settings-general'
         subtitle={t('Display, language and workspace appearance preferences.')}
       />
       <SettingRow label={t('Interface Language')} description={t('Select your preferred language for the UI.')}>
@@ -197,6 +208,7 @@ const AccountSettings: React.FC = () => {
     <div>
       <SectionHeader
         title={t('Account & Context')}
+        helpTopic='settings-account'
         subtitle={t('Your profile, active patient context, and session management.')}
       />
       {isAuthenticated && user && (
@@ -344,6 +356,7 @@ const AISettings: React.FC = () => {
     <div>
       <SectionHeader
         title={t('AI Engine & Sources')}
+        helpTopic='settings-ai'
         subtitle={t('Configure the LLM model and chatbot retrieval settings.')}
       />
 
@@ -470,7 +483,11 @@ const GraphSettingsSection: React.FC<{
   const t = useTranslation();
   return (
     <div>
-      <SectionHeader title={t('Graph Settings')} subtitle={t('Knowledge graph construction and schema settings.')} />
+      <SectionHeader
+        title={t('Graph Settings')}
+        helpTopic='settings-graph'
+        subtitle={t('Knowledge graph construction and schema settings.')}
+      />
       <div className='mt-6'>
         <GraphSettingsTabs
           combinedPatterns={combinedPatterns}
@@ -531,6 +548,7 @@ const SecuritySection: React.FC = () => {
     <div>
       <SectionHeader
         title={t('Secure Vault')}
+        helpTopic='settings-vault'
         subtitle={t('Store API keys and secrets securely. Used as backend environment overrides.')}
       />
 
@@ -664,7 +682,11 @@ const AdminSection: React.FC = () => {
 
   return (
     <div>
-      <SectionHeader title={t('Administration')} subtitle={t('Manage users, roles, and organisation settings.')} />
+      <SectionHeader
+        title={t('Administration')}
+        helpTopic='administration'
+        subtitle={t('Manage users, roles, and organisation settings.')}
+      />
       <div
         className='rounded-2xl overflow-hidden border'
         style={{ border: '1px solid rgba(255,255,255,0.05)', minHeight: 400 }}
@@ -715,89 +737,123 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     return true;
   });
 
-  return (
-    <div className={clsx("flex h-full w-full font-['Inter'] overflow-hidden")}>
-      {/* Sidebar */}
-      <aside
-        className={clsx('w-64 flex-shrink-0 flex flex-col py-8', {
-          'border-r border-white/5': colorMode === 'dark',
-          'border-r border-gray-100 bg-gray-50/60': colorMode === 'light',
-        })}
-      >
-        <div className='px-6 mb-8'>
-          <h1
-            className={clsx('text-lg font-black tracking-tight', {
-              'text-white': colorMode === 'dark',
-              'text-gray-900': colorMode === 'light',
-            })}
-          >
-            {t('Settings')}
-          </h1>
-          <p
-            className={clsx('text-[10px] mt-0.5 font-bold uppercase tracking-[0.2em] opacity-60', {
-              'text-[#D4AF37]': colorMode === 'dark',
-              'text-blue-600': colorMode === 'light',
-            })}
-          >
-            {t('Workspace Control Center')}
-          </p>
-        </div>
+  // Guided tour: the page header, then one stop per tab this user can see
+  const tabTourText: Record<TabKey, string> = {
+    general: t('Choose the interface language and switch between the dark and light theme.'),
+    account: t('See your profile, pick the active patient for the clinical AI, change your password, or log out.'),
+    ai: t('Pick the LLM model, the chat retrieval mode and its sources, and the assistant voice.'),
+    graph: t('Set the schema used to build the knowledge graph: node labels, relationships and patterns.'),
+    security: t('Store API keys and other secrets in the secure vault, and see which ones are configured.'),
+    admin: t('Register users, assign roles and patients, and manage interface translations.'),
+  };
+  const tourSteps: PageTourStep[] = [
+    {
+      target: 'settings-tour-header',
+      title: t('Settings'),
+      body: t('Your workspace control center. Each tab on the left opens one group of settings.'),
+    },
+    ...tabs.map((tab) => ({ target: `settings-tour-${tab.id}`, title: tab.label, body: tabTourText[tab.id] })),
+  ];
 
-        <nav className='flex-1 overflow-y-auto px-3 space-y-1'>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200',
-                {
-                  'bg-white/10 text-white shadow-inner': colorMode === 'dark' && activeTab === tab.id,
-                  'text-white/50 hover:text-white hover:bg-white/5': colorMode === 'dark' && activeTab !== tab.id,
-                  'bg-blue-600 text-white shadow-sm': colorMode === 'light' && activeTab === tab.id,
-                  'text-gray-500 hover:text-gray-900 hover:bg-gray-100': colorMode === 'light' && activeTab !== tab.id,
-                }
-              )}
-            >
-              <span
-                className={clsx({
-                  'text-[#D4AF37]': colorMode === 'dark' && activeTab === tab.id,
-                  'text-white': colorMode === 'light' && activeTab === tab.id,
+  return (
+    <PageTour tourId='settings' steps={tourSteps}>
+      <div className={clsx("flex h-full w-full font-['Inter'] overflow-hidden")}>
+        {/* Sidebar */}
+        <aside
+          className={clsx('w-64 flex-shrink-0 flex flex-col py-8', {
+            'border-r border-white/5': colorMode === 'dark',
+            'border-r border-gray-100 bg-gray-50/60': colorMode === 'light',
+          })}
+        >
+          <SpotlightTarget id='settings-tour-header' hasPulse={false} className='px-6 mb-8 cursor-auto'>
+            <div className='flex items-center justify-between gap-2'>
+              <h1
+                className={clsx('text-lg font-black tracking-tight', {
+                  'text-white': colorMode === 'dark',
+                  'text-gray-900': colorMode === 'light',
                 })}
               >
-                {tab.icon}
-              </span>
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </aside>
+                {t('Settings')}
+              </h1>
+              <TourButton
+                label={t('Tour')}
+                className={clsx(
+                  'inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-colors',
+                  {
+                    'text-white/50 hover:text-[#D4AF37] hover:bg-white/5': colorMode === 'dark',
+                    'text-gray-500 hover:text-blue-600 hover:bg-gray-100': colorMode === 'light',
+                  }
+                )}
+              />
+            </div>
+            <p
+              className={clsx('text-[10px] mt-0.5 font-bold uppercase tracking-[0.2em] opacity-60', {
+                'text-[#D4AF37]': colorMode === 'dark',
+                'text-blue-600': colorMode === 'light',
+              })}
+            >
+              {t('Workspace Control Center')}
+            </p>
+          </SpotlightTarget>
 
-      {/* Content */}
-      <main
-        className={clsx('flex-1 overflow-y-auto p-8 lg:p-12', {
-          'bg-black/10': colorMode === 'dark',
-          'bg-white': colorMode === 'light',
-        })}
-      >
-        <div className='max-w-2xl mx-auto'>
-          {activeTab === 'general' && <GeneralSettings />}
-          {activeTab === 'account' && <AccountSettings />}
-          {activeTab === 'ai' && <AISettings />}
-          {activeTab === 'graph' && (
-            <GraphSettingsSection
-              combinedPatterns={combinedPatterns}
-              setCombinedPatterns={setCombinedPatterns}
-              combinedNodes={combinedNodes}
-              setCombinedNodes={setCombinedNodes}
-              combinedRels={combinedRels}
-              setCombinedRels={setCombinedRels}
-            />
-          )}
-          {activeTab === 'security' && <SecuritySection />}
-          {activeTab === 'admin' && <AdminSection />}
-        </div>
-      </main>
-    </div>
+          <nav className='flex-1 overflow-y-auto px-3 space-y-1'>
+            {tabs.map((tab) => (
+              <SpotlightTarget key={tab.id} id={`settings-tour-${tab.id}`} hasPulse={false}>
+                <button
+                  onClick={() => setActiveTab(tab.id)}
+                  className={clsx(
+                    'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200',
+                    {
+                      'bg-white/10 text-white shadow-inner': colorMode === 'dark' && activeTab === tab.id,
+                      'text-white/50 hover:text-white hover:bg-white/5': colorMode === 'dark' && activeTab !== tab.id,
+                      'bg-blue-600 text-white shadow-sm': colorMode === 'light' && activeTab === tab.id,
+                      'text-gray-500 hover:text-gray-900 hover:bg-gray-100':
+                        colorMode === 'light' && activeTab !== tab.id,
+                    }
+                  )}
+                >
+                  <span
+                    className={clsx({
+                      'text-[#D4AF37]': colorMode === 'dark' && activeTab === tab.id,
+                      'text-white': colorMode === 'light' && activeTab === tab.id,
+                    })}
+                  >
+                    {tab.icon}
+                  </span>
+                  {tab.label}
+                </button>
+              </SpotlightTarget>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Content */}
+        <main
+          className={clsx('flex-1 overflow-y-auto p-8 lg:p-12', {
+            'bg-black/10': colorMode === 'dark',
+            'bg-white': colorMode === 'light',
+          })}
+        >
+          <div className='max-w-2xl mx-auto'>
+            {activeTab === 'general' && <GeneralSettings />}
+            {activeTab === 'account' && <AccountSettings />}
+            {activeTab === 'ai' && <AISettings />}
+            {activeTab === 'graph' && (
+              <GraphSettingsSection
+                combinedPatterns={combinedPatterns}
+                setCombinedPatterns={setCombinedPatterns}
+                combinedNodes={combinedNodes}
+                setCombinedNodes={setCombinedNodes}
+                combinedRels={combinedRels}
+                setCombinedRels={setCombinedRels}
+              />
+            )}
+            {activeTab === 'security' && <SecuritySection />}
+            {activeTab === 'admin' && <AdminSection />}
+          </div>
+        </main>
+      </div>
+    </PageTour>
   );
 };
 

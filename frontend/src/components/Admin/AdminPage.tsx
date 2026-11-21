@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useContext } from 'react';
 import {
   Typography,
   DataGrid,
@@ -8,7 +8,11 @@ import {
   Banner,
   Button,
   TextInput,
+  SpotlightTarget,
 } from '@neo4j-ndl/react';
+import PageTour, { PageTourStep, TourButton } from '../UI/PageTour';
+import { HelpLink } from '../Help/helpLinks';
+import { ThemeWrapperContext } from '../../context/ThemeWrapper';
 import { useReactTable, getCoreRowModel, createColumnHelper } from '@tanstack/react-table';
 import { useGoogleAuth } from '../../context/GoogleAuthContext';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -32,9 +36,10 @@ interface TranslationStat {
   coverage: number;
 }
 
-const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = false }) => {
+const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { getAuthHeaders, user: currentUser } = useGoogleAuth();
   const t = useTranslation();
+  const { colorMode } = useContext(ThemeWrapperContext);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -276,13 +281,38 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
     );
   }
 
-  return (
+  // Guided tour (not when embedded in Settings, which has its own tour)
+  const tourSteps: PageTourStep[] = [
+    {
+      target: 'admin-tour-register',
+      title: t('Register New User'),
+      body: t('Enter an email address and pick a role. Patients get a Case ID, generated if left blank.'),
+    },
+    {
+      target: 'admin-tour-users',
+      title: t('Users and Roles'),
+      body: t('Every user with their role and patient case. Change a role or remove a user here.'),
+    },
+    {
+      target: 'admin-tour-translations',
+      title: t('Translation Management'),
+      body: t('See how much of the interface is translated per language, and seed missing translations.'),
+    },
+  ];
+
+  const content = (
     <Flex flexDirection='column' gap='4' className='p-8 h-full overflow-auto'>
       <Flex justifyContent='space-between' alignItems='center'>
         <Typography variant='h2'>{t('User Administration')}</Typography>
+        {!embedded && (
+          <div className='flex items-center gap-1'>
+            <TourButton label={t('Tour')} />
+            <HelpLink topic='administration' label={t('Help on this page')} dark={colorMode !== 'light'} />
+          </div>
+        )}
       </Flex>
 
-      <div className='glass-panel p-4 mb-2'>
+      <SpotlightTarget id='admin-tour-register' hasPulse={false} className='glass-panel p-4 mb-2 cursor-auto'>
         <Typography variant='body-medium' className='mb-2'>
           {t('Register New User')}
         </Typography>
@@ -329,7 +359,7 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
             </Typography>
           </div>
         )}
-      </div>
+      </SpotlightTarget>
 
       {alert && (
         <Banner type={alert.type} onClose={() => setAlert(null)} isCloseable={true} className='mb-4'>
@@ -337,7 +367,7 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
         </Banner>
       )}
 
-      <div className='glass-panel p-4 mb-8 h-fit'>
+      <SpotlightTarget id='admin-tour-users' hasPulse={false} className='glass-panel p-4 mb-8 h-fit cursor-auto'>
         {/* @ts-ignore */}
         <DataGrid
           tableInstance={table}
@@ -351,12 +381,12 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
             Pagination: () => <></>,
           }}
         />
-      </div>
+      </SpotlightTarget>
 
       <Typography variant='h2' className='mt-4'>
         {t('Translation Management')}
       </Typography>
-      <div className='glass-panel p-4 mb-4'>
+      <SpotlightTarget id='admin-tour-translations' hasPulse={false} className='glass-panel p-4 mb-4 cursor-auto'>
         <div className='flex items-end gap-4 mb-4 flex-wrap'>
           <div style={{ width: '220px' }}>
             <Typography variant='body-small' className='mb-2 block opacity-70'>
@@ -404,8 +434,16 @@ const AdminPage: React.FC<{ embedded?: boolean }> = ({ embedded: _embedded = fal
             ))}
           </tbody>
         </table>
-      </div>
+      </SpotlightTarget>
     </Flex>
+  );
+
+  return embedded ? (
+    content
+  ) : (
+    <PageTour tourId='admin' steps={tourSteps}>
+      {content}
+    </PageTour>
   );
 };
 

@@ -1,0 +1,467 @@
+{
+  "version": "1.0",
+  "hero": {
+    "eyebrow": "Aushadha · Clinical Intelligence Platform",
+    "title": "How can we help?",
+    "text": "Short, step-by-step guides for every part of Aushadha: signing in, building a patient's knowledge graph from documents, asking the AI assistant, and setting up the workspace. Search above, or pick a topic."
+  },
+  "sections": [
+    {
+      "id": "getting-started",
+      "icon": "start",
+      "title": "Getting started",
+      "summary": "Sign in and find your way around the dashboard.",
+      "topics": [
+        {
+          "id": "sign-in",
+          "title": "Sign in",
+          "body": "Aushadha opens on the sign-in page. Use the account your administrator gave you.",
+          "steps": [
+            "Pick your language at the top right, if you want one other than English.",
+            "Click Sign in with credentials, or Sign in with Google if your administrator set that up.",
+            "Enter your username or email address and your password.",
+            "Click Sign In. Your session lasts 8 hours; after that, sign in again."
+          ],
+          "image": "/help/login.png",
+          "caption": "The sign-in page.",
+          "tip": "Forgot your password? Ask an administrator to reset it. Once signed in, you can change it under Settings › Account & Context."
+        },
+        {
+          "id": "layout",
+          "title": "Find your way around",
+          "body": "The icon rail on the left opens each part of the app. The main area shows the dashboard, or the Settings page when you open it.",
+          "steps": [
+            "Patient Insights: upload documents and see the patient's files.",
+            "Global Research: a shortcut panel for Live Research. To run a search, use AI Assistant with the AYUSH Clinical mode (see Live Research).",
+            "AI Assistant: ask questions about the documents in plain language.",
+            "Workspace Settings: language, theme, AI model, graph schema, vault and administration."
+          ],
+          "image": "/help/home.png",
+          "caption": "The dashboard with the icon rail on the left."
+        },
+        {
+          "id": "language",
+          "title": "Change the language",
+          "body": "Aushadha works in English and ten Indian languages: Hindi, Tamil, Telugu, Bengali, Marathi, Kannada, Malayalam, Gujarati, Punjabi and Odia. Your choice is remembered on this device.",
+          "steps": [
+            "On the sign-in page, pick a language from the language selector before you sign in.",
+            "Once signed in, open Settings › General and choose an Interface Language.",
+            "Confirm the change when asked. Aushadha prepares the translations, tells you when they are ready and refreshes the page in the new language. This can take a little while the first time a language is used."
+          ],
+          "images": [
+            {
+              "src": "/help/language-selector.png",
+              "caption": "Choosing a language from the language selector."
+            },
+            {
+              "src": "/help/language-switched.png",
+              "caption": "The dashboard after switching to Hindi."
+            }
+          ],
+          "tip": "Some words may still appear in English while a language is being completed. An administrator can fill the gaps under Administration › Translations."
+        },
+        {
+          "id": "help-window",
+          "title": "Use this Help Centre",
+          "body": "The Help Centre opens from the gold ? button at the bottom right, in a floating window that stays open while you work.",
+          "steps": [
+            "Drag the title bar to move the window.",
+            "Drag the bottom-right corner to resize it.",
+            "Minimise it to a small pill, and click the pill to bring it back."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "icon": "upload",
+      "title": "Documents and the knowledge graph",
+      "summary": "Turn clinical documents into a knowledge graph the AI can reason over.",
+      "audience": "staff",
+      "topics": [
+        {
+          "id": "connect",
+          "title": "Connect to the database",
+          "body": "The dashboard needs a connection to the graph database before you can upload or build graphs. On the demo it connects automatically.",
+          "steps": [
+            "If the dashboard shows Not Connected, click Connect to DB.",
+            "Check the connection details. An administrator's saved settings fill in automatically.",
+            "Click Connect."
+          ],
+          "tip": "If the fields are empty and a message says only an administrator can load the saved settings, ask an administrator to connect, or enter the details yourself."
+        },
+        {
+          "id": "upload",
+          "title": "Upload documents",
+          "body": "Open Patient Insights from the icon rail to add a patient's documents. You can add files from your computer, from web sources, or from Amazon S3.",
+          "steps": [
+            "Make sure the right patient is selected at the top of the page (Active Patient).",
+            "Drag files onto Drag & Drop, or click browse to choose them. Documents, images and unstructured text are accepted.",
+            "To add a web page, click Web Sources; to import from cloud storage, click Amazon S3.",
+            "Uploaded files appear in the file table with their status."
+          ],
+          "image": "/help/upload-drawer.png",
+          "caption": "Patient Insights, where documents are uploaded."
+        },
+        {
+          "id": "generate",
+          "title": "Build the knowledge graph",
+          "body": "Aushadha reads each document with the chosen AI model and extracts the clinical entities and relationships into a graph.",
+          "steps": [
+            "Pick the AI model in the model selector.",
+            "Select files in the table, or leave none selected to process all new files.",
+            "Click Generate Graph and wait for the status to show Completed."
+          ],
+          "tip": "To guide what is extracted, set a graph schema first under Settings › Graph Settings."
+        },
+        {
+          "id": "visualise",
+          "title": "Explore the graph",
+          "body": "See what was extracted, as an interactive graph of entities and their links.",
+          "steps": [
+            "Select one or more processed files.",
+            "Click Preview Graph to open the graph view.",
+            "Click a node to see its details; use Explore Graph in DB for the full database view."
+          ],
+          "image": "/help/graph.png",
+          "caption": "The graph view of an extracted document."
+        }
+      ]
+    },
+    {
+      "id": "assistant",
+      "icon": "chat",
+      "title": "AI Assistant",
+      "summary": "Ask questions about the patient's documents and get answers with their sources.",
+      "topics": [
+        {
+          "id": "ask",
+          "title": "Ask a question",
+          "body": "The assistant answers from the patient's documents and knowledge graph, not from general knowledge alone. Ask in plain language, in any supported language.",
+          "steps": [
+            "Select the patient at the top of the page (Active Patient).",
+            "Open AI Assistant from the icon rail. The Concierge Intelligence panel opens.",
+            "Type your question in the Inquire Vault box and click Ask, or press Enter. Click the microphone to speak your question instead.",
+            "Click Details under an answer to see the sources it used. Use the copy and speaker buttons to copy it or hear it read aloud."
+          ],
+          "image": "/help/chat.png",
+          "caption": "A real conversation: a question about the demo patient and the assistant's answer with its sources.",
+          "tip": "The panel's buttons at the top clear the conversation, expand it to full screen, or download it."
+        },
+        {
+          "id": "modes",
+          "title": "Choose how answers are found",
+          "body": "The retrieval mode decides whether answers come from the graph, from document text, or both. Change it with Intelligence Search at the top of the page, or under Settings › AI Engine & Sources. AYUSH Clinical, marked LIVE, runs Live Research instead.",
+          "tip": "If an answer misses something you know is in a document, try a different retrieval mode."
+        },
+        {
+          "id": "voice",
+          "title": "Listen to answers",
+          "body": "Click the speaker button under an answer to hear it. Pick the voice under Settings › AI Engine & Sources › Assistant Voice."
+        }
+      ]
+    },
+    {
+      "id": "live-research",
+      "icon": "research",
+      "title": "Live Research",
+      "audience": "staff",
+      "summary": "Evidence-based AYUSH clinical research, gathered live from government and academic sources and written up as a structured report.",
+      "topics": [
+        {
+          "id": "what",
+          "title": "What Live Research does",
+          "body": "Live Research answers a clinical question about a condition using current published evidence, not only the patient's own documents. It searches trusted AYUSH and medical sources at the moment you ask, combines what it finds with the active patient's knowledge graph, and writes a structured report with its sources listed.",
+          "steps": [
+            "Government AYUSH sources: AYUSH Research Portal, ACCR, DHARA, e-Charak, AYUSH Suraksha and CCRAS.",
+            "Academic sources: PubMed, PubMed Central, JAIMS and ScienceDirect.",
+            "Meta-analyses: Frontiers journals."
+          ]
+        },
+        {
+          "id": "run",
+          "title": "Run a research search",
+          "steps": [
+            "Select the patient at the top of the page, so the report uses their context.",
+            "Open AI Assistant from the icon rail.",
+            "In the model list at the bottom of the page, choose an OpenAI model (for example openai_gpt_5_mini). Live Research searches the web only with OpenAI models; with other models it finds no outside evidence.",
+            "Click Intelligence Search at the top of the page and choose AYUSH Clinical, marked LIVE.",
+            "Type a clinical question in the Inquire Vault box, for example: Evidence for Ashwagandha in stress and insomnia, and click Ask.",
+            "The report takes a few minutes while the sources are searched. Click Cancel to stop it."
+          ],
+          "image": "/help/research-mode.png",
+          "caption": "AI Assistant open, an OpenAI model chosen, and AYUSH Clinical (LIVE) at the bottom of the Intelligence Search list.",
+          "tip": "Name the condition clearly in your question. The report is built around one target condition."
+        },
+        {
+          "id": "report",
+          "title": "Read the report",
+          "body": "Every report follows the same nine sections, so reports are easy to compare:",
+          "steps": [
+            "Triage gate: a safety check first. Pass, Fail or Escalate, with any emergency warning signs.",
+            "Disease entity mapping: the condition and its codes.",
+            "Pharmacological interventions: single herbs and medicines, with doses where the evidence gives them.",
+            "Composite formulations.",
+            "Panchakarma and procedural therapies.",
+            "Yoga and pranayama protocol.",
+            "Pharmacovigilance: known adverse reactions and interactions.",
+            "Entity-to-intervention routing table: which finding each recommendation answers.",
+            "Evidence grade summary: how strong the evidence is for each recommendation."
+          ]
+        },
+        {
+          "id": "safety",
+          "title": "How to trust the results",
+          "body": "Live Research never invents citations, doses or trial identifiers. Where the evidence is missing it writes LEC (Limited Evidence in Context) instead of guessing. If the triage gate says Escalate, act on the safety warning first.",
+          "tip": "Live Research supports clinical decisions; it does not replace a qualified practitioner's judgement."
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "icon": "settings",
+      "title": "Settings",
+      "summary": "Open Settings from the icon rail. Each tab on the left holds one group of settings; patients see General and Account & Context.",
+      "topics": [
+        {
+          "id": "general",
+          "title": "General",
+          "body": "Choose the interface language and switch between the dark and light theme. The theme changes at once; a new language asks you to confirm, then refreshes the page.",
+          "image": "/help/settings-language.png",
+          "caption": "Settings › General, with the Interface Language list."
+        },
+        {
+          "id": "account",
+          "title": "Account & Context",
+          "body": "Your profile and session.",
+          "steps": [
+            "Active Patient Context: pick the patient the clinical AI should focus on.",
+            "Change Password: enter the new password twice (at least 6 characters) and click Update Password.",
+            "Session: click Logout to sign out."
+          ],
+          "image": "/help/settings-account.png",
+          "caption": "Settings › Account & Context."
+        },
+        {
+          "id": "ai",
+          "title": "AI Engine & Sources",
+          "body": "Pick the LLM model used for extraction and chat, the chat retrieval mode and its sources, and the assistant voice.",
+          "image": "/help/settings-ai.png",
+          "caption": "Settings › AI Engine & Sources.",
+          "audience": "staff"
+        },
+        {
+          "id": "graph",
+          "title": "Graph Settings",
+          "body": "Set the schema used to build the knowledge graph: the node labels, relationship types and patterns to extract.",
+          "image": "/help/settings-graph.png",
+          "caption": "Settings › Graph Settings.",
+          "audience": "staff"
+        },
+        {
+          "id": "vault",
+          "title": "Secure Vault",
+          "body": "Store API keys and other secrets, encrypted on the server. Values are never shown again after saving.",
+          "steps": [
+            "Enter a Secret Name and its Secret Value.",
+            "Click Save Secret.",
+            "Click Load under Configured Secrets to see which names are set."
+          ],
+          "image": "/help/settings-keys-store.png",
+          "caption": "Settings › Secure Vault.",
+          "tip": "Only administrators can read the vault.",
+          "audience": "staff"
+        }
+      ]
+    },
+    {
+      "id": "administration",
+      "icon": "admin",
+      "title": "Administration",
+      "summary": "Manage users, roles and interface translations. Available to administrators only.",
+      "audience": "admin",
+      "topics": [
+        {
+          "id": "add-user",
+          "title": "Register a new user",
+          "body": "Open Settings › Administration.",
+          "steps": [
+            "Enter the user's email address.",
+            "Pick a role: Admin, Doctor or Patient.",
+            "For a patient, enter a Case ID, or leave it blank to generate one.",
+            "Click Add User."
+          ],
+          "image": "/help/admin-users.png",
+          "caption": "User Administration.",
+          "tip": "Once a Case ID is assigned to a patient, it cannot be changed."
+        },
+        {
+          "id": "roles",
+          "title": "Change a role or remove a user",
+          "body": "The user table lists everyone with their role and case. Change a role in its row, or remove the user with the delete button."
+        },
+        {
+          "id": "translations",
+          "title": "Translations",
+          "body": "See how much of the interface is translated in each language, and fill the gaps.",
+          "steps": [
+            "Pick a Seed Language.",
+            "Click Seed Translations to translate the missing strings.",
+            "Click Refresh Statistics to update the coverage table."
+          ],
+          "image": "/help/admin-translations.png",
+          "caption": "Translation Management."
+        },
+        {
+          "id": "edit-help",
+          "title": "Edit this Help Centre",
+          "body": "Administrators can change any text in this Help Centre without a code change.",
+          "steps": [
+            "Click Edit in the toolbar. Editable text gets a dotted outline.",
+            "Click a piece of text, change it, then click elsewhere to save.",
+            "Click Reset next to edited text to restore the original.",
+            "Click Audit & feedback to see every change (who, when, and the text before and after) and what readers said when closing the Help Centre."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tours",
+      "icon": "tour",
+      "title": "Page walkthroughs",
+      "summary": "A short, step-by-step walkthrough that points out each part of a page.",
+      "topics": [
+        {
+          "id": "replay",
+          "title": "Take or replay a walkthrough",
+          "body": "The dashboard, Settings and Administration pages each have a walkthrough. It highlights one part of the page at a time, with a short note on what it does. It starts by itself the first time you open the page.",
+          "steps": [
+            "Click Tour next to the page title to start it again.",
+            "Click Next and Back to move between the highlighted parts.",
+            "Click Dismiss to close it at any time."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "glossary",
+      "icon": "book",
+      "title": "Glossary",
+      "summary": "Plain-language meanings of the terms used in Aushadha.",
+      "topics": [
+        {
+          "id": "knowledge-graph",
+          "title": "Knowledge graph",
+          "body": "A map of the clinical facts found in a patient's documents: conditions, medicines, symptoms, tests and the links between them. The AI Assistant uses it to answer questions."
+        },
+        {
+          "id": "entity",
+          "title": "Entity (node)",
+          "body": "One thing in the knowledge graph, such as a condition, a medicine or a lab value."
+        },
+        {
+          "id": "relationship",
+          "title": "Relationship",
+          "body": "A link between two entities, for example a medicine that treats a condition."
+        },
+        {
+          "id": "graph-schema",
+          "title": "Graph schema",
+          "body": "The list of entity and relationship types to look for when building the graph. Set it under Settings › Graph Settings.",
+          "audience": "staff"
+        },
+        {
+          "id": "chunk",
+          "title": "Chunk",
+          "body": "A short passage of a document. Documents are split into chunks so the AI can find and cite the exact passage behind an answer."
+        },
+        {
+          "id": "llm",
+          "title": "LLM (AI model)",
+          "body": "The large language model that reads documents and writes answers. Choose it under Settings › AI Engine & Sources.",
+          "audience": "staff"
+        },
+        {
+          "id": "retrieval-mode",
+          "title": "Retrieval mode",
+          "body": "How the assistant finds information before answering: from the graph, from document text, or both.",
+          "audience": "staff"
+        },
+        {
+          "id": "active-patient",
+          "title": "Active patient context",
+          "body": "The patient whose records the AI focuses on. Pick it under Settings › Account & Context."
+        },
+        {
+          "id": "case-id",
+          "title": "Case ID",
+          "body": "A patient's unique reference number in Aushadha. It is set once and cannot be changed."
+        },
+        {
+          "id": "secure-vault",
+          "title": "Secure Vault",
+          "body": "Encrypted storage on the server for API keys and other secrets. Only administrators can read it.",
+          "audience": "staff"
+        },
+        {
+          "id": "ayush",
+          "title": "AYUSH",
+          "body": "India's traditional systems of medicine: Ayurveda, Yoga and Naturopathy, Unani, Siddha and Homoeopathy."
+        },
+        {
+          "id": "lec",
+          "title": "LEC (Limited Evidence in Context)",
+          "body": "Shown in a Live Research report where published evidence is missing, instead of a guess.",
+          "audience": "staff"
+        },
+        {
+          "id": "triage-gate",
+          "title": "Triage gate",
+          "body": "The safety check at the start of every Live Research report: Pass, Fail or Escalate.",
+          "audience": "staff"
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "icon": "trouble",
+      "title": "Troubleshooting",
+      "summary": "Quick fixes for the most common problems.",
+      "topics": [
+        {
+          "id": "signed-out",
+          "title": "I was sent back to the sign-in page",
+          "body": "Your session expired (sessions last 8 hours). Sign in again; your documents and settings are kept."
+        },
+        {
+          "id": "not-connected",
+          "title": "The dashboard says Not Connected",
+          "body": "Refresh the page first. If it still shows Not Connected, sign out and back in, then click Connect to DB."
+        },
+        {
+          "id": "empty-fields",
+          "title": "The connection fields are empty",
+          "body": "Saved connection settings can only be loaded by an administrator. Ask one to connect, or enter the details yourself."
+        },
+        {
+          "id": "stale-page",
+          "title": "Something looks out of date after an update",
+          "body": "Do a hard refresh: Cmd+Shift+R on a Mac, or Ctrl+Shift+R on Windows."
+        },
+        {
+          "id": "still-stuck",
+          "title": "Still stuck? Get help",
+          "body": "Contact support or your administrator. For a quick answer, include:",
+          "steps": [
+            "The page you were on and what you clicked.",
+            "The exact message on screen, or a screenshot.",
+            "The time it happened, so it can be found in the logs."
+          ],
+          "contact": true
+        }
+      ]
+    }
+  ],
+  "footer": "Still stuck? Contact support or your administrator.",
+  "footer_contact": true
+}

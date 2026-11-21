@@ -135,6 +135,7 @@ from src.routers.auth_router import router as auth_router
 from src.routers.rbac_router import router as rbac_router
 from src.routers.translation_router import router as translation_router
 from src.routers.audio_router import router as audio_router
+from src.routers.help_router import router as help_router
 
 app.include_router(graph_router)
 app.include_router(chat_router)
@@ -145,6 +146,7 @@ app.include_router(auth_router)
 app.include_router(rbac_router)
 app.include_router(translation_router)
 app.include_router(audio_router)
+app.include_router(help_router)
 
 
 # ---------------------------------------------------------------------------

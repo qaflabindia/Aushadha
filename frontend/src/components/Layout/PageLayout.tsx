@@ -30,6 +30,7 @@ import { deduplicateByFullPattern, deduplicateNodeByValue } from '../../utils/Ut
 import DataImporterSchemaDialog from '../Popups/GraphEnhancementDialog/EnitityExtraction/DataImporter';
 import { useTranslate } from '../../context/TranslationContext';
 import { ThemeWrapperContext } from '../../context/ThemeWrapper';
+import HelpCentreWindow from '../Help/HelpCentreWindow';
 const GCSModal = lazy(() => import('../DataSources/GCS/GCSModal'));
 const S3Modal = lazy(() => import('../DataSources/AWS/S3Modal'));
 const GenericModal = lazy(() => import('../WebSources/GenericSourceModal'));
@@ -734,6 +735,9 @@ const PageLayout: React.FC = () => {
           </div>
         </div>
       </DashboardScaffold>
+
+      {/* Help Centre: floating window, stays open across pages */}
+      {(isAuthenticated || SKIP_AUTH) && <HelpCentreWindow />}
 
       {/* Modals for GCS, S3, Generic remain the same */}
       {showGCSModal && (

@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aushadha Help Centre</title>
+<!--
+  Aushadha Help Centre: one self-contained document.
+  - Editable text carries data-edit-id. Admins edit it in place (Edit mode in the toolbar).
+  - Edits and the audit trail live in the JSON block #help-edits near the end of this file.
+    The backend (src/routers/help_router.py) rewrites only that block. Edits are applied as
+    plain text, never as HTML.
+  - Shown inside the app's floating Help Centre window, in a sandboxed frame. It talks to the
+    app by postMessage (see HelpCentreWindow.tsx).
+  How to change the structure (add a section, topic, step or picture): edit
+  backend/help/content.json and run backend/help/build_help.py, which rebuilds help-centre.html
+  from this template. Admin text edits are kept, matched by data-edit-id.
+-->
+<style>
+  :root {
+    --bg: #0b0b0d; --panel: rgba(255,255,255,0.035); --panel-strong: rgba(255,255,255,0.06);
+    --line: rgba(212,175,55,0.16); --line-strong: rgba(212,175,55,0.38);
+    --text: #f4efe3; --muted: rgba(244,239,227,0.62); --faint: rgba(244,239,227,0.38);
+    --accent: #D4AF37; --accent-soft: rgba(212,175,55,0.12); --accent-ink: #0b0b0d;
+    --ok: #6fcf97; --bad: #eb5757; --shadow: 0 18px 40px rgba(0,0,0,0.45);
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf6; --panel: rgba(154,123,47,0.04); --panel-strong: rgba(154,123,47,0.08);
+    --line: rgba(154,123,47,0.16); --line-strong: rgba(154,123,47,0.4);
+    --text: #1d1b16; --muted: rgba(29,27,22,0.66); --faint: rgba(29,27,22,0.42);
+    --accent: #9A7B2F; --accent-soft: rgba(154,123,47,0.1); --accent-ink: #ffffff;
+    --ok: #1e8e4e; --bad: #c0392b; --shadow: 0 16px 36px rgba(60,45,10,0.14);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; }
+  .app { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
+  nav.side {
+    border-right: 1px solid var(--line); padding: 20px 12px; overflow-y: auto;
+    background: linear-gradient(180deg, var(--accent-soft), transparent 40%);
+  }
+  .brand { padding: 0 10px 18px; }
+  .brand .eyebrow { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .brand .name { font-size: 17px; font-weight: 800; letter-spacing: -.01em; margin-top: 2px; }
+  .navlink {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 9px 10px; border: 0; border-radius: 10px; background: transparent;
+    color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: background .15s, color .15s;
+  }
+  .navlink:hover { background: var(--panel-strong); color: var(--text); }
+  .navlink.active { background: var(--accent-soft); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+  .navlink svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
+  main { overflow-y: auto; scroll-behavior: smooth; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center;
+    padding: 12px 24px; background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(14px); border-bottom: 1px solid var(--line);
+  }
+  .search { flex: 1; position: relative; }
+  .search input {
+    width: 100%; padding: 9px 12px 9px 34px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); font: inherit; outline: none;
+  }
+  .search input:focus { border-color: var(--line-strong); }
+  .search svg { position: absolute; left: 11px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); color: var(--faint); }
+  .tbtn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-size: 12px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .tbtn:hover { border-color: var(--line-strong); }
+  .tbtn.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tbtn svg { width: 14px; height: 14px; }
+  .admin-only { display: none !important; }
+  body.is-admin .admin-only { display: inline-flex !important; }
+  .content { padding: 28px 24px 64px; max-width: 860px; margin: 0 auto; }
+  .hero {
+    border: 1px solid var(--line); border-radius: 18px; padding: 26px 24px; margin-bottom: 28px;
+    background: radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 55%), var(--panel);
+  }
+  .hero .eyebrow { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  .hero h1 { margin: 6px 0 6px; font-size: 26px; line-height: 1.2; letter-spacing: -.02em; }
+  .hero p { margin: 0; color: var(--muted); max-width: 60ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip {
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px;
+    background: transparent; cursor: pointer; color: var(--muted);
+  }
+  .chip:hover { color: var(--text); border-color: var(--line-strong); }
+  section.sec { margin-bottom: 34px; scroll-margin-top: 70px; }
+  .sec-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .sec-icon {
+    width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--line);
+  }
+  .sec-icon svg { width: 18px; height: 18px; }
+  .sec h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+  .sec .summary { margin: 2px 0 0; color: var(--muted); }
+  .badge { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--line-strong); border-radius: 6px; padding: 1px 6px; margin-left: 8px; vertical-align: 2px; }
+  details.topic {
+    scroll-margin-top: 72px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--panel); margin-bottom: 10px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  details.topic[open] { border-color: var(--line-strong); box-shadow: var(--shadow); }
+  details.topic summary {
+    list-style: none; cursor: pointer; padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+    font-weight: 600;
+  }
+  details.topic summary::-webkit-details-marker { display: none; }
+  details.topic summary .chev { margin-left: auto; width: 16px; height: 16px; color: var(--faint); transition: transform .2s; flex: none; }
+  details.topic[open] summary .chev { transform: rotate(90deg); color: var(--accent); }
+  .topic-body { padding: 0 16px 16px; }
+  .topic-body p { margin: 0 0 12px; color: var(--muted); }
+  ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0 0 14px; }
+  ol.steps li { counter-increment: step; position: relative; padding: 2px 0 8px 34px; }
+  ol.steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--line-strong);
+  }
+  figure { margin: 6px 0 12px; }
+  figure img {
+    width: 100%; display: block; border-radius: 10px; border: 1px solid var(--line); cursor: zoom-in;
+    background: var(--panel-strong);
+  }
+  figcaption { font-size: 12px; color: var(--faint); margin-top: 6px; }
+  .tip {
+    display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px;
+    background: var(--accent-soft); border: 1px solid var(--line);
+  }
+  .tip strong { color: var(--accent); white-space: nowrap; }
+  mark { background: var(--accent); color: var(--accent-ink); border-radius: 3px; padding: 0 2px; }
+  .hidden, .role-hidden { display: none !important; }
+  .meta-line { margin-top: 16px; font-size: 11px; color: var(--faint); letter-spacing: .02em; }
+  .foot { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; text-align: center; }
+  .foot p { margin: 0 0 8px; }
+  .support-link {
+    display: inline-flex; align-items: center; gap: 8px; margin: 2px 0 12px; padding: 8px 12px; border-radius: 10px;
+    border: 1px solid var(--line-strong); color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13px;
+  }
+  .support-link:hover { background: var(--accent-soft); }
+  .support-link svg { width: 15px; height: 15px; }
+  .tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+  .tabs button { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--muted); }
+  .tabs button.on { background: var(--accent-soft); color: var(--text); border-color: var(--line-strong); }
+  .score { display: flex; gap: 10px; margin-bottom: 12px; }
+  .score div { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; background: var(--panel); }
+  .score b { display: block; font-size: 20px; color: var(--accent); }
+  .score span { font-size: 11px; color: var(--faint); }
+  @keyframes flash { 0%, 60% { box-shadow: 0 0 0 2px var(--accent); } 100% { box-shadow: var(--shadow); } }
+  details.topic.flash { animation: flash 1.6s ease-out; }
+  details.topic summary .badge { margin-left: 4px; }
+  .empty { text-align: center; color: var(--faint); padding: 40px 0; }
+
+  /* Edit mode */
+  body.editing [data-edit-id] { outline: 1px dashed var(--line-strong); outline-offset: 3px; border-radius: 4px; cursor: text; }
+  body.editing [data-edit-id]:focus { outline: 2px solid var(--accent); background: var(--accent-soft); }
+  [data-edit-id].saving { opacity: .55; }
+  .reset-btn {
+    display: none; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid var(--line-strong); color: var(--accent); background: transparent; border-radius: 6px; padding: 1px 6px; cursor: pointer;
+    vertical-align: 2px;
+  }
+  body.editing .is-edited + .reset-btn { display: inline-block; }
+  .edit-banner {
+    display: none; margin: 0 0 18px; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+    border: 1px dashed var(--line-strong); color: var(--muted);
+  }
+  body.editing .edit-banner { display: block; }
+
+  /* Audit trail drawer */
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100%); z-index: 20;
+    background: var(--bg); border-left: 1px solid var(--line-strong); box-shadow: var(--shadow);
+    transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column;
+  }
+  .drawer.open { transform: none; }
+  .drawer header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .drawer header h3 { margin: 0; font-size: 14px; }
+  .drawer .list { overflow-y: auto; padding: 12px 16px; }
+  .entry { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; background: var(--panel); font-size: 12px; }
+  .entry .meta { display: flex; justify-content: space-between; gap: 8px; color: var(--faint); }
+  .entry .what { margin: 4px 0; font-weight: 600; }
+  .entry .diff { color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+  .entry .diff del { color: var(--bad); text-decoration: line-through; }
+  .entry .diff ins { color: var(--ok); text-decoration: none; }
+
+  .lightbox { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; background: rgba(0,0,0,.82); cursor: zoom-out; padding: 20px; }
+  .lightbox.open { display: grid; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(20px); opacity: 0; z-index: 40;
+    padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; transition: all .2s;
+    background: var(--text); color: var(--bg); pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+  .toast.bad { background: var(--bad); color: #fff; }
+
+  /* Narrow windows: the side nav becomes a row of chips */
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    nav.side { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; }
+    .brand { display: none; }
+    .navlink { width: auto; white-space: nowrap; padding: 7px 10px; }
+    .toolbar { padding: 10px 14px; }
+    .content { padding: 18px 14px 48px; }
+    .tbtn .lbl { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-start" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></symbol>
+    <symbol id="i-graph" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="m8.2 7.2 7.4 0.6M7 8.3l1.4 7.3M16.4 10l-5.6 6.2"/></g></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></g></symbol>
+    <symbol id="i-admin" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6zM9 12l2 2 4-4"/></symbol>
+    <symbol id="i-tour" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></g></symbol>
+    <symbol id="i-trouble" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h0"/></g></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7h8M8 11h6"/></symbol>
+    <symbol id="i-research" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 3h6M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3M7.5 14h9"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16zM13.5 6.5l4 4"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></g></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <nav class="side" id="nav">
+    <div class="brand">
+      <div class="eyebrow">Aushadha</div>
+      <div class="name">Help Centre</div>
+    </div>
+    <button class="navlink" type="button" data-go="getting-started" data-audience="all"><svg><use href="#i-start"/></svg><span class="nl">Getting started</span></button>
+<button class="navlink" type="button" data-go="documents" data-audience="staff"><svg><use href="#i-upload"/></svg><span class="nl">Documents and the knowledge graph</span></button>
+<button class="navlink" type="button" data-go="assistant" data-audience="all"><svg><use href="#i-chat"/></svg><span class="nl">AI Assistant</span></button>
+<button class="navlink" type="button" data-go="live-research" data-audience="staff"><svg><use href="#i-research"/></svg><span class="nl">Live Research</span></button>
+<button class="navlink" type="button" data-go="settings" data-audience="all"><svg><use href="#i-settings"/></svg><span class="nl">Settings</span></button>
+<button class="navlink" type="button" data-go="administration" data-audience="admin"><svg><use href="#i-admin"/></svg><span class="nl">Administration</span></button>
+<button class="navlink" type="button" data-go="tours" data-audience="all"><svg><use href="#i-tour"/></svg><span class="nl">Page walkthroughs</span></button>
+<button class="navlink" type="button" data-go="glossary" data-audience="all"><svg><use href="#i-book"/></svg><span class="nl">Glossary</span></button>
+<button class="navlink" type="button" data-go="troubleshooting" data-audience="all"><svg><use href="#i-trouble"/></svg><span class="nl">Troubleshooting</span></button>
+  </nav>
+  <main id="main">
+    <div class="toolbar">
+      <label class="search">
+        <svg><use href="#i-search"/></svg>
+        <input id="q" type="search" placeholder="Search help…" aria-label="Search help" autocomplete="off">
+      </label>
+      <button class="tbtn admin-only" id="editBtn" type="button" aria-pressed="false"><svg><use href="#i-edit"/></svg><span class="lbl">Edit</span></button>
+      <button class="tbtn admin-only" id="auditBtn" type="button"><svg><use href="#i-history"/></svg><span class="lbl">Audit &amp; feedback</span></button>
+    </div>
+    <div class="content">
+      <div class="edit-banner">Edit mode: click any outlined text, change it, then click elsewhere to save. Use <b>Reset</b> to restore the original. Every change is recorded in the audit trail.</div>
+      <div class="hero"><div class="eyebrow" data-edit-id="hero-eyebrow">Aushadha · Clinical Intelligence Platform</div><h1 data-edit-id="hero-title">How can we help?</h1><p data-edit-id="hero-text">Short, step-by-step guides for every part of Aushadha: signing in, building a patient&#x27;s knowledge graph from documents, asking the AI assistant, and setting up the workspace. Search above, or pick a topic.</p><div class="chips"><button class="chip" type="button" data-go="getting-started" data-audience="all"><span class="nl">Getting started</span></button><button class="chip" type="button" data-go="documents" data-audience="staff"><span class="nl">Documents and the knowledge graph</span></button><button class="chip" type="button" data-go="assistant" data-audience="all"><span class="nl">AI Assistant</span></button><button class="chip" type="button" data-go="live-research" data-audience="staff"><span class="nl">Live Research</span></button><button class="chip" type="button" data-go="settings" data-audience="all"><span class="nl">Settings</span></button><button class="chip" type="button" data-go="administration" data-audience="admin"><span class="nl">Administration</span></button><button class="chip" type="button" data-go="tours" data-audience="all"><span class="nl">Page walkthroughs</span></button><button class="chip" type="button" data-go="glossary" data-audience="all"><span class="nl">Glossary</span></button><button class="chip" type="button" data-go="troubleshooting" data-audience="all"><span class="nl">Troubleshooting</span></button></div><div class="meta-line">Version 1.0 · Updated <span id="updated" data-built="2026-11-21">21 Nov 2026</span></div></div>
+<section class="sec" id="getting-started" data-audience="all"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-start"/></svg></div><div><h2><span data-edit-id="getting-started-title">Getting started</span></h2><p class="summary" data-edit-id="getting-started-summary">Sign in and find your way around the dashboard.</p></div></div><details class="topic" id="getting-started-sign-in" data-audience="all"><summary><span data-edit-id="getting-started-sign-in-title">Sign in</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="getting-started-sign-in-body">Aushadha opens on the sign-in page. Use the account your administrator gave you.</p><ol class="steps"><li data-edit-id="getting-started-sign-in-step-1">Pick your language at the top right, if you want one other than English.</li><li data-edit-id="getting-started-sign-in-step-2">Click Sign in with credentials, or Sign in with Google if your administrator set that up.</li><li data-edit-id="getting-started-sign-in-step-3">Enter your username or email address and your password.</li><li data-edit-id="getting-started-sign-in-step-4">Click Sign In. Your session lasts 8 hours; after that, sign in again.</li></ol><figure><img src="help/login.png" alt="The sign-in page." loading="lazy"><figcaption data-edit-id="getting-started-sign-in-caption">The sign-in page.</figcaption></figure><div class="tip"><strong>Tip</strong><span data-edit-id="getting-started-sign-in-tip">Forgot your password? Ask an administrator to reset it. Once signed in, you can change it under Settings › Account &amp; Context.</span></div></div></details><details class="topic" id="getting-started-layout" data-audience="all"><summary><span data-edit-id="getting-started-layout-title">Find your way around</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="getting-started-layout-body">The icon rail on the left opens each part of the app. The main area shows the dashboard, or the Settings page when you open it.</p><ol class="steps"><li data-edit-id="getting-started-layout-step-1">Patient Insights: upload documents and see the patient&#x27;s files.</li><li data-edit-id="getting-started-layout-step-2">Global Research: a shortcut panel for Live Research. To run a search, use AI Assistant with the AYUSH Clinical mode (see Live Research).</li><li data-edit-id="getting-started-layout-step-3">AI Assistant: ask questions about the documents in plain language.</li><li data-edit-id="getting-started-layout-step-4">Workspace Settings: language, theme, AI model, graph schema, vault and administration.</li></ol><figure><img src="help/home.png" alt="The dashboard with the icon rail on the left." loading="lazy"><figcaption data-edit-id="getting-started-layout-caption">The dashboard with the icon rail on the left.</figcaption></figure></div></details><details class="topic" id="getting-started-language" data-audience="all"><summary><span data-edit-id="getting-started-language-title">Change the language</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="getting-started-language-body">Aushadha works in English and ten Indian languages: Hindi, Tamil, Telugu, Bengali, Marathi, Kannada, Malayalam, Gujarati, Punjabi and Odia. Your choice is remembered on this device.</p><ol class="steps"><li data-edit-id="getting-started-language-step-1">On the sign-in page, pick a language from the language selector before you sign in.</li><li data-edit-id="getting-started-language-step-2">Once signed in, open Settings › General and choose an Interface Language.</li><li data-edit-id="getting-started-language-step-3">Confirm the change when asked. Aushadha prepares the translations, tells you when they are ready and refreshes the page in the new language. This can take a little while the first time a language is used.</li></ol><figure><img src="help/language-selector.png" alt="Choosing a language from the language selector." loading="lazy"><figcaption data-edit-id="getting-started-language-caption">Choosing a language from the language selector.</figcaption></figure><figure><img src="help/language-switched.png" alt="The dashboard after switching to Hindi." loading="lazy"><figcaption data-edit-id="getting-started-language-caption-2">The dashboard after switching to Hindi.</figcaption></figure><div class="tip"><strong>Tip</strong><span data-edit-id="getting-started-language-tip">Some words may still appear in English while a language is being completed. An administrator can fill the gaps under Administration › Translations.</span></div></div></details><details class="topic" id="getting-started-help-window" data-audience="all"><summary><span data-edit-id="getting-started-help-window-title">Use this Help Centre</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="getting-started-help-window-body">The Help Centre opens from the gold ? button at the bottom right, in a floating window that stays open while you work.</p><ol class="steps"><li data-edit-id="getting-started-help-window-step-1">Drag the title bar to move the window.</li><li data-edit-id="getting-started-help-window-step-2">Drag the bottom-right corner to resize it.</li><li data-edit-id="getting-started-help-window-step-3">Minimise it to a small pill, and click the pill to bring it back.</li></ol></div></details></section>
+<section class="sec" id="documents" data-audience="staff"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-upload"/></svg></div><div><h2><span data-edit-id="documents-title">Documents and the knowledge graph</span><span class="badge">Doctors & admins</span></h2><p class="summary" data-edit-id="documents-summary">Turn clinical documents into a knowledge graph the AI can reason over.</p></div></div><details class="topic" id="documents-connect" data-audience="all"><summary><span data-edit-id="documents-connect-title">Connect to the database</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="documents-connect-body">The dashboard needs a connection to the graph database before you can upload or build graphs. On the demo it connects automatically.</p><ol class="steps"><li data-edit-id="documents-connect-step-1">If the dashboard shows Not Connected, click Connect to DB.</li><li data-edit-id="documents-connect-step-2">Check the connection details. An administrator&#x27;s saved settings fill in automatically.</li><li data-edit-id="documents-connect-step-3">Click Connect.</li></ol><div class="tip"><strong>Tip</strong><span data-edit-id="documents-connect-tip">If the fields are empty and a message says only an administrator can load the saved settings, ask an administrator to connect, or enter the details yourself.</span></div></div></details><details class="topic" id="documents-upload" data-audience="all"><summary><span data-edit-id="documents-upload-title">Upload documents</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="documents-upload-body">Open Patient Insights from the icon rail to add a patient&#x27;s documents. You can add files from your computer, from web sources, or from Amazon S3.</p><ol class="steps"><li data-edit-id="documents-upload-step-1">Make sure the right patient is selected at the top of the page (Active Patient).</li><li data-edit-id="documents-upload-step-2">Drag files onto Drag &amp; Drop, or click browse to choose them. Documents, images and unstructured text are accepted.</li><li data-edit-id="documents-upload-step-3">To add a web page, click Web Sources; to import from cloud storage, click Amazon S3.</li><li data-edit-id="documents-upload-step-4">Uploaded files appear in the file table with their status.</li></ol><figure><img src="help/upload-drawer.png" alt="Patient Insights, where documents are uploaded." loading="lazy"><figcaption data-edit-id="documents-upload-caption">Patient Insights, where documents are uploaded.</figcaption></figure></div></details><details class="topic" id="documents-generate" data-audience="all"><summary><span data-edit-id="documents-generate-title">Build the knowledge graph</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="documents-generate-body">Aushadha reads each document with the chosen AI model and extracts the clinical entities and relationships into a graph.</p><ol class="steps"><li data-edit-id="documents-generate-step-1">Pick the AI model in the model selector.</li><li data-edit-id="documents-generate-step-2">Select files in the table, or leave none selected to process all new files.</li><li data-edit-id="documents-generate-step-3">Click Generate Graph and wait for the status to show Completed.</li></ol><div class="tip"><strong>Tip</strong><span data-edit-id="documents-generate-tip">To guide what is extracted, set a graph schema first under Settings › Graph Settings.</span></div></div></details><details class="topic" id="documents-visualise" data-audience="all"><summary><span data-edit-id="documents-visualise-title">Explore the graph</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="documents-visualise-body">See what was extracted, as an interactive graph of entities and their links.</p><ol class="steps"><li data-edit-id="documents-visualise-step-1">Select one or more processed files.</li><li data-edit-id="documents-visualise-step-2">Click Preview Graph to open the graph view.</li><li data-edit-id="documents-visualise-step-3">Click a node to see its details; use Explore Graph in DB for the full database view.</li></ol><figure><img src="help/graph.png" alt="The graph view of an extracted document." loading="lazy"><figcaption data-edit-id="documents-visualise-caption">The graph view of an extracted document.</figcaption></figure></div></details></section>
+<section class="sec" id="assistant" data-audience="all"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-chat"/></svg></div><div><h2><span data-edit-id="assistant-title">AI Assistant</span></h2><p class="summary" data-edit-id="assistant-summary">Ask questions about the patient&#x27;s documents and get answers with their sources.</p></div></div><details class="topic" id="assistant-ask" data-audience="all"><summary><span data-edit-id="assistant-ask-title">Ask a question</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="assistant-ask-body">The assistant answers from the patient&#x27;s documents and knowledge graph, not from general knowledge alone. Ask in plain language, in any supported language.</p><ol class="steps"><li data-edit-id="assistant-ask-step-1">Select the patient at the top of the page (Active Patient).</li><li data-edit-id="assistant-ask-step-2">Open AI Assistant from the icon rail. The Concierge Intelligence panel opens.</li><li data-edit-id="assistant-ask-step-3">Type your question in the Inquire Vault box and click Ask, or press Enter. Click the microphone to speak your question instead.</li><li data-edit-id="assistant-ask-step-4">Click Details under an answer to see the sources it used. Use the copy and speaker buttons to copy it or hear it read aloud.</li></ol><figure><img src="help/chat.png" alt="A real conversation: a question about the demo patient and the assistant&#x27;s answer with its sources." loading="lazy"><figcaption data-edit-id="assistant-ask-caption">A real conversation: a question about the demo patient and the assistant&#x27;s answer with its sources.</figcaption></figure><div class="tip"><strong>Tip</strong><span data-edit-id="assistant-ask-tip">The panel&#x27;s buttons at the top clear the conversation, expand it to full screen, or download it.</span></div></div></details><details class="topic" id="assistant-modes" data-audience="all"><summary><span data-edit-id="assistant-modes-title">Choose how answers are found</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="assistant-modes-body">The retrieval mode decides whether answers come from the graph, from document text, or both. Change it with Intelligence Search at the top of the page, or under Settings › AI Engine &amp; Sources. AYUSH Clinical, marked LIVE, runs Live Research instead.</p><div class="tip"><strong>Tip</strong><span data-edit-id="assistant-modes-tip">If an answer misses something you know is in a document, try a different retrieval mode.</span></div></div></details><details class="topic" id="assistant-voice" data-audience="all"><summary><span data-edit-id="assistant-voice-title">Listen to answers</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="assistant-voice-body">Click the speaker button under an answer to hear it. Pick the voice under Settings › AI Engine &amp; Sources › Assistant Voice.</p></div></details></section>
+<section class="sec" id="live-research" data-audience="staff"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-research"/></svg></div><div><h2><span data-edit-id="live-research-title">Live Research</span><span class="badge">Doctors & admins</span></h2><p class="summary" data-edit-id="live-research-summary">Evidence-based AYUSH clinical research, gathered live from government and academic sources and written up as a structured report.</p></div></div><details class="topic" id="live-research-what" data-audience="all"><summary><span data-edit-id="live-research-what-title">What Live Research does</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="live-research-what-body">Live Research answers a clinical question about a condition using current published evidence, not only the patient&#x27;s own documents. It searches trusted AYUSH and medical sources at the moment you ask, combines what it finds with the active patient&#x27;s knowledge graph, and writes a structured report with its sources listed.</p><ol class="steps"><li data-edit-id="live-research-what-step-1">Government AYUSH sources: AYUSH Research Portal, ACCR, DHARA, e-Charak, AYUSH Suraksha and CCRAS.</li><li data-edit-id="live-research-what-step-2">Academic sources: PubMed, PubMed Central, JAIMS and ScienceDirect.</li><li data-edit-id="live-research-what-step-3">Meta-analyses: Frontiers journals.</li></ol></div></details><details class="topic" id="live-research-run" data-audience="all"><summary><span data-edit-id="live-research-run-title">Run a research search</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><ol class="steps"><li data-edit-id="live-research-run-step-1">Select the patient at the top of the page, so the report uses their context.</li><li data-edit-id="live-research-run-step-2">Open AI Assistant from the icon rail.</li><li data-edit-id="live-research-run-step-3">In the model list at the bottom of the page, choose an OpenAI model (for example openai_gpt_5_mini). Live Research searches the web only with OpenAI models; with other models it finds no outside evidence.</li><li data-edit-id="live-research-run-step-4">Click Intelligence Search at the top of the page and choose AYUSH Clinical, marked LIVE.</li><li data-edit-id="live-research-run-step-5">Type a clinical question in the Inquire Vault box, for example: Evidence for Ashwagandha in stress and insomnia, and click Ask.</li><li data-edit-id="live-research-run-step-6">The report takes a few minutes while the sources are searched. Click Cancel to stop it.</li></ol><figure><img src="help/research-mode.png" alt="AI Assistant open, an OpenAI model chosen, and AYUSH Clinical (LIVE) at the bottom of the Intelligence Search list." loading="lazy"><figcaption data-edit-id="live-research-run-caption">AI Assistant open, an OpenAI model chosen, and AYUSH Clinical (LIVE) at the bottom of the Intelligence Search list.</figcaption></figure><div class="tip"><strong>Tip</strong><span data-edit-id="live-research-run-tip">Name the condition clearly in your question. The report is built around one target condition.</span></div></div></details><details class="topic" id="live-research-report" data-audience="all"><summary><span data-edit-id="live-research-report-title">Read the report</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="live-research-report-body">Every report follows the same nine sections, so reports are easy to compare:</p><ol class="steps"><li data-edit-id="live-research-report-step-1">Triage gate: a safety check first. Pass, Fail or Escalate, with any emergency warning signs.</li><li data-edit-id="live-research-report-step-2">Disease entity mapping: the condition and its codes.</li><li data-edit-id="live-research-report-step-3">Pharmacological interventions: single herbs and medicines, with doses where the evidence gives them.</li><li data-edit-id="live-research-report-step-4">Composite formulations.</li><li data-edit-id="live-research-report-step-5">Panchakarma and procedural therapies.</li><li data-edit-id="live-research-report-step-6">Yoga and pranayama protocol.</li><li data-edit-id="live-research-report-step-7">Pharmacovigilance: known adverse reactions and interactions.</li><li data-edit-id="live-research-report-step-8">Entity-to-intervention routing table: which finding each recommendation answers.</li><li data-edit-id="live-research-report-step-9">Evidence grade summary: how strong the evidence is for each recommendation.</li></ol></div></details><details class="topic" id="live-research-safety" data-audience="all"><summary><span data-edit-id="live-research-safety-title">How to trust the results</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="live-research-safety-body">Live Research never invents citations, doses or trial identifiers. Where the evidence is missing it writes LEC (Limited Evidence in Context) instead of guessing. If the triage gate says Escalate, act on the safety warning first.</p><div class="tip"><strong>Tip</strong><span data-edit-id="live-research-safety-tip">Live Research supports clinical decisions; it does not replace a qualified practitioner&#x27;s judgement.</span></div></div></details></section>
+<section class="sec" id="settings" data-audience="all"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-settings"/></svg></div><div><h2><span data-edit-id="settings-title">Settings</span></h2><p class="summary" data-edit-id="settings-summary">Open Settings from the icon rail. Each tab on the left holds one group of settings; patients see General and Account &amp; Context.</p></div></div><details class="topic" id="settings-general" data-audience="all"><summary><span data-edit-id="settings-general-title">General</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="settings-general-body">Choose the interface language and switch between the dark and light theme. The theme changes at once; a new language asks you to confirm, then refreshes the page.</p><figure><img src="help/settings-language.png" alt="Settings › General, with the Interface Language list." loading="lazy"><figcaption data-edit-id="settings-general-caption">Settings › General, with the Interface Language list.</figcaption></figure></div></details><details class="topic" id="settings-account" data-audience="all"><summary><span data-edit-id="settings-account-title">Account &amp; Context</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="settings-account-body">Your profile and session.</p><ol class="steps"><li data-edit-id="settings-account-step-1">Active Patient Context: pick the patient the clinical AI should focus on.</li><li data-edit-id="settings-account-step-2">Change Password: enter the new password twice (at least 6 characters) and click Update Password.</li><li data-edit-id="settings-account-step-3">Session: click Logout to sign out.</li></ol><figure><img src="help/settings-account.png" alt="Settings › Account &amp; Context." loading="lazy"><figcaption data-edit-id="settings-account-caption">Settings › Account &amp; Context.</figcaption></figure></div></details><details class="topic" id="settings-ai" data-audience="staff"><summary><span data-edit-id="settings-ai-title">AI Engine &amp; Sources</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="settings-ai-body">Pick the LLM model used for extraction and chat, the chat retrieval mode and its sources, and the assistant voice.</p><figure><img src="help/settings-ai.png" alt="Settings › AI Engine &amp; Sources." loading="lazy"><figcaption data-edit-id="settings-ai-caption">Settings › AI Engine &amp; Sources.</figcaption></figure></div></details><details class="topic" id="settings-graph" data-audience="staff"><summary><span data-edit-id="settings-graph-title">Graph Settings</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="settings-graph-body">Set the schema used to build the knowledge graph: the node labels, relationship types and patterns to extract.</p><figure><img src="help/settings-graph.png" alt="Settings › Graph Settings." loading="lazy"><figcaption data-edit-id="settings-graph-caption">Settings › Graph Settings.</figcaption></figure></div></details><details class="topic" id="settings-vault" data-audience="staff"><summary><span data-edit-id="settings-vault-title">Secure Vault</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="settings-vault-body">Store API keys and other secrets, encrypted on the server. Values are never shown again after saving.</p><ol class="steps"><li data-edit-id="settings-vault-step-1">Enter a Secret Name and its Secret Value.</li><li data-edit-id="settings-vault-step-2">Click Save Secret.</li><li data-edit-id="settings-vault-step-3">Click Load under Configured Secrets to see which names are set.</li></ol><figure><img src="help/settings-keys-store.png" alt="Settings › Secure Vault." loading="lazy"><figcaption data-edit-id="settings-vault-caption">Settings › Secure Vault.</figcaption></figure><div class="tip"><strong>Tip</strong><span data-edit-id="settings-vault-tip">Only administrators can read the vault.</span></div></div></details></section>
+<section class="sec" id="administration" data-audience="admin"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-admin"/></svg></div><div><h2><span data-edit-id="administration-title">Administration</span><span class="badge">Admins</span></h2><p class="summary" data-edit-id="administration-summary">Manage users, roles and interface translations. Available to administrators only.</p></div></div><details class="topic" id="administration-add-user" data-audience="all"><summary><span data-edit-id="administration-add-user-title">Register a new user</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="administration-add-user-body">Open Settings › Administration.</p><ol class="steps"><li data-edit-id="administration-add-user-step-1">Enter the user&#x27;s email address.</li><li data-edit-id="administration-add-user-step-2">Pick a role: Admin, Doctor or Patient.</li><li data-edit-id="administration-add-user-step-3">For a patient, enter a Case ID, or leave it blank to generate one.</li><li data-edit-id="administration-add-user-step-4">Click Add User.</li></ol><figure><img src="help/admin-users.png" alt="User Administration." loading="lazy"><figcaption data-edit-id="administration-add-user-caption">User Administration.</figcaption></figure><div class="tip"><strong>Tip</strong><span data-edit-id="administration-add-user-tip">Once a Case ID is assigned to a patient, it cannot be changed.</span></div></div></details><details class="topic" id="administration-roles" data-audience="all"><summary><span data-edit-id="administration-roles-title">Change a role or remove a user</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="administration-roles-body">The user table lists everyone with their role and case. Change a role in its row, or remove the user with the delete button.</p></div></details><details class="topic" id="administration-translations" data-audience="all"><summary><span data-edit-id="administration-translations-title">Translations</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="administration-translations-body">See how much of the interface is translated in each language, and fill the gaps.</p><ol class="steps"><li data-edit-id="administration-translations-step-1">Pick a Seed Language.</li><li data-edit-id="administration-translations-step-2">Click Seed Translations to translate the missing strings.</li><li data-edit-id="administration-translations-step-3">Click Refresh Statistics to update the coverage table.</li></ol><figure><img src="help/admin-translations.png" alt="Translation Management." loading="lazy"><figcaption data-edit-id="administration-translations-caption">Translation Management.</figcaption></figure></div></details><details class="topic" id="administration-edit-help" data-audience="all"><summary><span data-edit-id="administration-edit-help-title">Edit this Help Centre</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="administration-edit-help-body">Administrators can change any text in this Help Centre without a code change.</p><ol class="steps"><li data-edit-id="administration-edit-help-step-1">Click Edit in the toolbar. Editable text gets a dotted outline.</li><li data-edit-id="administration-edit-help-step-2">Click a piece of text, change it, then click elsewhere to save.</li><li data-edit-id="administration-edit-help-step-3">Click Reset next to edited text to restore the original.</li><li data-edit-id="administration-edit-help-step-4">Click Audit &amp; feedback to see every change (who, when, and the text before and after) and what readers said when closing the Help Centre.</li></ol></div></details></section>
+<section class="sec" id="tours" data-audience="all"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-tour"/></svg></div><div><h2><span data-edit-id="tours-title">Page walkthroughs</span></h2><p class="summary" data-edit-id="tours-summary">A short, step-by-step walkthrough that points out each part of a page.</p></div></div><details class="topic" id="tours-replay" data-audience="all"><summary><span data-edit-id="tours-replay-title">Take or replay a walkthrough</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="tours-replay-body">The dashboard, Settings and Administration pages each have a walkthrough. It highlights one part of the page at a time, with a short note on what it does. It starts by itself the first time you open the page.</p><ol class="steps"><li data-edit-id="tours-replay-step-1">Click Tour next to the page title to start it again.</li><li data-edit-id="tours-replay-step-2">Click Next and Back to move between the highlighted parts.</li><li data-edit-id="tours-replay-step-3">Click Dismiss to close it at any time.</li></ol></div></details></section>
+<section class="sec" id="glossary" data-audience="all"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-book"/></svg></div><div><h2><span data-edit-id="glossary-title">Glossary</span></h2><p class="summary" data-edit-id="glossary-summary">Plain-language meanings of the terms used in Aushadha.</p></div></div><details class="topic" id="glossary-knowledge-graph" data-audience="all"><summary><span data-edit-id="glossary-knowledge-graph-title">Knowledge graph</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-knowledge-graph-body">A map of the clinical facts found in a patient&#x27;s documents: conditions, medicines, symptoms, tests and the links between them. The AI Assistant uses it to answer questions.</p></div></details><details class="topic" id="glossary-entity" data-audience="all"><summary><span data-edit-id="glossary-entity-title">Entity (node)</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-entity-body">One thing in the knowledge graph, such as a condition, a medicine or a lab value.</p></div></details><details class="topic" id="glossary-relationship" data-audience="all"><summary><span data-edit-id="glossary-relationship-title">Relationship</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-relationship-body">A link between two entities, for example a medicine that treats a condition.</p></div></details><details class="topic" id="glossary-graph-schema" data-audience="staff"><summary><span data-edit-id="glossary-graph-schema-title">Graph schema</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-graph-schema-body">The list of entity and relationship types to look for when building the graph. Set it under Settings › Graph Settings.</p></div></details><details class="topic" id="glossary-chunk" data-audience="all"><summary><span data-edit-id="glossary-chunk-title">Chunk</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-chunk-body">A short passage of a document. Documents are split into chunks so the AI can find and cite the exact passage behind an answer.</p></div></details><details class="topic" id="glossary-llm" data-audience="staff"><summary><span data-edit-id="glossary-llm-title">LLM (AI model)</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-llm-body">The large language model that reads documents and writes answers. Choose it under Settings › AI Engine &amp; Sources.</p></div></details><details class="topic" id="glossary-retrieval-mode" data-audience="staff"><summary><span data-edit-id="glossary-retrieval-mode-title">Retrieval mode</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-retrieval-mode-body">How the assistant finds information before answering: from the graph, from document text, or both.</p></div></details><details class="topic" id="glossary-active-patient" data-audience="all"><summary><span data-edit-id="glossary-active-patient-title">Active patient context</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-active-patient-body">The patient whose records the AI focuses on. Pick it under Settings › Account &amp; Context.</p></div></details><details class="topic" id="glossary-case-id" data-audience="all"><summary><span data-edit-id="glossary-case-id-title">Case ID</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-case-id-body">A patient&#x27;s unique reference number in Aushadha. It is set once and cannot be changed.</p></div></details><details class="topic" id="glossary-secure-vault" data-audience="staff"><summary><span data-edit-id="glossary-secure-vault-title">Secure Vault</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-secure-vault-body">Encrypted storage on the server for API keys and other secrets. Only administrators can read it.</p></div></details><details class="topic" id="glossary-ayush" data-audience="all"><summary><span data-edit-id="glossary-ayush-title">AYUSH</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-ayush-body">India&#x27;s traditional systems of medicine: Ayurveda, Yoga and Naturopathy, Unani, Siddha and Homoeopathy.</p></div></details><details class="topic" id="glossary-lec" data-audience="staff"><summary><span data-edit-id="glossary-lec-title">LEC (Limited Evidence in Context)</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-lec-body">Shown in a Live Research report where published evidence is missing, instead of a guess.</p></div></details><details class="topic" id="glossary-triage-gate" data-audience="staff"><summary><span data-edit-id="glossary-triage-gate-title">Triage gate</span><span class="badge">Doctors & admins</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="glossary-triage-gate-body">The safety check at the start of every Live Research report: Pass, Fail or Escalate.</p></div></details></section>
+<section class="sec" id="troubleshooting" data-audience="all"><div class="sec-head"><div class="sec-icon"><svg><use href="#i-trouble"/></svg></div><div><h2><span data-edit-id="troubleshooting-title">Troubleshooting</span></h2><p class="summary" data-edit-id="troubleshooting-summary">Quick fixes for the most common problems.</p></div></div><details class="topic" id="troubleshooting-signed-out" data-audience="all"><summary><span data-edit-id="troubleshooting-signed-out-title">I was sent back to the sign-in page</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="troubleshooting-signed-out-body">Your session expired (sessions last 8 hours). Sign in again; your documents and settings are kept.</p></div></details><details class="topic" id="troubleshooting-not-connected" data-audience="all"><summary><span data-edit-id="troubleshooting-not-connected-title">The dashboard says Not Connected</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="troubleshooting-not-connected-body">Refresh the page first. If it still shows Not Connected, sign out and back in, then click Connect to DB.</p></div></details><details class="topic" id="troubleshooting-empty-fields" data-audience="all"><summary><span data-edit-id="troubleshooting-empty-fields-title">The connection fields are empty</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="troubleshooting-empty-fields-body">Saved connection settings can only be loaded by an administrator. Ask one to connect, or enter the details yourself.</p></div></details><details class="topic" id="troubleshooting-stale-page" data-audience="all"><summary><span data-edit-id="troubleshooting-stale-page-title">Something looks out of date after an update</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="troubleshooting-stale-page-body">Do a hard refresh: Cmd+Shift+R on a Mac, or Ctrl+Shift+R on Windows.</p></div></details><details class="topic" id="troubleshooting-still-stuck" data-audience="all"><summary><span data-edit-id="troubleshooting-still-stuck-title">Still stuck? Get help</span><svg class="chev"><use href="#i-chev"/></svg></summary><div class="topic-body"><p data-edit-id="troubleshooting-still-stuck-body">Contact support or your administrator. For a quick answer, include:</p><ol class="steps"><li data-edit-id="troubleshooting-still-stuck-step-1">The page you were on and what you clicked.</li><li data-edit-id="troubleshooting-still-stuck-step-2">The exact message on screen, or a screenshot.</li><li data-edit-id="troubleshooting-still-stuck-step-3">The time it happened, so it can be found in the logs.</li></ol><a class="support-link" href="mailto:{{SUPPORT_EMAIL}}"><svg><use href="#i-mail"/></svg><span>{{SUPPORT_EMAIL}}</span></a></div></details></section>
+<footer class="foot"><p data-edit-id="footer-text">Still stuck? Contact support or your administrator.</p><a class="support-link" href="mailto:{{SUPPORT_EMAIL}}"><svg><use href="#i-mail"/></svg><span>{{SUPPORT_EMAIL}}</span></a></footer>
+      <div class="empty hidden" id="empty">No help topics match your search.</div>
+    </div>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" aria-label="Audit trail and feedback">
+  <header><h3>Audit trail &amp; feedback</h3><button class="tbtn" id="auditClose" type="button" aria-label="Close audit trail"><svg><use href="#i-close"/></svg></button></header>
+  <div class="tabs" role="tablist">
+    <button type="button" class="on" data-tab="auditList" role="tab">Changes</button>
+    <button type="button" data-tab="feedbackList" role="tab">Reader feedback</button>
+  </div>
+  <div class="list" id="auditList"></div>
+  <div class="list hidden" id="feedbackList"></div>
+</aside>
+<div class="lightbox" id="lightbox" role="dialog" aria-label="Enlarged screenshot"><img alt=""></div>
+<div class="toast" id="toast" role="status"></div>
+
+<!-- Admin edits and audit trail (rewritten by the backend; do not edit by hand) -->
+<script type="application/json" id="help-edits">{"edits": {}, "audit": []}</script>
+
+<script>
+(function () {
+  'use strict';
+  var parentWin = window.parent !== window ? window.parent : null;
+  var store = { edits: {}, audit: [], feedback: [] };
+  try { store = Object.assign(store, JSON.parse(document.getElementById('help-edits').textContent || '{}')); } catch (e) {}
+  var isAdmin = false, editing = false;
+  // Until the app says who is reading, show only what everyone may see. Opened on its own
+  // (outside the app), the document shows everything.
+  var role = parentWin ? 'patient' : 'admin';
+  var nodes = Array.prototype.slice.call(document.querySelectorAll('[data-edit-id]'));
+  var original = {};
+  nodes.forEach(function (el) { original[el.dataset.editId] = el.textContent; });
+
+  function byId(id) { return document.querySelector('[data-edit-id="' + id + '"]'); }
+  function labelOf(id) {
+    var el = byId(id);
+    var sec = el && el.closest('section.sec');
+    var h = sec && sec.querySelector('h2 [data-edit-id]');
+    return (h ? h.textContent + ' › ' : '') + id;
+  }
+  function allowed(a) {
+    return !a || a === 'all' || role === 'admin' || (a === 'staff' && role !== 'patient');
+  }
+  function applyRole() {
+    document.querySelectorAll('[data-audience]').forEach(function (el) {
+      el.classList.toggle('role-hidden', !allowed(el.dataset.audience));
+    });
+  }
+  // "Updated" shows the build date or the latest admin edit, whichever is newer
+  function stampUpdated() {
+    var el = document.getElementById('updated');
+    if (!el) return;
+    var latest = new Date(el.dataset.built + 'T00:00:00');
+    var times = (store.audit || []).map(function (a) { return a.at; });
+    if (store.last_edit) times.push(store.last_edit);
+    times.forEach(function (t) { var d = new Date(t); if (!isNaN(d) && d > latest) latest = d; });
+    el.textContent = latest.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function goto(id) {
+    var el = id && document.getElementById(id);
+    if (!el) return;
+    if (el.classList.contains('role-hidden') || (el.closest('section.sec') || el).classList.contains('role-hidden')) {
+      toast('That topic is not available for your role.', true); return;
+    }
+    var q = document.getElementById('q');
+    if (q.value) { q.value = ''; search(''); }
+    if (el.tagName === 'DETAILS') {
+      el.open = true;
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    } else { var first = el.querySelector('details.topic:not(.role-hidden)'); if (first) first.open = true; }
+    el.scrollIntoView({ block: 'start' });
+    setTimeout(trackActive, 700);
+  }
+  function apply() {
+    nodes.forEach(function (el) {
+      var id = el.dataset.editId;
+      var has = Object.prototype.hasOwnProperty.call(store.edits, id);
+      if (document.activeElement !== el) { el.textContent = has ? store.edits[id] : original[id]; }
+      el.classList.toggle('is-edited', has);
+    });
+    // Nav links and quick links show the section titles, including edited ones
+    document.querySelectorAll('[data-go] .nl').forEach(function (span) {
+      var h = document.querySelector('#' + span.parentNode.dataset.go + ' h2 [data-edit-id]');
+      if (h) span.textContent = h.textContent;
+    });
+    applyRole();
+    stampUpdated();
+    renderAudit();
+    renderFeedback();
+    search(document.getElementById('q').value);
+  }
+
+  // Reset buttons sit right after each editable element
+  nodes.forEach(function (el) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'reset-btn'; b.textContent = 'Reset';
+    b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); send('reset', el); });
+    el.insertAdjacentElement('afterend', b);
+    el.addEventListener('blur', function () {
+      if (!editing) return;
+      var text = el.innerText.replace(/ /g, ' ').trim();
+      var current = Object.prototype.hasOwnProperty.call(store.edits, el.dataset.editId) ? store.edits[el.dataset.editId] : original[el.dataset.editId];
+      if (!text) { el.textContent = current; toast('Text cannot be empty. Use Reset to restore the original.', true); return; }
+      if (text !== current.trim()) send('save', el, text);
+    });
+    el.addEventListener('keydown', function (e) {
+      if (!editing) return;
+      if (e.key === 'Escape') { el.textContent = store.edits[el.dataset.editId] || original[el.dataset.editId]; el.blur(); }
+      if (e.key === 'Enter' && !e.shiftKey && el.tagName !== 'P') { e.preventDefault(); el.blur(); }
+    });
+    // In edit mode a click on a topic title edits it instead of folding the topic
+    el.addEventListener('click', function (e) { if (editing && el.closest('summary')) e.preventDefault(); });
+  });
+
+  function send(kind, el, text) {
+    if (!parentWin) { toast('Open the Help Centre from the app to save changes.', true); return; }
+    el.classList.add('saving');
+    parentWin.postMessage({ type: kind, id: el.dataset.editId, text: text }, '*');
+  }
+
+  function setEditing(on) {
+    editing = on && isAdmin;
+    document.body.classList.toggle('editing', editing);
+    var btn = document.getElementById('editBtn');
+    btn.classList.toggle('on', editing); btn.setAttribute('aria-pressed', String(editing));
+    btn.querySelector('.lbl').textContent = editing ? 'Done' : 'Edit';
+    nodes.forEach(function (el) {
+      if (editing) { el.setAttribute('contenteditable', 'plaintext-only'); if (el.contentEditable !== 'plaintext-only') el.setAttribute('contenteditable', 'true'); }
+      else el.removeAttribute('contenteditable');
+    });
+  }
+
+  // Audit trail, newest first. Built with textContent only.
+  function renderAudit() {
+    var list = document.getElementById('auditList');
+    list.textContent = '';
+    var items = (store.audit || []).slice().reverse();
+    if (!items.length) { var p = document.createElement('p'); p.className = 'empty'; p.textContent = 'No changes yet.'; list.appendChild(p); return; }
+    items.forEach(function (a) {
+      var d = document.createElement('div'); d.className = 'entry';
+      var meta = document.createElement('div'); meta.className = 'meta';
+      var who = document.createElement('span'); who.textContent = a.by || 'unknown';
+      var when = document.createElement('span'); when.textContent = a.at ? new Date(a.at).toLocaleString() : '';
+      meta.appendChild(who); meta.appendChild(when);
+      var what = document.createElement('div'); what.className = 'what';
+      what.textContent = (a.action === 'reset' ? 'Reset ' : 'Edited ') + labelOf(a.section);
+      var diff = document.createElement('div'); diff.className = 'diff';
+      var del = document.createElement('del'); del.textContent = a.before == null ? (original[a.section] || '(original)') : a.before;
+      var ins = document.createElement('ins'); ins.textContent = a.after == null ? (original[a.section] || '(original)') : a.after;
+      diff.appendChild(del); diff.appendChild(document.createTextNode('\n→ ')); diff.appendChild(ins);
+      d.appendChild(meta); d.appendChild(what); d.appendChild(diff); list.appendChild(d);
+    });
+  }
+
+  // Reader feedback (admins only): score, then comments newest first
+  function renderFeedback() {
+    var list = document.getElementById('feedbackList');
+    list.textContent = '';
+    var items = store.feedback || [];
+    var yes = items.filter(function (f) { return f.helpful; }).length;
+    var score = document.createElement('div'); score.className = 'score';
+    [[items.length, 'responses'], [items.length ? Math.round(100 * yes / items.length) + '%' : '–', 'found it helpful'], [items.length - yes, 'not helpful']].forEach(function (x) {
+      var d = document.createElement('div'); var b = document.createElement('b'); b.textContent = x[0];
+      var sp = document.createElement('span'); sp.textContent = x[1]; d.appendChild(b); d.appendChild(sp); score.appendChild(d);
+    });
+    list.appendChild(score);
+    items.slice().reverse().forEach(function (f) {
+      var d = document.createElement('div'); d.className = 'entry';
+      var meta = document.createElement('div'); meta.className = 'meta';
+      var who = document.createElement('span'); who.textContent = f.by || 'unknown';
+      var when = document.createElement('span'); when.textContent = f.at ? new Date(f.at).toLocaleString() : '';
+      meta.appendChild(who); meta.appendChild(when);
+      var what = document.createElement('div'); what.className = 'what'; what.textContent = f.helpful ? 'Helpful' : 'Not helpful';
+      d.appendChild(meta); d.appendChild(what);
+      if (f.comment) { var c = document.createElement('div'); c.className = 'diff'; c.textContent = f.comment; d.appendChild(c); }
+      list.appendChild(d);
+    });
+  }
+  document.querySelectorAll('.tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      ['auditList', 'feedbackList'].forEach(function (id) { document.getElementById(id).classList.toggle('hidden', id !== b.dataset.tab); });
+    });
+  });
+
+  // The frame is sandboxed, so mail links are opened by the app
+  document.querySelectorAll('a.support-link').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      if (!parentWin) return;
+      e.preventDefault();
+      parentWin.postMessage({ type: 'contact', href: a.getAttribute('href') }, '*');
+    });
+  });
+
+  // Search: hide topics that don't match, highlight matches in titles
+  function search(q) {
+    q = (q || '').trim().toLowerCase();
+    var any = false;
+    document.querySelectorAll('section.sec').forEach(function (sec) {
+      var secHit = false;
+      sec.querySelectorAll('details.topic').forEach(function (t) {
+        if (t.classList.contains('role-hidden')) return;
+        var hit = !q || t.textContent.toLowerCase().indexOf(q) !== -1;
+        t.classList.toggle('hidden', !hit);
+        if (q && hit) t.open = true;
+        secHit = secHit || hit;
+      });
+      var headHit = !q || sec.querySelector('.sec-head').textContent.toLowerCase().indexOf(q) !== -1;
+      sec.classList.toggle('hidden', !(secHit || headHit));
+      if (headHit && q && !secHit) sec.querySelectorAll('details.topic').forEach(function (t) { t.classList.remove('hidden'); });
+      if (sec.classList.contains('role-hidden')) sec.classList.add('hidden');
+      if (!sec.classList.contains('role-hidden')) any = any || secHit || headHit;
+    });
+    document.getElementById('empty').classList.toggle('hidden', any);
+    document.querySelectorAll('.hero').forEach(function (h) { h.classList.toggle('hidden', !!q); });
+  }
+  document.getElementById('q').addEventListener('input', function (e) { search(e.target.value); });
+
+  // Navigation: scroll to a section and track the active one
+  document.querySelectorAll('[data-go]').forEach(function (b) { b.addEventListener('click', function () { goto(b.dataset.go); }); });
+  var links = Array.prototype.slice.call(document.querySelectorAll('.navlink'));
+  var main = document.getElementById('main');
+  // Highlight the section being read: the last visible one whose top has passed the toolbar
+  function trackActive() {
+    var mainTop = main.getBoundingClientRect().top, current = null;
+    document.querySelectorAll('section.sec:not(.role-hidden):not(.hidden)').forEach(function (s) {
+      if (s.getBoundingClientRect().top - mainTop < 120) current = s.id;
+    });
+    links.forEach(function (l) {
+      var on = l.dataset.go === current;
+      if (on && !l.classList.contains('active')) l.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      l.classList.toggle('active', on);
+    });
+  }
+  var trackTimer;
+  main.addEventListener('scroll', function () { clearTimeout(trackTimer); trackTimer = setTimeout(trackActive, 60); }, { passive: true });
+
+  // Screenshots open enlarged
+  var lb = document.getElementById('lightbox');
+  document.querySelectorAll('figure img').forEach(function (img) {
+    img.addEventListener('click', function () { if (editing) return; lb.querySelector('img').src = img.src; lb.querySelector('img').alt = img.alt; lb.classList.add('open'); });
+    img.addEventListener('error', function () { img.closest('figure').classList.add('hidden'); });
+  });
+  lb.addEventListener('click', function () { lb.classList.remove('open'); });
+
+  document.getElementById('editBtn').addEventListener('click', function () { setEditing(!editing); });
+  document.getElementById('auditBtn').addEventListener('click', function () { document.getElementById('drawer').classList.add('open'); });
+  document.getElementById('auditClose').addEventListener('click', function () { document.getElementById('drawer').classList.remove('open'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { lb.classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+  });
+
+  var toastTimer;
+  function toast(text, bad) {
+    var t = document.getElementById('toast');
+    t.textContent = text; t.className = 'toast show' + (bad ? ' bad' : '');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.className = 'toast'; }, 2600);
+  }
+
+  // Messages from the app's Help Centre window
+  window.addEventListener('message', function (e) {
+    if (!parentWin || e.source !== parentWin) return;
+    var m = e.data || {};
+    if (m.type === 'init' || m.type === 'theme') {
+      document.documentElement.setAttribute('data-theme', m.theme === 'light' ? 'light' : 'dark');
+    }
+    if (m.type === 'init') {
+      isAdmin = !!m.isAdmin;
+      role = isAdmin ? 'admin' : (m.role === 'patient' ? 'patient' : 'staff');
+      document.body.classList.toggle('is-admin', isAdmin);
+      apply();
+      if (m.topic) goto(m.topic);
+    }
+    if (m.type === 'goto') goto(m.id);
+    if (m.type === 'saved' || m.type === 'error') {
+      var el = byId(m.id);
+      if (el) el.classList.remove('saving');
+      if (m.type === 'saved' && m.data) { store.edits = m.data.edits || {}; store.audit = m.data.audit || []; store.feedback = m.data.feedback || store.feedback; if (el) el.blur(); apply(); toast('Saved'); }
+      else { apply(); toast(m.message || 'Could not save', true); }
+    }
+  });
+
+  apply();
+  if (!parentWin && location.hash) goto(location.hash.slice(1));
+  if (parentWin) parentWin.postMessage({ type: 'ready' }, '*');
+})();
+</script>
+</body>
+</html>

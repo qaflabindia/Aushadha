@@ -280,3 +280,6 @@ frontend/dist/
 frontend/node_modules/
 backend/venv/
 backend/__pycache__/
+
+# Help Centre document with admin edits (kept across deploys)
+/backend/help_data/
